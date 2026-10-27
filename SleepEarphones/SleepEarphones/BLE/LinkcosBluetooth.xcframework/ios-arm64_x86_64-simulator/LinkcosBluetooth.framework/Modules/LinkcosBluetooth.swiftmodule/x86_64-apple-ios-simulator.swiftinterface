@@ -1,0 +1,1772 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2.4 effective-5.10 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)
+// swift-module-flags: -target x86_64-apple-ios13.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name LinkcosBluetooth
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2.4
+import AVFoundation
+import Combine
+import CoreBluetooth
+import Darwin
+import Foundation
+@_exported import LinkcosBluetooth
+import Swift
+import UIKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public typealias ControlSendAction = (Foundation.Data) -> ()
+public enum MusicAction : Swift.UInt8 {
+  case previous
+  case next
+  case playOrPause
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public enum MusicStatus : Swift.UInt8 {
+  case play
+  case pause
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public protocol LCBleBaseControl {
+  #if compiler(>=5.3) && $NonescapableTypes
+  var sendAction: LinkcosBluetooth.ControlSendAction? { get set }
+  #endif
+  func settingTouchFuntionKey(eventId: Swift.Int, keyId: Swift.Int)
+  func readDeviceInfo()
+  func readBattery()
+  func readDeviceInfo(info: [LinkcosBluetooth.LCBleCommandType])
+  func startOrStopFindEarbuds(isFind: Swift.UInt8)
+  func restoreDefaultSettings()
+  func clearPairRecord()
+  func factorySetting()
+  func controllTouchAction(isClose: Swift.UInt8)
+  func controllCheckInEar(isOpen: Swift.UInt8)
+  func controllGameMode(isOpen: Swift.UInt8)
+  func controllTouchFeedback(isOpen: Swift.UInt8)
+  func controllDoubleDevcice(isOpen: Swift.UInt8)
+  func choseANCMode(ancId: Swift.UInt8, deep: Swift.UInt8)
+  func changeStatusLightColor(r: Swift.UInt8, g: Swift.UInt8, b: Swift.UInt8, alpha: Swift.UInt8)
+  func changeStatusLightEffects(effectId: Swift.UInt8, speed: Swift.UInt8, brightness: Swift.UInt8)
+  func changeStatusLightEffectsAndColor(effectId: Swift.UInt8, speed: Swift.UInt8, brightness: Swift.UInt8, colorHex: Swift.Int)
+  func changeEarbudsEQ(eqModel: LinkcosBluetooth.LCDeviceEQ)
+  func changeEarbudsLedStatus(isOn: Swift.UInt8)
+  func earbudsVolumeControl(volume: Swift.UInt8)
+  func changePencilFuntionKey(key: Swift.UInt8)
+  func changePenPairName(name: Swift.String)
+  func unBindDevice()
+  func changeEarbudsSleepStatus(isOn: Swift.UInt8)
+  func changeEarbudsTimeOFF(mins: Swift.Int)
+  func controllOnlineClass(status: Swift.UInt8)
+  func changeEarbudsPairName(name: Swift.String)
+  func setHearingProtection(value: Swift.UInt8)
+  func changeEarbudsTimedReminder(mins: Swift.Int)
+  func setToneVolume(volume: Swift.UInt8)
+  func setDeviceWorkMode(_ mode: Swift.UInt8)
+  func setLedDuration(_ duration: Swift.UInt8)
+  func changePairName(name: Swift.String)
+  func setToneVoice(vid: Swift.UInt8)
+  func setHandsfreeCallMode(isOn: Swift.Bool)
+  func setLowerMode(isOn: Swift.Bool)
+  func setMovieMode(isOn: Swift.Bool)
+  func setWifiMode(isOn: Swift.Bool)
+  func setDeviceTime(date: Foundation.Date)
+  func setSpeakerMode(mode: LinkcosBluetooth.LCSpeakerMode)
+  func setSpeakerMusicAction(action: LinkcosBluetooth.LCSpeakerMusicAction)
+  func setSpeakerPlay(voiceId: Swift.Int)
+  func setSpeakerPlayLoopMode(mode: LinkcosBluetooth.LCSpeakerPlayLoopMode, time: Swift.UInt8)
+  func setDeviceAlarm(list: [LinkcosBluetooth.LCDeviceAlarm])
+  func applySpeakerAudio(action: Swift.UInt8, voiceId: Swift.UInt8)
+  func setDeviceTimeFormat(is12Hours: Swift.Bool)
+  func setSpeakerLedBrightress(brightress: Swift.UInt8)
+  func setWearCheckStatus(allStatus: Swift.UInt8, ancStatus: Swift.UInt8, musicStatus: Swift.UInt8)
+  func setSpaceVoice(isOn: Swift.Bool)
+  func setSpaceAdjust8S(isOn: Swift.Bool)
+  func setCenterHeadMode(_ mode: Swift.UInt8)
+  func setSensorySwitching(_ isOn: Swift.Bool)
+  func setLDACMode(isOn: Swift.Bool)
+  func setBassBoost(enabled: Swift.Bool)
+  func setdynamicBassMode(_ isOn: Swift.Bool)
+  func setAIStatus(_ isOn: Swift.Bool)
+  func repairDevice()
+  func changeDongleSeniorEQ(dongleEQid: Swift.UInt8, eqModel: LinkcosBluetooth.LCDeviceEQ)
+  func setDeviceFMFreq(freq: Swift.Int)
+  func setDeviceFMVolume(_ volume: Swift.Int)
+  func setDeviceFMPlayTimer(mins: Swift.Int)
+  func setDeviceFMFavorite(action: Swift.UInt8, freq: Swift.Int)
+  func setMicVolume(level: Swift.UInt8)
+  func setVoiceChanger(isOn: Swift.Bool, voiceType: Swift.UInt8)
+  func setChannelMode(channelMode: Swift.Bool)
+  func setAmbientDisplay(mode: Swift.UInt8)
+  func setWallpaper(wallpaperId: Swift.UInt8)
+}
+public enum LCBleCommandType : Swift.UInt8 {
+  case key
+  case eq
+  case findEarbuds
+  case reset
+  case clear
+  case factory
+  case closeTouch
+  case earCheck
+  case anc
+  case ledEffects
+  case ledColor
+  case battery
+  case version
+  case gameMode
+  case volume
+  case getPropertys
+  case receive
+  case ledStatus
+  case penKey
+  case penPairName
+  case unbind
+  case panBattery
+  case sleepMode
+  case timeOFF
+  case onlineClass
+  case HearingProtection
+  case earBudsPairName
+  case timedReminder
+  case toneVolume
+  case workMode
+  case ledDuration
+  case tone
+  case HandsfreeCallMode
+  case movieMode
+  case WiFiMode
+  case date
+  case speakerLed
+  case speakerMode
+  case speakerMusicAction
+  case lowPower
+  case speakerPlay
+  case speakerPlayLoopMode
+  case alarm
+  case applyAudio
+  case timeForamt
+  case wearCheck
+  case touchFeedback
+  case doubleDevice
+  case micState
+  case fitAnc
+  case spaceVoice
+  case seniorEq
+  case colorTemperature
+  case ldac
+  case aiWakeup
+  case bassBoost
+  case spaceVoiceAdjust8S
+  case centerHead
+  case sensorySwitching
+  case rePair
+  case micVolume
+  case dongleStatus
+  case dongleSetting
+  case fmFreq
+  case fmVolume
+  case fmPlayTimer
+  case fmFavorite
+  case voiceChanger
+  case channelMode
+  case ambientDisplay
+  case wallpaper
+  case fileTransfer
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+extension LinkcosBluetooth.LCBleCommandType {
+  public static var aiOnOff: LinkcosBluetooth.LCBleCommandType {
+    get
+  }
+  public static var dynamicBass: LinkcosBluetooth.LCBleCommandType {
+    get
+  }
+}
+public enum LCSpeakerMode : Swift.UInt8 {
+  case whiteNoise
+  case ble
+  case nightLight
+  case fm
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public enum LCSpeakerMusicAction : Swift.UInt8 {
+  case lastSong
+  case nextSong
+  case playOrPause
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public enum LCSpeakerPlayLoopMode : Swift.UInt8 {
+  case playInOrder
+  case singleCycle
+  case singlePlay
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public struct LCDeviceAlarm {
+  public var weekCycleBit: Swift.UInt8
+  public var hour: Swift.UInt8
+  public var min: Swift.UInt8
+  public var alarmId: Swift.UInt8
+  public var alarmOn: Swift.Bool
+  public init(weekCycleBit: Swift.UInt8, hour: Swift.UInt8, min: Swift.UInt8, alarmId: Swift.UInt8, alarmOn: Swift.Bool)
+  public var weekIds: Swift.String {
+    get
+  }
+  public var showRepeat: Swift.String {
+    get
+  }
+}
+@objc public enum ChargingStatus : Swift.Int, Swift.Codable {
+  case InCharging = 1
+  case NotCharging = 0
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.Int)
+  #endif
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@objc public enum ChargingBoxStatus : Swift.Int, Swift.Codable {
+  case open = 1
+  case close = 0
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.Int)
+  #endif
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@objc public protocol LCBleDevice {
+  @objc var leftBattery: Swift.Int { get set }
+  @objc var rightBattery: Swift.Int { get set }
+  @objc var boxBattery: Swift.Int { get set }
+  @objc var leftChargingStatus: LinkcosBluetooth.ChargingStatus { get set }
+  @objc var rightChargingStatus: LinkcosBluetooth.ChargingStatus { get set }
+  @objc var boxEarbudChargingStatus: LinkcosBluetooth.ChargingStatus { get set }
+  @objc var leftMacString: Swift.String { get set }
+  @objc var rightMacString: Swift.String { get set }
+  @objc var uuidStr: Swift.String { get set }
+  @objc var vendorId: Swift.Int { get set }
+  @objc var flagId: Swift.Int { get set }
+  @objc var isPoping: Swift.Bool { get set }
+  @objc var colorId: Swift.Int { get set }
+  @objc var name: Swift.String { get }
+}
+@_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objc public class LCEarbudsBLEDevice : ObjectiveC.NSObject, LinkcosBluetooth.LCBleDevice, Foundation.NSCopying {
+  @objc public var colorId: Swift.Int
+  @objc public var flagId: Swift.Int
+  @objc public var vendorId: Swift.Int
+  @objc public var leftBattery: Swift.Int
+  @objc public var leftChargingStatus: LinkcosBluetooth.ChargingStatus
+  @objc public var leftMacString: Swift.String
+  @objc public var rightBattery: Swift.Int
+  @objc public var rightChargingStatus: LinkcosBluetooth.ChargingStatus
+  @objc public var rightMacString: Swift.String
+  @objc public var boxBattery: Swift.Int
+  @objc public var boxEarbudChargingStatus: LinkcosBluetooth.ChargingStatus
+  @objc public var uuidStr: Swift.String
+  public var tws: Swift.Int
+  public var leftRight: Swift.Int
+  public var updateTime: Swift.Double
+  public var disMissTime: Swift.Double
+  @objc public var isPoping: Swift.Bool
+  @objc public var name: Swift.String
+  @objc override dynamic public init()
+  @objc override dynamic public var description: Swift.String {
+    @objc get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func copy(with zone: ObjectiveC.NSZone? = nil) -> Any
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc override dynamic public func isEqual(_ object: Any?) -> Swift.Bool
+  #endif
+  @objc deinit
+}
+@objc public enum BleDeviceConnectState : Swift.Int {
+  case connecting = 2
+  case disConnect = 3
+  case connected = 4
+  case connectTimeout = 8
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.Int)
+  #endif
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@objc public enum BleDeviceState : Swift.Int {
+  case unauthorized = 5
+  case blePowerOn = 6
+  case blePowerOff = 7
+  case none = 4
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.Int)
+  #endif
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+public let GaiaCommandCharacteristicUUID: Swift.String
+public let GaiaResponseCharacteristicUUID: Swift.String
+public let GaiaDataCharacteristicUUID: Swift.String
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class LCBleDeviceManager : ObjectiveC.NSObject {
+  public var connectDevice: (any LinkcosBluetooth.LCBleDevice)?
+  public var deviceProperty: LinkcosBluetooth.LCBleDeviceProperty
+  public var deviceControl: any LinkcosBluetooth.LCBleBaseControl
+  public var wallpaperTransferEngine: LinkcosBluetooth.LCWallpaperTransferEngine {
+    get
+    set
+  }
+  public var logDelegate: (any LinkcosBluetooth.LCLogHandleDelegate)?
+  public var connectUUIDStr: Swift.String
+  @Combine.Published @_projectedValueProperty($connectState) public var connectState: LinkcosBluetooth.BleDeviceConnectState {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+  }
+  public var $connectState: Combine.Published<LinkcosBluetooth.BleDeviceConnectState>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($bleState) public var bleState: LinkcosBluetooth.BleDeviceState {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+  }
+  public var $bleState: Combine.Published<LinkcosBluetooth.BleDeviceState>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  public static let sharedInstance: LinkcosBluetooth.LCBleDeviceManager
+  @objc deinit
+}
+extension LinkcosBluetooth.LCBleDeviceManager : CoreBluetooth.CBCentralManagerDelegate {
+  @objc dynamic public func centralManagerDidUpdateState(_ central: CoreBluetooth.CBCentralManager)
+  @objc dynamic public func centralManager(_ central: CoreBluetooth.CBCentralManager, didDiscover peripheral: CoreBluetooth.CBPeripheral, advertisementData: [Swift.String : Any], rssi RSSI: Foundation.NSNumber)
+  @objc dynamic public func centralManager(_ central: CoreBluetooth.CBCentralManager, didConnect peripheral: CoreBluetooth.CBPeripheral)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func centralManager(_ central: CoreBluetooth.CBCentralManager, didFailToConnect peripheral: CoreBluetooth.CBPeripheral, error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func centralManager(_ central: CoreBluetooth.CBCentralManager, didDisconnectPeripheral peripheral: CoreBluetooth.CBPeripheral, error: (any Swift.Error)?)
+  #endif
+}
+extension LinkcosBluetooth.LCBleDeviceManager : CoreBluetooth.CBPeripheralDelegate {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didDiscoverServices error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didDiscoverCharacteristicsFor service: CoreBluetooth.CBService, error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didUpdateValueFor characteristic: CoreBluetooth.CBCharacteristic, error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didWriteValueFor characteristic: CoreBluetooth.CBCharacteristic, error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didUpdateNotificationStateFor characteristic: CoreBluetooth.CBCharacteristic, error: (any Swift.Error)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func peripheral(_ peripheral: CoreBluetooth.CBPeripheral, didUpdateValueFor descriptor: CoreBluetooth.CBDescriptor, error: (any Swift.Error)?)
+  #endif
+}
+extension LinkcosBluetooth.LCBleDeviceManager {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func scanBleDevice(specificaDevice: (any LinkcosBluetooth.LCBleDevice)? = nil)
+  #endif
+  public func connectDevice(_ device: any LinkcosBluetooth.LCBleDevice, timeOut: Foundation.TimeInterval = 10)
+  public func disConnectDevice()
+}
+extension LinkcosBluetooth.LCBleDeviceManager {
+  public func isClassicBluetoothConnected(address: Swift.String) -> Swift.Bool
+  public func isHeadsetPluggedIn() -> Swift.Bool
+}
+extension LinkcosBluetooth.LCBleDeviceManager {
+  public func startOTA()
+  public func stopOTA()
+  public func isSingleDevice() -> Swift.Bool
+}
+extension LinkcosBluetooth.LCBleDeviceManager : LinkcosBluetooth.LCBleHandleDelegate {
+  @objc dynamic public func deviceAncAutoFitState(_ state: Swift.Bool)
+  @objc dynamic public func discoverDeviceList(devices: [any LinkcosBluetooth.LCBleDevice])
+  @objc dynamic public func discoverNewDevice(device: any LinkcosBluetooth.LCBleDevice)
+  @objc dynamic public func deviceContectStateChange(state: LinkcosBluetooth.BleDeviceConnectState)
+  @objc dynamic public func discoverDuplicateDevice(device: any LinkcosBluetooth.LCBleDevice)
+  @objc dynamic public func devicePropertyUpdate(property: LinkcosBluetooth.LCBleDeviceProperty)
+}
+extension LinkcosBluetooth.LCBleDeviceManager {
+  public func addHandleDelegate(_ delegate: any LinkcosBluetooth.LCBleHandleDelegate)
+}
+extension LinkcosBluetooth.LCBleDeviceManager {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func queryWallpaperTransferConfiguration(imageId: Swift.UInt32 = 0, completion: LinkcosBluetooth.LCWallpaperTransferEngine.Completion? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func startWallpaperUpdate(imageId: Swift.UInt32, bmpData: Foundation.Data, progress: LinkcosBluetooth.LCWallpaperTransferEngine.Progress? = nil, completion: LinkcosBluetooth.LCWallpaperTransferEngine.Completion? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func startWallpaperUpdate(imageId: Swift.UInt32, image: UIKit.UIImage, width: Swift.Int = LCWallpaperImageConverter.defaultWidth, height: Swift.Int = LCWallpaperImageConverter.defaultHeight, progress: LinkcosBluetooth.LCWallpaperTransferEngine.Progress? = nil, completion: LinkcosBluetooth.LCWallpaperTransferEngine.Completion? = nil)
+  #endif
+  public func abortWallpaperUpdate()
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class LCBleDevicePopupManager : ObjectiveC.NSObject {
+  public var delegate: (any LinkcosBluetooth.LCBlePopDelegate)?
+  public static let sharedInstance: LinkcosBluetooth.LCBleDevicePopupManager
+  @objc public func dismissPopWindow()
+  @objc deinit
+}
+extension LinkcosBluetooth.LCBleDevicePopupManager : LinkcosBluetooth.LCBleHandleDelegate {
+  @objc dynamic public func deviceAncAutoFitState(_ state: Swift.Bool)
+  @objc dynamic public func discoverDeviceList(devices: [any LinkcosBluetooth.LCBleDevice])
+  @objc dynamic public func discoverNewDevice(device: any LinkcosBluetooth.LCBleDevice)
+  @objc dynamic public func devicePropertyUpdate(property: LinkcosBluetooth.LCBleDeviceProperty)
+  @objc dynamic public func deviceContectStateChange(state: LinkcosBluetooth.BleDeviceConnectState)
+  public func discoverNewDevice(devices: [any LinkcosBluetooth.LCBleDevice])
+  @objc dynamic public func discoverDuplicateDevice(device: any LinkcosBluetooth.LCBleDevice)
+}
+public enum AIStatus {
+  case idle
+  case change
+  public static func == (a: LinkcosBluetooth.AIStatus, b: LinkcosBluetooth.AIStatus) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public struct LCDongleSetting {
+  public var dongleEnable: Swift.Bool
+  public var eqs: [Swift.Int]
+  public init(dongleEnable: Swift.Bool, eqs: [Swift.Int])
+}
+public enum LCDeviceRePairStatus : Swift.UInt8 {
+  case idle
+  case fail
+  case sucess
+  case pairing
+  case rePaired
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public typealias DeviceRePairStatus = LinkcosBluetooth.LCDeviceRePairStatus
+public typealias DongleSetting = LinkcosBluetooth.LCDongleSetting
+@_inheritsConvenienceInitializers @objc public class LCBleDeviceProperty : ObjectiveC.NSObject {
+  @Combine.Published @_projectedValueProperty($version) public var version: Swift.String {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $version: Combine.Published<Swift.String>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($deviceEQ) public var deviceEQ: LinkcosBluetooth.LCDeviceEQ {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $deviceEQ: Combine.Published<LinkcosBluetooth.LCDeviceEQ>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($eqId) public var eqId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $eqId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($eqIdCustom) public var eqIdCustom: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $eqIdCustom: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($gains) public var gains: Swift.String {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $gains: Combine.Published<Swift.String>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($isFindDevice) public var isFindDevice: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $isFindDevice: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($touchStatus) public var touchStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $touchStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($sleepMode) public var sleepMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $sleepMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($earCheck) public var earCheck: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $earCheck: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($lowPower) public var lowPower: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $lowPower: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($powerSavingMode) public var powerSavingMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $powerSavingMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ancId) public var ancId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ancId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($anclevel) public var anclevel: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $anclevel: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledStatus) public var ledStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledDuration) public var ledDuration: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledDuration: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledEffectsId) public var ledEffectsId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledEffectsId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledSpeed) public var ledSpeed: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledSpeed: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledBrightness) public var ledBrightness: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledBrightness: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledColor) public var ledColor: Swift.String {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledColor: Combine.Published<Swift.String>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ledColorHex) public var ledColorHex: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ledColorHex: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($gameMode) public var gameMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $gameMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($spaceVoice) public var spaceVoice: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $spaceVoice: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($spaceVoiceAdjust8SSwitch) public var spaceVoiceAdjust8SSwitch: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $spaceVoiceAdjust8SSwitch: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($centerHead) public var centerHead: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $centerHead: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($sensorySwitching) public var sensorySwitching: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $sensorySwitching: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ldacEnable) public var ldacEnable: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ldacEnable: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($dongleEnable) public var dongleEnable: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $dongleEnable: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($volume) public var volume: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $volume: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($toneVolume) public var toneVolume: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $toneVolume: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($pairName) public var pairName: Swift.String {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $pairName: Combine.Published<Swift.String>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($keyDict) public var keyDict: [Swift.Int : Swift.Int] {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $keyDict: Combine.Published<[Swift.Int : Swift.Int]>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($boxBattery) public var boxBattery: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $boxBattery: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($boxCacheBattery) public var boxCacheBattery: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $boxCacheBattery: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($leftBattery) public var leftBattery: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $leftBattery: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($rightBattery) public var rightBattery: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $rightBattery: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($penKeyId) public var penKeyId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $penKeyId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($onlineClass) public var onlineClass: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $onlineClass: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($onlineClassKeyId) public var onlineClassKeyId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $onlineClassKeyId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($hearingProtection) public var hearingProtection: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $hearingProtection: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($timeOFFMin) public var timeOFFMin: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $timeOFFMin: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($timeOFSettingFMin) public var timeOFSettingFMin: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $timeOFSettingFMin: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($timedReminderMin) public var timedReminderMin: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $timedReminderMin: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($workMode) public var workMode: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $workMode: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($freeCallMode) public var freeCallMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $freeCallMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($toneVoiceId) public var toneVoiceId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $toneVoiceId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($movieMode) public var movieMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $movieMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($wifiMode) public var wifiMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $wifiMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($date) public var date: Foundation.Date {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $date: Combine.Published<Foundation.Date>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($speakerMode) public var speakerMode: LinkcosBluetooth.LCSpeakerMode {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $speakerMode: Combine.Published<LinkcosBluetooth.LCSpeakerMode>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($speakerPlayStatus) public var speakerPlayStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $speakerPlayStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($speakerPlayId) public var speakerPlayId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $speakerPlayId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($speakerAlarmRingId) public var speakerAlarmRingId: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $speakerAlarmRingId: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($speakerPlayLoopMode) public var speakerPlayLoopMode: LinkcosBluetooth.LCSpeakerPlayLoopMode {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $speakerPlayLoopMode: Combine.Published<LinkcosBluetooth.LCSpeakerPlayLoopMode>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($alarmList) public var alarmList: [LinkcosBluetooth.LCDeviceAlarm] {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $alarmList: Combine.Published<[LinkcosBluetooth.LCDeviceAlarm]>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($is12Hours) public var is12Hours: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $is12Hours: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($wearCheckAllStatus) public var wearCheckAllStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $wearCheckAllStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($wearCheckANCStatus) public var wearCheckANCStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $wearCheckANCStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($wearCheckMusicStatus) public var wearCheckMusicStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $wearCheckMusicStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($touchFeedBackStatus) public var touchFeedBackStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $touchFeedBackStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($doubleDeviceStatus) public var doubleDeviceStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $doubleDeviceStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($micStatus) public var micStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $micStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($musicStatus) public var musicStatus: LinkcosBluetooth.MusicStatus {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $musicStatus: Combine.Published<LinkcosBluetooth.MusicStatus>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($seniorEqStr) public var seniorEqStr: Swift.String {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $seniorEqStr: Combine.Published<Swift.String>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ldacStatus) public var ldacStatus: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ldacStatus: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($isBassBoostEnabled) public var isBassBoostEnabled: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $isBassBoostEnabled: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($micVolume) public var micVolume: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $micVolume: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($fmFreq) public var fmFreq: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $fmFreq: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($fmVolume) public var fmVolume: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $fmVolume: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($fmPlayTimerMin) public var fmPlayTimerMin: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $fmPlayTimerMin: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($fmPlayRemainMin) public var fmPlayRemainMin: Swift.Int {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $fmPlayRemainMin: Combine.Published<Swift.Int>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($fmFavoriteFreqList) public var fmFavoriteFreqList: [Swift.Int] {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $fmFavoriteFreqList: Combine.Published<[Swift.Int]>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($aiOnOffStatus) public var aiOnOffStatus: LinkcosBluetooth.AIStatus {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $aiOnOffStatus: Combine.Published<LinkcosBluetooth.AIStatus>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($pairStatus) public var pairStatus: LinkcosBluetooth.LCDeviceRePairStatus {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $pairStatus: Combine.Published<LinkcosBluetooth.LCDeviceRePairStatus>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($dongleSetting) public var dongleSetting: LinkcosBluetooth.LCDongleSetting {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $dongleSetting: Combine.Published<LinkcosBluetooth.LCDongleSetting>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($voiceChangerIsOn) public var voiceChangerIsOn: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $voiceChangerIsOn: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($voiceChangerType) public var voiceChangerType: Swift.UInt8 {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $voiceChangerType: Combine.Published<Swift.UInt8>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($channelMode) public var channelMode: Swift.Bool {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $channelMode: Combine.Published<Swift.Bool>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($channelLevel) public var channelLevel: Swift.UInt8 {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $channelLevel: Combine.Published<Swift.UInt8>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($ambientDisplayMode) public var ambientDisplayMode: Swift.UInt8 {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $ambientDisplayMode: Combine.Published<Swift.UInt8>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @Combine.Published @_projectedValueProperty($wallpaperId) public var wallpaperId: Swift.UInt8 {
+    get
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    set
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    _modify
+  }
+  public var $wallpaperId: Combine.Published<Swift.UInt8>.Publisher {
+    get
+    @available(iOS 14.0, tvOS 14.0, watchOS 7.0, macOS 11.0, *)
+    set
+  }
+  @objc override dynamic public var description: Swift.String {
+    @objc get
+  }
+  @objc override dynamic public init()
+  @objc deinit
+}
+@objc public protocol LCBleHandleDelegate {
+  @objc optional func deviceContectStateChange(state: LinkcosBluetooth.BleDeviceConnectState)
+  @objc optional func deviceManagerBleStateChange(state: LinkcosBluetooth.BleDeviceState)
+  @objc optional func discoverDeviceList(devices: [any LinkcosBluetooth.LCBleDevice])
+  @objc optional func discoverNewDevice(device: any LinkcosBluetooth.LCBleDevice)
+  @objc optional func devicePropertyUpdate(property: LinkcosBluetooth.LCBleDeviceProperty)
+  @objc optional func discoverDuplicateDevice(device: any LinkcosBluetooth.LCBleDevice)
+  @objc optional func deviceAncAutoFitState(_ state: Swift.Bool)
+}
+@objc public protocol LCLogHandleDelegate {
+  @objc func logMssage(_ msg: Any)
+}
+public protocol LCBlePopDelegate : AnyObject {
+  func devicePopWindow(device: any LinkcosBluetooth.LCBleDevice) -> Swift.Bool
+  func deviceDismissWindow(device: any LinkcosBluetooth.LCBleDevice)
+  func deviceInfoUpdateWindow(device: any LinkcosBluetooth.LCBleDevice)
+}
+public class LCEQParamModel : Swift.Equatable, Swift.Codable {
+  public var freq: Swift.Int
+  public var gain: Swift.Double
+  public var q: Swift.Double
+  public var iitType: Swift.Int
+  public init(freq: Swift.Int, gain: Swift.Double, q: Swift.Double, iitType: Swift.Int)
+  public static func == (lhs: LinkcosBluetooth.LCEQParamModel, rhs: LinkcosBluetooth.LCEQParamModel) -> Swift.Bool
+  @objc deinit
+  public func encode(to encoder: any Swift.Encoder) throws
+  required public init(from decoder: any Swift.Decoder) throws
+}
+public enum LCDeviceEQType : Swift.Codable {
+  case normal
+  case senior
+  public static func == (a: LinkcosBluetooth.LCDeviceEQType, b: LinkcosBluetooth.LCDeviceEQType) -> Swift.Bool
+  public func encode(to encoder: any Swift.Encoder) throws
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+  public init(from decoder: any Swift.Decoder) throws
+}
+open class LCDeviceEQ : Swift.Equatable, Swift.Codable {
+  public var eqType: LinkcosBluetooth.LCDeviceEQType
+  public var eqId: Swift.Int
+  public var maxdb: Swift.Int
+  public var mindb: Swift.Int
+  public var basedb: Swift.Int
+  public var volumelevel: Swift.Double
+  public var mastergain: Swift.Double
+  public var points: [LinkcosBluetooth.LCEQParamModel]
+  public var eqName: Swift.String
+  public init(eqType: LinkcosBluetooth.LCDeviceEQType, eqId: Swift.Int, maxdb: Swift.Int, mindb: Swift.Int, basedb: Swift.Int, volumelevel: Swift.Double, mastergain: Swift.Double, points: [LinkcosBluetooth.LCEQParamModel], eqName: Swift.String = "")
+  public var normalEQS: [Swift.UInt8] {
+    get
+  }
+  public static func == (lhs: LinkcosBluetooth.LCDeviceEQ, rhs: LinkcosBluetooth.LCDeviceEQ) -> Swift.Bool
+  @objc deinit
+  open func encode(to encoder: any Swift.Encoder) throws
+  required public init(from decoder: any Swift.Decoder) throws
+}
+public enum LCIncomingMessageDescription {
+  case notification(notificationID: Swift.UInt8, data: Foundation.Data)
+  case response(command: Swift.UInt16, data: Foundation.Data)
+  case error(command: Swift.UInt16, errorCode: Swift.UInt8, data: Foundation.Data)
+  case unknown
+}
+public protocol LCIncomingMessageProtocol {
+  var messageDescription: LinkcosBluetooth.LCIncomingMessageDescription { get }
+  #if compiler(>=5.3) && $NonescapableTypes
+  init?(data: Foundation.Data)
+  #endif
+}
+public enum LCGaiaDeviceQCPluginFeatureID : Swift.UInt8 {
+  case core
+  case earbud
+  case legacyANC
+  case voiceAssistant
+  case debug
+  case eq
+  case upgrade
+  case handset
+  case audioCuration
+  case earbudFit
+  case voiceProcessing
+  case earbudUI
+  case statistics
+  case battery
+  case unknown
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public enum LCGaiaV3PacketFeatureID {
+  case qualcomm(LinkcosBluetooth.LCGaiaDeviceQCPluginFeatureID)
+  case vendor(Swift.UInt8)
+}
+extension LinkcosBluetooth.LCGaiaV3PacketFeatureID {
+  public var byteValue: Swift.UInt8 {
+    get
+  }
+}
+public struct LCGaiaV3GATTPacket : LinkcosBluetooth.LCIncomingMessageProtocol {
+  public let vendorID: Swift.UInt16
+  public let featureID: LinkcosBluetooth.LCGaiaV3PacketFeatureID
+  public static let v3VendorID: Swift.UInt16
+  public var messageDescription: LinkcosBluetooth.LCIncomingMessageDescription {
+    get
+  }
+  public init(featureID: LinkcosBluetooth.LCGaiaDeviceQCPluginFeatureID, commandID: Swift.UInt16, payload: Foundation.Data = Data())
+  public init(vendorID: Swift.UInt16, featureID: Swift.UInt8, commandID: Swift.UInt16, payload: Foundation.Data = Data())
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(data: Foundation.Data)
+  #endif
+  public var data: Foundation.Data {
+    get
+  }
+}
+public typealias Log = LinkcosBluetooth.LCLog
+public struct LCLog {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func error(_ message: @autoclosure () -> Any, context: Swift.Int = 0, file: Swift.StaticString = #file, function: Swift.StaticString = #function, line: Swift.UInt = #line, tag: Any? = nil, asynchronous async: Swift.Bool = false)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func warn(_ message: @autoclosure () -> Any, context: Swift.Int = 0, file: Swift.StaticString = #file, function: Swift.StaticString = #function, line: Swift.UInt = #line, tag: Any? = nil, asynchronous async: Swift.Bool = false)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func info(_ message: @autoclosure () -> Any, context: Swift.Int = 0, file: Swift.StaticString = #file, function: Swift.StaticString = #function, line: Swift.UInt = #line, tag: Any? = nil, asynchronous async: Swift.Bool = false)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func debug(_ message: @autoclosure () -> Any, context: Swift.Int = 0, file: Swift.StaticString = #file, function: Swift.StaticString = #function, line: Swift.UInt = #line, tag: Any? = nil, asynchronous async: Swift.Bool = false)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func verbose(_ message: @autoclosure () -> Any, context: Swift.Int = 0, file: Swift.StaticString = #file, function: Swift.StaticString = #function, line: Swift.UInt = #line, tag: Any? = nil, asynchronous async: Swift.Bool = false)
+  #endif
+}
+extension Foundation.Data {
+  public var bytes: Swift.Array<Swift.UInt8> {
+    get
+  }
+  public func toHexString() -> Swift.String
+}
+#if compiler(>=5.3) && $NonescapableTypes
+public func BLEDelay(by delayTime: Foundation.TimeInterval, qosClass: Dispatch.DispatchQoS.QoSClass? = nil, _ closure: @escaping () -> Swift.Void)
+#endif
+public enum LCWallpaperImageConverterError : Swift.Error, Swift.Equatable {
+  case invalidTargetSize
+  case renderFailed
+  public static func == (a: LinkcosBluetooth.LCWallpaperImageConverterError, b: LinkcosBluetooth.LCWallpaperImageConverterError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public struct LCWallpaperImageConverter {
+  public static let defaultWidth: Swift.Int
+  public static let defaultHeight: Swift.Int
+  public static func makeRGB565BMP(from image: UIKit.UIImage, width: Swift.Int = defaultWidth, height: Swift.Int = defaultHeight) throws -> Foundation.Data
+}
+public protocol LCWallpaperTransferTimeoutToken {
+  func cancel()
+}
+public enum LCWallpaperTransferError : Swift.Error, Swift.Equatable {
+  case invalidState
+  case invalidData
+  case invalidResponse
+  case deviceRejected(Swift.UInt8)
+  case invalidReceivedSize(Swift.Int)
+  case timeout
+  case cancelled
+  public static func == (a: LinkcosBluetooth.LCWallpaperTransferError, b: LinkcosBluetooth.LCWallpaperTransferError) -> Swift.Bool
+}
+final public class LCWallpaperTransferEngine {
+  public typealias Writer = (_ data: Foundation.Data, _ completion: @escaping () -> Swift.Void) -> Swift.Void
+  public typealias Logger = (Swift.String) -> Swift.Void
+  public typealias Progress = (_ sentBytes: Swift.Int, _ totalBytes: Swift.Int) -> Swift.Void
+  public typealias Completion = (Swift.Result<Swift.Void, LinkcosBluetooth.LCWallpaperTransferError>) -> Swift.Void
+  public typealias TimeoutScheduler = (_ interval: Foundation.TimeInterval, _ handler: @escaping () -> Swift.Void) -> any LinkcosBluetooth.LCWallpaperTransferTimeoutToken
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(maxPacketDataSize: Swift.Int = 180, timeout: Foundation.TimeInterval = 5, timeoutScheduler: @escaping LinkcosBluetooth.LCWallpaperTransferEngine.TimeoutScheduler = LCWallpaperTransferEngine.defaultTimeoutScheduler, logger: LinkcosBluetooth.LCWallpaperTransferEngine.Logger? = nil, writer: @escaping LinkcosBluetooth.LCWallpaperTransferEngine.Writer)
+  #endif
+  final public var isTransferring: Swift.Bool {
+    get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func start(imageId: Swift.UInt32, data: Foundation.Data, progress: LinkcosBluetooth.LCWallpaperTransferEngine.Progress? = nil, completion: LinkcosBluetooth.LCWallpaperTransferEngine.Completion? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func queryConfiguration(imageId: Swift.UInt32, progress: LinkcosBluetooth.LCWallpaperTransferEngine.Progress? = nil, completion: LinkcosBluetooth.LCWallpaperTransferEngine.Completion? = nil)
+  #endif
+  final public func abort()
+  final public func handleResponsePayload(_ payload: Foundation.Data) throws
+  public static func defaultTimeoutScheduler(interval: Foundation.TimeInterval, handler: @escaping () -> Swift.Void) -> any LinkcosBluetooth.LCWallpaperTransferTimeoutToken
+  @objc deinit
+}
+public struct LCWallpaperRGBPixel : Swift.Equatable {
+  public let red: Swift.UInt8
+  public let green: Swift.UInt8
+  public let blue: Swift.UInt8
+  public init(red: Swift.UInt8, green: Swift.UInt8, blue: Swift.UInt8)
+  public static func == (a: LinkcosBluetooth.LCWallpaperRGBPixel, b: LinkcosBluetooth.LCWallpaperRGBPixel) -> Swift.Bool
+}
+public enum LCWallpaperTransferControl : Swift.UInt8 {
+  case continuing
+  case finish
+  case abort
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public enum LCWallpaperTransferResponse : Swift.UInt8 {
+  case ok
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.UInt8)
+  #endif
+  public typealias RawValue = Swift.UInt8
+  public var rawValue: Swift.UInt8 {
+    get
+  }
+}
+public struct LCWallpaperSetupResponse : Swift.Equatable {
+  public let response: LinkcosBluetooth.LCWallpaperTransferResponse?
+  public let rawResponse: Swift.UInt8
+  public let blockSize: Swift.Int
+  public let width: Swift.Int
+  public let height: Swift.Int
+  public static func == (a: LinkcosBluetooth.LCWallpaperSetupResponse, b: LinkcosBluetooth.LCWallpaperSetupResponse) -> Swift.Bool
+}
+public struct LCWallpaperTransferDataResponse : Swift.Equatable {
+  public let response: LinkcosBluetooth.LCWallpaperTransferResponse?
+  public let rawResponse: Swift.UInt8
+  public let receivedSize: Swift.Int
+  public static func == (a: LinkcosBluetooth.LCWallpaperTransferDataResponse, b: LinkcosBluetooth.LCWallpaperTransferDataResponse) -> Swift.Bool
+}
+public enum LCWallpaperTransferProtocolError : Swift.Error, Swift.Equatable {
+  case invalidResponsePayload
+  case invalidImageSize
+  case invalidPixelCount
+  case payloadTooLarge
+  public static func == (a: LinkcosBluetooth.LCWallpaperTransferProtocolError, b: LinkcosBluetooth.LCWallpaperTransferProtocolError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public struct LCWallpaperTransferProtocol {
+  public static let commandId: Swift.UInt8
+  public static let bmpHeaderSize: Swift.Int
+  public static func makeSetupFrame(sequence: Swift.UInt8, imageId: Swift.UInt32, binSize: Swift.Int) -> Foundation.Data
+  public static func makeTransferFrame(sequence: Swift.UInt8, offset: Swift.Int, control: LinkcosBluetooth.LCWallpaperTransferControl, data: Foundation.Data) -> Foundation.Data
+  public static func makeAbortFrame(sequence: Swift.UInt8, offset: Swift.Int) -> Foundation.Data
+  public static func parseSetupResponsePayload(_ payload: Foundation.Data) throws -> LinkcosBluetooth.LCWallpaperSetupResponse
+  public static func parseTransferResponsePayload(_ payload: Foundation.Data) throws -> LinkcosBluetooth.LCWallpaperTransferDataResponse
+  public static func makeRGB565BMP(width: Swift.Int, height: Swift.Int, topLeftRGBPixels pixels: [LinkcosBluetooth.LCWallpaperRGBPixel]) throws -> Foundation.Data
+}
+extension LinkcosBluetooth.MusicAction : Swift.Equatable {}
+extension LinkcosBluetooth.MusicAction : Swift.Hashable {}
+extension LinkcosBluetooth.MusicAction : Swift.RawRepresentable {}
+extension LinkcosBluetooth.MusicStatus : Swift.Equatable {}
+extension LinkcosBluetooth.MusicStatus : Swift.Hashable {}
+extension LinkcosBluetooth.MusicStatus : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCBleCommandType : Swift.Equatable {}
+extension LinkcosBluetooth.LCBleCommandType : Swift.Hashable {}
+extension LinkcosBluetooth.LCBleCommandType : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCSpeakerMode : Swift.Equatable {}
+extension LinkcosBluetooth.LCSpeakerMode : Swift.Hashable {}
+extension LinkcosBluetooth.LCSpeakerMode : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCSpeakerMusicAction : Swift.Equatable {}
+extension LinkcosBluetooth.LCSpeakerMusicAction : Swift.Hashable {}
+extension LinkcosBluetooth.LCSpeakerMusicAction : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCSpeakerPlayLoopMode : Swift.Equatable {}
+extension LinkcosBluetooth.LCSpeakerPlayLoopMode : Swift.Hashable {}
+extension LinkcosBluetooth.LCSpeakerPlayLoopMode : Swift.RawRepresentable {}
+extension LinkcosBluetooth.ChargingStatus : Swift.Equatable {}
+extension LinkcosBluetooth.ChargingStatus : Swift.Hashable {}
+extension LinkcosBluetooth.ChargingStatus : Swift.RawRepresentable {}
+extension LinkcosBluetooth.ChargingBoxStatus : Swift.Equatable {}
+extension LinkcosBluetooth.ChargingBoxStatus : Swift.Hashable {}
+extension LinkcosBluetooth.ChargingBoxStatus : Swift.RawRepresentable {}
+extension LinkcosBluetooth.BleDeviceConnectState : Swift.Equatable {}
+extension LinkcosBluetooth.BleDeviceConnectState : Swift.Hashable {}
+extension LinkcosBluetooth.BleDeviceConnectState : Swift.RawRepresentable {}
+extension LinkcosBluetooth.BleDeviceState : Swift.Equatable {}
+extension LinkcosBluetooth.BleDeviceState : Swift.Hashable {}
+extension LinkcosBluetooth.BleDeviceState : Swift.RawRepresentable {}
+extension LinkcosBluetooth.AIStatus : Swift.Equatable {}
+extension LinkcosBluetooth.AIStatus : Swift.Hashable {}
+extension LinkcosBluetooth.LCDeviceRePairStatus : Swift.Equatable {}
+extension LinkcosBluetooth.LCDeviceRePairStatus : Swift.Hashable {}
+extension LinkcosBluetooth.LCDeviceRePairStatus : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCDeviceEQType : Swift.Equatable {}
+extension LinkcosBluetooth.LCDeviceEQType : Swift.Hashable {}
+extension LinkcosBluetooth.LCGaiaDeviceQCPluginFeatureID : Swift.Equatable {}
+extension LinkcosBluetooth.LCGaiaDeviceQCPluginFeatureID : Swift.Hashable {}
+extension LinkcosBluetooth.LCGaiaDeviceQCPluginFeatureID : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCWallpaperImageConverterError : Swift.Hashable {}
+extension LinkcosBluetooth.LCWallpaperTransferControl : Swift.Equatable {}
+extension LinkcosBluetooth.LCWallpaperTransferControl : Swift.Hashable {}
+extension LinkcosBluetooth.LCWallpaperTransferControl : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCWallpaperTransferResponse : Swift.Equatable {}
+extension LinkcosBluetooth.LCWallpaperTransferResponse : Swift.Hashable {}
+extension LinkcosBluetooth.LCWallpaperTransferResponse : Swift.RawRepresentable {}
+extension LinkcosBluetooth.LCWallpaperTransferProtocolError : Swift.Hashable {}

@@ -1,0 +1,11 @@
+framework module LinkcosBluetooth {
+  umbrella header "LinkcosBluetooth.h"
+  export *
+
+  module * { export * }
+}
+
+module LinkcosBluetooth.Swift {
+  header "LinkcosBluetooth-Swift.h"
+  requires objc
+}
