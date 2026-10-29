@@ -174,11 +174,6 @@ final class HomeViewController: UIViewController {
             .store(in: &cancellables)
 
         // 4. 监听 BLE 实时连接状态
-        //
-        // - ✅ 用 `CombineLatest3` 合并三个信号：
-        //   - MAC / UUID：BLE 匹配判据
-        //   - isAudioRouted：音频路由判据
-        // - 任意一个变化都会刷新 cell 的连接状态显示
         Publishers.CombineLatest3(
             bleViewModel.$currentlyConnectedMac,
             bleViewModel.$currentlyConnectedUUID,
@@ -193,7 +188,7 @@ final class HomeViewController: UIViewController {
         }
         .store(in: &cancellables)
 
-        // 5. 监听连接结果反馈
+        // 5. 监听连接结果反馈（保留，为后续硬件调试做准备）
         bleViewModel.connectStatePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
@@ -240,15 +235,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         let device = devices[indexPath.row]
 
         // MARK: 三态连接判断
-        //
-        // 1. BLE 匹配：该设备是当前 BLE 连接的设备吗？
-        let isBleMatched = (currentConnectedMac != nil && device.mac == currentConnectedMac) ||
-                           (currentConnectedUUID != nil && device.serialNumber == currentConnectedUUID)
-
-        // 2. 音频路由：BLE 已匹配 + 经典蓝牙音频已切到耳机？
-        //
-        // - Note: `isHeadsetPluggedIn()` 内部检查 `connectDevice` 的音频路由——
-        //         所以必须 `isBleMatched` 为前置条件，否则可能误判其他设备。
+        let isBleMatched = isDeviceBleMatched(device)
         let isAudioRouted = isBleMatched && bleViewModel.isAudioRouted
 
         cell.configure(
@@ -264,7 +251,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         return cell
     }
 
-    /// 点击 Cell 发起 BLE 连接
+    /// 点击 Cell 发起 BLE 连接并跳转详情
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
 
@@ -276,8 +263,36 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
             return
         }
 
-        showToast("正在搜索并连接设备...")
+        // 立即给出反馈——用户不用盯着屏幕猜"到底点没点上"
+        showToast("正在连接 \(device.name)…")
+        AppLog.device.info(
+            "👆 用户点击设备：name=\(device.name, privacy: .public) sn=\(device.serialNumber, privacy: .public)"
+        )
+
+        // ==========================================
+        // ⚠️ 硬件调试预留区：
+        // 暂时注释，等待硬件厂商接入协议完成后再统一测试
         // 交由 ViewModel 智能匹配：已扫到立即连，没扫到则挂起 + 扫描
-        bleViewModel.connectBySerialNumber(serialNumber)
+        // ==========================================
+        // bleViewModel.connectBySerialNumber(serialNumber)
+        
+        // 现在直接跳转至设备详情页，并将当前设备的数据（Model）传给详情页
+        let vc = DeviceDetailsController(device: device)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    // MARK: - Private Helpers
+
+    /// 判断某设备是否为当前 BLE 连接设备
+    private func isDeviceBleMatched(_ device: DeviceModel) -> Bool {
+        if let mac = currentConnectedMac, !mac.isEmpty,
+           device.mac.caseInsensitiveCompare(mac) == .orderedSame {
+            return true
+        }
+        if let uuid = currentConnectedUUID, !uuid.isEmpty,
+           device.serialNumber.caseInsensitiveCompare(uuid) == .orderedSame {
+            return true
+        }
+        return false
     }
 }

@@ -156,6 +156,31 @@ enum AppColor {
         light: "#3478F6",
         dark:  "#0A84FF"
     )
+    
+    // MARK: - Device (设备控制页专属深色主题)
+    
+    /// 设备控制页（如 DeviceDetails）专属的沉浸式深色配色
+    ///
+    /// - Note: 为了与全局的亮/暗主题区分开，这里使用固定色值，不跟随系统切换。
+    enum Device {
+        /// 页面主背景色（深蓝）
+        static let background = UIColor(hex: "#0B102B")
+        
+        /// 卡片主背景色（深蓝灰）
+        static let cardBackground = UIColor(hex: "#25284B")
+        
+        /// 电量胶囊背景绿
+        static let batteryGreen = UIColor(hex: "#14C260")
+        
+        /// 卡片内按钮文字浅蓝
+        static let buttonTextLightBlue = UIColor(hex: "#A1C6FF")
+        
+        /// 列表右侧箭头灰
+        static let arrowGray = UIColor(hex: "#8A8A8E")
+        
+        /// 开关激活状态主题蓝
+        static let switchTint = UIColor(hex: "#1C96D5")
+    }
 
     // MARK: - Helper
 

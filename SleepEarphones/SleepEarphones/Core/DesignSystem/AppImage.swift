@@ -78,6 +78,36 @@ enum AppImage {
         /// Apple 登录图标
         static let iconAppleLogin = image(named: "Apple登录")
     }
+    
+    // MARK: - Device (设备详情与控制相关)
+
+    /// 设备详情页及 BLE 功能相关的图片
+    enum Device {
+        
+        // 设备主体
+        static let defaultDeviceLarge = image(named: "设备占位图")
+        
+        // 电量
+        static let leftEar = image(named: "左耳")
+        static let rightEar = image(named: "右耳")
+        static let batteryBox = image(named: "充电仓")
+        
+        // 睡眠卡片
+        static let soundLibrary = image(named: "声音库")
+        static let sleepReport = image(named: "睡眠报告")
+        
+        // 设置列表图标
+        static let iconMoon = image(named: "睡眠模式")
+        static let iconVolume = image(named: "智能音量")
+        static let iconAlarm = image(named: "闹钟模式")
+        static let iconTimer = image(named: "睡眠定时")
+        static let iconFinger = image(named: "手势控制")
+        static let iconSpeaker = image(named: "音效")
+        
+        // 其他
+        static let iconInfo = image(named: "疑问")
+        static let iconArrowNext = UIImage(systemName: "chevron.right")
+    }
 
     // MARK: - Remote（远程图片地址）
 

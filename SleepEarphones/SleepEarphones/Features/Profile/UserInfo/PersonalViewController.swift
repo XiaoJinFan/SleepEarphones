@@ -30,9 +30,6 @@ final class PersonalViewController: UIViewController {
     // MARK: - Constants
 
     /// 昵称最大长度
-    ///
-    /// - Note: 与后端约定保持一致——超长昵称后端会截断或报错。
-    ///         前端提前限制可避免"提交后才发现问题"。
     private static let maxNicknameLength = 20
 
     // MARK: - UI 组件
@@ -56,9 +53,6 @@ final class PersonalViewController: UIViewController {
     }()
 
     /// 头像图片
-    ///
-    /// - Note: 圆角在 `viewDidLayoutSubviews` 里按实际宽度计算，
-    ///         与 `Layout.avatarImageSize` 天然同步。
     private let avatarImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = AppImage.Local.avatarPlaceholder
@@ -319,7 +313,7 @@ final class PersonalViewController: UIViewController {
     ///
     /// ## 行为
     /// 1. 弹出 Alert，预填当前昵称
-    /// 2. 用户输入 → 点"确认" → **同步更新 VM + UI**
+    /// 2. 用户输入 → 点"确认" → **同步更新 UI**（保存到 VM 待点"保存"按钮）
     /// 3. 点"取消" → 无副作用
     ///
     @objc private func nicknameButtonTapped() {
@@ -358,10 +352,7 @@ final class PersonalViewController: UIViewController {
     ///
     /// - Parameter textField: 触发事件的输入框
     ///
-    /// - Note: `@objc` 方法必须放在 `NSObject` 子类（`UIViewController` 满足）——
-    ///         且**不能**是 `private`，否则 `#selector` 找不到。
-    ///         因此设为 `fileprivate` 或默认 `internal`。
-    @objc fileprivate func nicknameFieldDidChange(_ textField: UITextField) {
+    @objc private func nicknameFieldDidChange(_ textField: UITextField) {
         guard let text = textField.text else { return }
         guard text.count > Self.maxNicknameLength else { return }
         // 截断到最大长度

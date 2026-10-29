@@ -29,14 +29,16 @@ import SnapKit
 /// // 4. 监听变化
 /// codeView.onCodeChanged = { code in print("输入：\(code)") }
 ///
-/// // 5. 监听输入完成（达到 length）
+/// // 5. 监听输入完成（达到 length 时**只触发一次**）
 /// codeView.onComplete = { code in submit(code) }
 ///
 /// // 6. 清空 / 编程填充
 /// codeView.clear()
 /// codeView.setCode("1234")
-/// ```
 ///
+/// // 7. 主动收起键盘（外部调用，**会**转发到隐藏输入框）
+/// codeView.resignFirstResponder()
+/// ```
 @MainActor
 final class CodeInputView: UIView {
 
@@ -55,7 +57,7 @@ final class CodeInputView: UIView {
     /// - Parameter code: 变化后的完整验证码字符串
     var onCodeChanged: ((String) -> Void)?
 
-    /// 输入完成回调（达到 `length` 长度时触发）
+    /// 输入完成回调（达到 `length` 长度时**只触发一次**）
     ///
     /// - Parameter code: 完整验证码
     var onComplete: ((String) -> Void)?
@@ -67,10 +69,10 @@ final class CodeInputView: UIView {
         didSet { refreshBoxes() }
     }
 
+    /// 是否已上报过 `onComplete`（用于**只触发一次**）
+    private var hasReportedComplete = false
+
     /// 隐藏的 `UITextField`（真正接收输入）
-    ///
-    /// - Important: **不能用 `isHidden = true`**（见类注释）——
-    ///              用 `alpha = 0.01` + 尺寸 1×1 实现"视觉不可见但可响应"。
     private let hiddenField: UITextField = {
         let tf = UITextField()
         tf.keyboardType = .numberPad
@@ -119,6 +121,7 @@ final class CodeInputView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// 释放时移除通知观察者
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
@@ -127,7 +130,9 @@ final class CodeInputView: UIView {
 
     /// 默认尺寸（外部无约束时使用）
     ///
-    /// - 宽度 = 4 × 50 + 3 × 12 = 236（对 4 位）
+    /// - 宽度 = `length × 50 + (length - 1) × 12`
+    ///   - 4 位：236
+    ///   - 6 位：360
     /// - 高度 = 50
     ///
     /// - Note: 外部若已设 `height` / `width` 约束，这两者兼容；
@@ -146,6 +151,7 @@ final class CodeInputView: UIView {
     func clear() {
         _code = ""
         hiddenField.text = ""
+        hasReportedComplete = false
         onCodeChanged?("")   // 通知外部
     }
 
@@ -157,9 +163,9 @@ final class CodeInputView: UIView {
         _code = truncated
         hiddenField.text = truncated
         onCodeChanged?(truncated)   // 通知外部
-        if truncated.count == length {
-            onComplete?(truncated)
-        }
+
+        // 与 `textDidChange` 保持同一套"完成"判定逻辑
+        reportCompleteIfNeeded(count: truncated.count)
     }
 
     // MARK: - UI Setup
@@ -269,8 +275,25 @@ final class CodeInputView: UIView {
         _code = truncated
         onCodeChanged?(truncated)
 
-        if truncated.count == length {
-            onComplete?(truncated)
+        // 完成判定（**只触发一次**）
+        reportCompleteIfNeeded(count: truncated.count)
+    }
+
+    // MARK: - Complete Reporting
+
+    /// 完成判定：只在"从未报过"且"长度达到 length"时触发 `onComplete`
+    ///
+    /// - Parameter count: 当前输入长度
+    private func reportCompleteIfNeeded(count: Int) {
+        if count == length {
+            if !hasReportedComplete {
+                hasReportedComplete = true
+                onComplete?(code)
+            }
+            // else：同一周期内重复达到 length —— 不重复触发
+        } else {
+            // 长度不足 → 重置标志，允许下次重新触发
+            hasReportedComplete = false
         }
     }
 
@@ -310,9 +333,21 @@ final class CodeInputView: UIView {
 
     /// 外部调用 `becomeFirstResponder()` 时，转发到 `hiddenField`
     ///
-    /// - Returns: 是否成功成为第一响应者
+    /// - Returns: `hiddenField` 是否成功成为第一响应者
     override func becomeFirstResponder() -> Bool {
         super.becomeFirstResponder()
         return hiddenField.becomeFirstResponder()
+    }
+
+    /// 外部调用 `resignFirstResponder()` 时，转发到 `hiddenField`
+    ///
+    /// ## 返回值语义
+    /// - 优先返回 `hiddenField` 的转发结果（它才是真正持有键盘的）
+    /// - 无论 `hiddenField` 是否是 first responder，都调用 `super.resignFirstResponder()`
+    ///   保持响应链清理的完整性
+    override func resignFirstResponder() -> Bool {
+        let hiddenResigned = hiddenField.resignFirstResponder()
+        super.resignFirstResponder()
+        return hiddenResigned
     }
 }

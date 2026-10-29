@@ -126,13 +126,10 @@ final class AppRouter {
         // 1. 收起键盘
         window.endEditing(true)
 
-        // 2. 销毁所有 presented VC
-        if let root = window.rootViewController {
-            var topPresented: UIViewController? = root.presentedViewController
-            while let current = topPresented {
-                current.dismiss(animated: false)
-                topPresented = current.presentedViewController
-            }
+        // 2. 一次性销毁所有 presented VC
+        if let root = window.rootViewController,
+           root.presentedViewController != nil {
+            root.dismiss(animated: false)
         }
 
         // 3. 淡入淡出重建

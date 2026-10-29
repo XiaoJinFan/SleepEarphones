@@ -27,6 +27,7 @@ import LinkcosBluetooth
 /// | 连接状态 | `$connectState`（Publisher） |
 /// | 设备发现 | `LCBleHandleDelegate` |
 /// | **实时电量** | `deviceProperty`（快照）+ `deviceControl.readBattery()`（主动拉取） |
+///
 @MainActor
 final class HomeViewModel: NSObject {
 
@@ -55,6 +56,9 @@ final class HomeViewModel: NSObject {
     /// - Note: 经典蓝牙音频切换通常耗时 0.5~2s。
     private static let audioRouteRecheckDelay: UInt64 = 1_500_000_000
 
+    /// VM 兜底连接超时（秒）
+    private static let vmConnectTimeoutFallback: TimeInterval = sdkConnectTimeout + 2
+
     // MARK: - Output
 
     let devicesPublisher = CurrentValueSubject<[DeviceViewData], Never>([])
@@ -78,6 +82,9 @@ final class HomeViewModel: NSObject {
     private var isScanningDesired = false
     private var pendingConnectUUID: String?
     private var pendingTimeoutTask: Task<Void, Never>?
+
+    /// VM 兜底连接超时任务
+    private var connectTimeoutTask: Task<Void, Never>?
 
     private var cancellables = Set<AnyCancellable>()
     private var audioRouteObserver: NSObjectProtocol?
@@ -113,27 +120,65 @@ final class HomeViewModel: NSObject {
         refreshData(force: true)
     }
 
-    /// 通过序列号（uuidStr）连接设备
+    /// 通过序列号（后端 `serialNumber`，即 BLE UUID）连接设备
+    ///
+    /// - Parameter serialNumber: 目标设备标识（来自 `DeviceModel.serialNumber`）
     func connectBySerialNumber(_ serialNumber: String) {
-        if let device = rawDevices[serialNumber] {
-            connect(to: device.uuidStr)
+        let trimmed = serialNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            AppLog.device.error("连接失败：serialNumber 为空")
+            connectStatePublisher.send(.failed(
+                NSError(domain: "BLE", code: -3, userInfo: [
+                    NSLocalizedDescriptionKey: "设备序列号为空，无法连接"
+                ])
+            ))
             return
         }
 
-        AppLog.device.warning("⏳ 目标设备未在缓存中，开始扫描并等待: \(serialNumber)")
+        // 1. 精确匹配（最常见，SN 与 UUID 完全一致时命中）
+        if let device = rawDevices[trimmed] {
+            let deviceID = DeviceViewData.stableID(for: device)
+            AppLog.device.info(
+                "✅ 缓存命中（精确）：sn=\(trimmed, privacy: .public) uuid=\(device.uuidStr, privacy: .public)"
+            )
+            connect(to: deviceID)
+            return
+        }
 
+        // 2. 模糊匹配（大小写不敏感 + 多字段）
+        if let matched = findCachedDevice(by: trimmed) {
+            let deviceID = DeviceViewData.stableID(for: matched)
+            AppLog.device.info(
+                "✅ 缓存命中（模糊）：sn=\(trimmed, privacy: .public) uuid=\(matched.uuidStr, privacy: .public)"
+            )
+            connect(to: deviceID)
+            return
+        }
+
+        // 3. 未命中 → 挂起 + 扫描
+        AppLog.device.warning(
+            "⏳ 目标设备未在缓存中，开始扫描并等待：sn=\(trimmed, privacy: .public)"
+        )
         connectStatePublisher.send(.connecting)
-
         clearPendingConnect()
-        pendingConnectUUID = serialNumber
+        pendingConnectUUID = trimmed
         startScan()
         schedulePendingTimeout()
     }
 
     /// 连接指定设备（缓存 key）
+    ///
+    /// - Parameter deviceID: `rawDevices` 的 key（即 `DeviceViewData.stableID(for:)`）
     func connect(to deviceID: String) {
+        // 缓存未命中：先尝试模糊查找一次（防御）
         guard let device = rawDevices[deviceID] else {
-            AppLog.device.error("连接失败：设备不在缓存中 id=\(deviceID, privacy: .public)")
+            if let matched = findCachedDevice(by: deviceID) {
+                connect(to: DeviceViewData.stableID(for: matched))
+                return
+            }
+            AppLog.device.error(
+                "连接失败：设备不在缓存中 id=\(deviceID, privacy: .public)"
+            )
             connectStatePublisher.send(.failed(
                 NSError(domain: "BLE", code: -2, userInfo: [
                     NSLocalizedDescriptionKey: "设备已离开附近，请重新扫描"
@@ -142,17 +187,35 @@ final class HomeViewModel: NSObject {
             return
         }
 
-        if connectingDeviceID != nil {
-            AppLog.device.debug("已有连接进行中，忽略本次请求")
+        // 已有连接进行中
+        if let current = connectingDeviceID {
+            if current == deviceID {
+                // 同一设备重复点击 → 静默忽略
+                AppLog.device.debug("已在该设备的连接中，忽略重复请求")
+            } else {
+                // 不同设备 → 明确提示用户
+                AppLog.device.debug(
+                    "已有其他设备连接进行中（\(current, privacy: .public)），拒绝本次请求"
+                )
+                connectStatePublisher.send(.failed(
+                    NSError(domain: "BLE", code: -4, userInfo: [
+                        NSLocalizedDescriptionKey: "请等待当前设备连接完成"
+                    ])
+                ))
+            }
             return
         }
 
+        // 正常发起连接
         connectStatePublisher.send(.connecting)
         connectingDeviceID = deviceID
 
         AppLog.device.warning(
-            "🔗 尝试连接: name=\(device.name) uuid=\(device.uuidStr) mac=\(device.leftMacString)"
+            "🔗 尝试连接：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public) mac=\(device.leftMacString, privacy: .public)"
         )
+
+        // VM 兜底超时：防止 SDK 静默失败导致状态卡死
+        scheduleConnectTimeoutFallback(deviceID: deviceID)
 
         LCBleDeviceManager.sharedInstance.connectDevice(
             device,
@@ -231,13 +294,16 @@ final class HomeViewModel: NSObject {
                 currentlyConnectedMac = device.leftMacString
                 currentlyConnectedUUID = device.uuidStr
                 AppLog.device.debug(
-                    "已连接：name=\(device.name) uuid=\(device.uuidStr) mac=\(device.leftMacString)"
+                    "已连接：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public) mac=\(device.leftMacString, privacy: .public)"
                 )
             } else {
                 AppLog.device.warning("连接成功但 SDK connectDevice 为 nil")
             }
 
+            // 清理连接状态（含 VM 兜底超时任务）
             connectingDeviceID = nil
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
             clearPendingConnect()
 
             // ✅ 主动拉取电量
@@ -251,10 +317,14 @@ final class HomeViewModel: NSObject {
             currentlyConnectedMac = nil
             currentlyConnectedUUID = nil
             connectingDeviceID = nil
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
             isAudioRouted = false
 
         case .connectTimeout:
             connectingDeviceID = nil
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
             connectStatePublisher.send(.failed(
                 NSError(domain: "BLE", code: -1, userInfo: [
                     NSLocalizedDescriptionKey: "连接超时"
@@ -299,6 +369,32 @@ final class HomeViewModel: NSObject {
         }
     }
 
+    // MARK: - Connect Timeout Fallback
+
+    /// 调度 VM 兜底连接超时
+    ///
+    /// - Parameter deviceID: 正在连接的设备 ID
+    private func scheduleConnectTimeoutFallback(deviceID: String) {
+        connectTimeoutTask?.cancel()
+        connectTimeoutTask = Task { [weak self] in
+            let nanos = UInt64(Self.vmConnectTimeoutFallback * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanos)
+            guard !Task.isCancelled else { return }
+            guard let self, self.connectingDeviceID == deviceID else { return }
+
+            AppLog.device.warning(
+                "⏱ VM 兜底超时：\(Self.vmConnectTimeoutFallback)s 内未收到 SDK 连接状态回调，强制清理"
+            )
+            self.connectingDeviceID = nil
+            self.connectTimeoutTask = nil
+            self.connectStatePublisher.send(.failed(
+                NSError(domain: "BLE", code: -5, userInfo: [
+                    NSLocalizedDescriptionKey: "连接超时，请重试"
+                ])
+            ))
+        }
+    }
+
     // MARK: - Pending Connect
 
     private func schedulePendingTimeout() {
@@ -326,12 +422,36 @@ final class HomeViewModel: NSObject {
         pendingTimeoutTask = nil
     }
 
+    /// 检查新发现的设备是否命中 pending 目标
+    ///
+    /// - Parameter device: 新发现的设备
     private func checkPendingConnect(for device: LCBleDevice) {
-        guard let pending = pendingConnectUUID, pending == device.uuidStr else { return }
+        guard let pending = pendingConnectUUID else { return }
 
-        AppLog.device.warning("✅ 发现待连接设备，自动发起连接: \(device.uuidStr)")
+        let target = pending.uppercased()
+        let isMatch = device.uuidStr.uppercased() == target
+            || device.leftMacString.uppercased() == target
+            || device.name.uppercased() == target
+        guard isMatch else { return }
+
+        AppLog.device.warning(
+            "✅ 发现待连接设备，自动发起连接：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public)"
+        )
         clearPendingConnect()
-        connect(to: device.uuidStr)
+        connect(to: DeviceViewData.stableID(for: device))
+    }
+
+    /// 在 `rawDevices` 中查找匹配的设备（大小写不敏感 + 多字段）
+    ///
+    /// - Parameter identifier: 目标标识
+    /// - Returns: 命中的设备；未命中返回 nil
+    private func findCachedDevice(by identifier: String) -> LCBleDevice? {
+        let target = identifier.uppercased()
+        return rawDevices.values.first { device in
+            device.uuidStr.uppercased() == target
+                || device.leftMacString.uppercased() == target
+                || device.name.uppercased() == target
+        }
     }
 
     // MARK: - Data Refresh
@@ -368,6 +488,10 @@ extension HomeViewModel: LCBleHandleDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             for device in devices {
+                // 🔍 详细日志：便于排查"设备是否被 SDK 回调"
+//                AppLog.device.info(
+//                    "📡 发现设备（列表）：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public) mac=\(device.leftMacString, privacy: .public) vendorId=\(device.vendorId) flagId=\(device.flagId)"
+//                )
                 self.rawDevices[DeviceViewData.stableID(for: device)] = device
                 self.checkPendingConnect(for: device)
             }
@@ -378,6 +502,9 @@ extension HomeViewModel: LCBleHandleDelegate {
     nonisolated func discoverNewDevice(device: LCBleDevice) {
         Task { @MainActor [weak self] in
             guard let self else { return }
+            AppLog.device.info(
+                "📡 发现设备（新）：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public) mac=\(device.leftMacString, privacy: .public) vendorId=\(device.vendorId) flagId=\(device.flagId)"
+            )
             self.rawDevices[DeviceViewData.stableID(for: device)] = device
             self.checkPendingConnect(for: device)
             self.refreshData()
@@ -389,6 +516,9 @@ extension HomeViewModel: LCBleHandleDelegate {
             guard let self else { return }
             let key = DeviceViewData.stableID(for: device)
             if self.rawDevices[key] == nil {
+                AppLog.device.info(
+                    "📡 发现设备（重复-首次加入）：name=\(device.name, privacy: .public) uuid=\(device.uuidStr, privacy: .public)"
+                )
                 self.rawDevices[key] = device
                 self.checkPendingConnect(for: device)
                 self.refreshData()

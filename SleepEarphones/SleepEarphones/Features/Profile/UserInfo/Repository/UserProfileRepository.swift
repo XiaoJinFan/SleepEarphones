@@ -10,11 +10,6 @@ import UIKit
 // MARK: - 仓库协议
 
 /// 用户资料仓库协议
-///
-/// ## 职责
-/// - 读写用户头像 / 昵称的本地存储
-/// - **不做**优先级判断（本地 → 登录信息 → 默认值 的回退逻辑在 ViewModel 层）
-/// - **不做** UI 相关处理
 protocol UserProfileRepositoryProtocol: Sendable {
 
     /// 异步加载头像
@@ -48,17 +43,6 @@ protocol UserProfileRepositoryProtocol: Sendable {
 // MARK: - 实现
 
 /// 用户资料仓库实现
-///
-/// ## 线程安全说明（`Sendable` 合规性）
-/// 本类满足 `protocol Sendable`，所有存储属性均为 `let` + `Sendable` 类型：
-/// - `UserDefaults`：系统标注 `@unchecked Sendable`，内部有锁，**任意线程读写安全**
-/// - `DispatchQueue`：`Sendable`
-/// - `URL` / `CGFloat`：值类型 `Sendable`
-///
-/// - Important: 原代码用 `nonisolated(unsafe) private let userDefaults`——
-///              **不必要**。现代 SDK 的 `UserDefaults` 已是 `@unchecked Sendable`，
-///              额外标注属于"防御过度"，反而会误导维护者
-///              （以为需要手动保证线程安全）。
 final class UserProfileRepository: UserProfileRepositoryProtocol {
 
     // MARK: - Keys
@@ -84,9 +68,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     nonisolated(unsafe) private let userDefaults: UserDefaults
 
     /// 串行队列：用于「压缩 / 文件读写」等后台 IO
-    ///
-    /// - Note: `DispatchQueue` 本身是 `Sendable`——
-    ///         所有对 `avatarFileURL` 的读写都经过此队列串行化。
     private let ioQueue = DispatchQueue(
         label: "com.sleepearphones.profile.io",
         qos: .utility
@@ -95,9 +76,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// 头像文件 URL（延迟计算，缓存）
     ///
     /// - Returns: `{Application Support}/SleepEarphones/avatar.jpg`
-    ///
-    /// - Note: `init` 中计算一次后不可变；对它的**文件操作**都在
-    ///         `ioQueue` 上串行执行。
     private let avatarFileURL: URL
 
     // MARK: - Init
@@ -109,9 +87,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
         self.userDefaults = userDefaults
 
         // 计算头像文件路径
-        //
-        // - `Application Support` 目录在 iOS 上**可能不存在**（首次安装未创建）——
-        //   需要手动创建。若创建失败，回退到 `Documents`（几乎必然存在）。
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -138,9 +113,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     // MARK: - Load
 
     /// 异步加载头像
-    ///
-    /// - Note: 在 `ioQueue` 上执行文件读取 + 迁移旧数据，
-    ///         主线程调用者通过 `await` 等待结果，不阻塞 UI。
     func loadAvatar() async -> UIImage? {
         await withCheckedContinuation { continuation in
             ioQueue.async { [weak self] in
@@ -166,9 +138,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// 同步读取昵称
     ///
     /// - Returns: 昵称字符串；未设置时返回 `nil`
-    ///
-    /// - Note: `UserDefaults.string(forKey:)` 是**内存 + 缓存**操作——
-    ///         极快（微秒级）——**无需**异步。
     func loadNickname() -> String? {
         userDefaults.string(forKey: Keys.nickname)
     }
@@ -197,10 +166,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// 仅更新头像
     ///
     /// - Parameter avatar: 新头像
-    ///
-    /// - Note: **不阻塞**调用者——压缩 + 写入在后台 `ioQueue` 执行。
-    ///         若写入失败（如磁盘满），仅输出日志——
-    ///         内存中的头像仍有效，下次进入时可能显示旧头像。
     func updateAvatar(_ avatar: UIImage) {
         writeAvatarFile(avatar)
     }
@@ -208,9 +173,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// 仅更新昵称
     ///
     /// - Parameter nickname: 新昵称
-    ///
-    /// - Note: `UserDefaults` 的 `set` 是同步的——几微秒完成——
-    ///         **无需**异步。
     func updateNickname(_ nickname: String) {
         userDefaults.set(nickname, forKey: Keys.nickname)
     }
@@ -220,10 +182,6 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// 后台写入头像文件
     ///
     /// - Parameter avatar: 待写入的头像
-    ///
-    /// - Note: `autoreleasepool` 显式包裹——大图解码占用内存较多，
-    ///         写到文件后即可立即释放中间的 `Data` / `CGImage` 对象，
-    ///         避免内存峰值堆积。
     private func writeAvatarFile(_ avatar: UIImage) {
         let quality = avatarCompressionQuality
         let url = avatarFileURL
@@ -258,17 +216,8 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     }
 
     /// 一次性迁移：把老版本存在 `UserDefaults` 里的头像数据搬到文件系统
-    ///
-    /// - Note: **必须**在 `ioQueue` 上调用（`loadAvatar` 内部已保证）——
-    ///         迁移涉及文件 IO，在主线程执行会阻塞 UI。
-    ///
-    /// - 迁移成功后**删除旧键**：释放 `UserDefaults` 的空间（旧头像是
-    ///   base64 / Data 形式，可能占用数百 KB，长期留存是浪费）。
     private func migrateLegacyAvatarIfNeeded() {
         // 一次读取 → 同时用于「存在性判断」与「写入文件」
-        //
-        // - Note: 原代码读两次（一次判空、一次取 Data），
-        //         虽然 `UserDefaults` 读取极快，但一次读取更简洁。
         guard let legacyData = userDefaults.data(forKey: Keys.legacyAvatar) else {
             // 旧键不存在（大多数用户已迁移或从未用过老版本）
             return

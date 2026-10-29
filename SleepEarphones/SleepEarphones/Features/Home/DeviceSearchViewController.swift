@@ -80,9 +80,6 @@ final class DeviceSearchViewController: UIViewController {
         setupUI()
         setupConstraints()
         bindViewModel()
-
-        // 只在初次加载时清空，防止切后台重进导致列表被清空
-        viewModel.clearDevices()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -90,6 +87,8 @@ final class DeviceSearchViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: animated)
         animationView.start()
 
+        // ✅ 关键顺序：先清空 → 再扫描
+        viewModel.clearDevices()
         viewModel.startScan()
         scheduleEmptyTip()
     }

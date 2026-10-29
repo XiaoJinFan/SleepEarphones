@@ -294,6 +294,8 @@ final class HomeBatteryCapsuleView: UIView {
         self.type = type
         super.init(frame: .zero)
         setupUI()
+        // 注册 trait 变化监听
+        registerTraitChangeObservation()
     }
 
     required init?(coder: NSCoder) {
@@ -327,13 +329,37 @@ final class HomeBatteryCapsuleView: UIView {
         }
     }
 
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection),
-           let color = lastAppliedColor {
+    // MARK: - Trait 变化监听
+
+    /// 注册 trait 变化监听
+    private func registerTraitChangeObservation() {
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: HomeBatteryCapsuleView, _) in
+                view.reapplyBorderColorIfNeeded()
+            }
+        }
+    }
+
+    /// 用 `lastAppliedColor` 重新应用边框色
+    private func reapplyBorderColorIfNeeded() {
+        if let color = lastAppliedColor {
             applyBorderColor(color)
         }
     }
+
+    // MARK: - 旧版兼容（iOS 17 以下）
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        // iOS 17+ 由 registerForTraitChanges 处理，避免重复
+        if #available(iOS 17.0, *) { return }
+
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            reapplyBorderColorIfNeeded()
+        }
+    }
+
+    // MARK: - Update
 
     func update(battery: Int, isConnected: Bool) {
         titleLabel.text = battery < 0 ? "--" : "\(battery)%"
