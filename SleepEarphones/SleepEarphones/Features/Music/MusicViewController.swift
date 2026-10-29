@@ -63,6 +63,9 @@ final class MusicViewController: UIViewController {
     // MARK: - Constants
 
     /// CollectionView 布局参数
+    ///
+    /// - Important: 这些参数与 `MusicCardCell` 的**内部约束严格对应**——
+    ///              改动任何一项都需要同步修改另一侧（见 `MusicCardCell` 注释）。
     private enum CardLayout {
         /// 卡片固定宽度
         static let cardWidth: CGFloat = 150
@@ -70,8 +73,12 @@ final class MusicViewController: UIViewController {
         static let interitemSpacing: CGFloat = 14
         /// 封面与标题的间距
         static let titleSpacing: CGFloat = 8
-        /// 标题高度
-        static let titleHeight: CGFloat = 20
+
+        /// 标题高度 —— 基于字体行高动态计算（支持 Dynamic Type）
+        static var titleHeight: CGFloat {
+            ceil(AppFont.Body.secondary.lineHeight)
+        }
+
         /// Section header 高度
         static let headerHeight: CGFloat = 50
         /// Section 之间的间距
@@ -476,6 +483,9 @@ final class MusicViewController: UIViewController {
     // MARK: - Dynamic Height
 
     /// 重算并更新 `viewConstraintsHeight` 与 `categoryHeightConstraint`
+    ///
+    /// - Note: `CardLayout.titleHeight` 是计算属性——每次调用都按当前
+    ///         `AppFont.Body.secondary.lineHeight` 求值，Dynamic Type 天然跟随。
     private func recalculateContentHeight() {
         let collectionHeight = calculateCollectionHeight()
 
@@ -496,6 +506,10 @@ final class MusicViewController: UIViewController {
     /// 计算 CollectionView 需要的总高度
     ///
     /// - Returns: 内容高度（含所有 section 的 header + items + 间距）
+    ///
+    /// - Note: `CardLayout.titleHeight` 为计算属性——
+    ///         本方法每次调用都拿到**当前**字体行高对应的值，
+    ///         保证与 `MusicCardCell` 内部布局对齐。
     private func calculateCollectionHeight() -> CGFloat {
         guard !viewModel.sections.isEmpty else { return 0 }
 
@@ -602,7 +616,6 @@ extension MusicViewController: UICollectionViewDelegate {
     /// 拉取目标子分类的音乐并进入播放页
     ///
     /// - Parameter item: 列表卡片数据
-    ///
     private func fetchAndPlaySong(from item: MusicCardItem) {
         viewModel.fetchMatchedSong(subCategoryId: item.id)
             .receive(on: DispatchQueue.main)

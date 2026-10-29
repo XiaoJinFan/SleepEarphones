@@ -396,7 +396,7 @@
                                                     <constraint firstItem="OFp-Fj-mqp" firstAttribute="centerX" secondItem="CDw-8n-wnM" secondAttribute="centerX" id="wWy-9v-r8J"/>
                                                 </constraints>
                                             </stackView>
-                                            <stackView opaque="NO" contentMode="scaleToFill" distribution="fillEqually" translatesAutoresizingMaskIntoConstraints="NO" id="nML-qw-jYR">
+                                            <stackView hidden="YES" opaque="NO" contentMode="scaleToFill" distribution="fillEqually" translatesAutoresizingMaskIntoConstraints="NO" id="nML-qw-jYR">
                                                 <rect key="frame" x="30" y="510" width="333" height="80"/>
                                                 <subviews>
                                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="YuW-lQ-ffT">
@@ -470,7 +470,7 @@
                                                 <rect key="frame" x="25" y="742" width="343" height="30"/>
                                                 <subviews>
                                                     <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Nzn-GR-JL9">
-                                                        <rect key="frame" x="0.0" y="0.0" width="30" height="30"/>
+                                                        <rect key="frame" x="0.0" y="1.6666666666666288" width="30" height="30"/>
                                                         <constraints>
                                                             <constraint firstAttribute="height" constant="30" id="2j9-dA-exs"/>
                                                             <constraint firstAttribute="width" constant="30" id="zBV-rH-enX"/>
@@ -494,7 +494,7 @@
                                                 </subviews>
                                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                                 <constraints>
-                                                    <constraint firstItem="Nzn-GR-JL9" firstAttribute="centerY" secondItem="7EO-ee-BFv" secondAttribute="centerY" id="HSP-XM-qhL"/>
+                                                    <constraint firstItem="Nzn-GR-JL9" firstAttribute="centerY" secondItem="7EO-ee-BFv" secondAttribute="centerY" constant="1.5" id="HSP-XM-qhL"/>
                                                     <constraint firstAttribute="bottom" secondItem="66Y-1y-p1H" secondAttribute="bottom" id="QgP-GY-6jv"/>
                                                     <constraint firstAttribute="trailing" secondItem="66Y-1y-p1H" secondAttribute="trailing" id="RBr-D0-r7O"/>
                                                     <constraint firstItem="Nzn-GR-JL9" firstAttribute="leading" secondItem="7EO-ee-BFv" secondAttribute="leading" id="TUU-kZ-fVN"/>

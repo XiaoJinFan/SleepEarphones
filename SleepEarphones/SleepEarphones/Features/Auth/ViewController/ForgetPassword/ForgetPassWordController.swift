@@ -94,6 +94,8 @@ final class ForgetPassWordController: UIViewController {
         applyAuthKeyboard(to: phoneTextField, mode: .phone)
         applyAuthKeyboard(to: emailTextField, mode: .email)
         codeTextField.keyboardType = .numberPad
+        
+        forgetPwdBtn.layer.cornerRadius = AppSpacing.Corner.card
 
         // 密码默认隐藏
         passwordTextField.isSecureTextEntry = true

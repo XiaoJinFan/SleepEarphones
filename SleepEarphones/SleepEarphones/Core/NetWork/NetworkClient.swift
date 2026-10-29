@@ -147,20 +147,44 @@ public final class NetworkClient: NetworkClientProtocol {
     ///   - requestID: 请求 ID（用于日志）
     /// - Returns: 业务层结果
     ///
-    /// - Note: `nonisolated` 是显式冗余——本方法在当前 `NetworkClient`
-    ///         （未标注 `@MainActor`）中本就无 actor 隔离。
-    ///         保留是为了防御未来给类加 `@MainActor` 时被误破坏。
-    private nonisolated static func handle<T: Decodable & Sendable>(response: DataResponse<APIResponse<T>, AFError>, requestID: String) -> Result<T, NetworkError> {
+    /// ## 判断顺序（重要）
+    /// 1. **业务级 Token 失效**：`code ∈ {-201, -202, -203, -300}`
+    /// 2. **业务成功**：`code == 1`
+    /// 3. **业务失败**：其余 code（含 `0` / `-800` / `-900` / `-999` 等）
+    /// 4. **`data` 缺失**：成功码但 data 为 nil（见下方边界说明）
+    /// 5. **`data` 解码失败**：成功码但类型不匹配
+    ///
+    /// ## 边界说明 — `data: null` 场景
+    /// 后端对"Void 类接口"（如忘记密码）理论上返回 `data: []` 或 `data: {}`。
+    /// 若极端情况下返回 `data: null`，`decodeIfPresent` 会得到 nil，
+    /// 本方法会返回 `.failure(.emptyData)`——
+    /// 上层 `AuthRepository.forgetPassword` 的 `.map { _ in () }` 不会执行，
+    /// 用户会看到"暂无数据"错误弹窗。
+    ///
+    /// 当前**未做特殊处理**：
+    /// - 跨模块限制：`EmptyResponse` 定义在 App 层，Network 模块不可引用
+    /// - 后端实测不会返回 `data: null`，暂未触发该场景
+    ///
+    /// 若未来需修复，建议在 App 层新增一个"空响应"包装器，
+    /// 或在 `AuthRepository` 的 `forgetPassword` 里加 `.catch` 兜底。
+    private nonisolated static func handle<T: Decodable & Sendable>(
+        response: DataResponse<APIResponse<T>, AFError>,
+        requestID: String
+    ) -> Result<T, NetworkError> {
 
         switch response.result {
         case .success(let apiResponse):
-            // 1. 优先检查 token 失效：即使 code 不在 successCodes 里
-            //    只要命中 tokenErrorCode，都返回 tokenExpired
+            // 1. 优先检查 token 失效（业务级：-201/-202/-203/-300）
+            //
+            // - Note: 这些 code 均为负数，不会通过 `isSuccess`，
+            //         但提前识别可让上层获得更精确的错误类型，
+            //         直接走"清凭证 + 跳登录页"流程，
+            //         而非弹出模糊的业务错误 Alert。
             if apiResponse.isTokenExpired {
                 return .failure(.tokenExpired)
             }
 
-            // 2. 业务码判定
+            // 2. 业务码判定（只有 code == 1 视为成功）
             guard apiResponse.isSuccess else {
                 let message = apiResponse.msg ?? APIConfiguration.serverErrorMessage
                 return .failure(.server(code: apiResponse.code, message: message))
@@ -171,7 +195,7 @@ public final class NetworkClient: NetworkClientProtocol {
                 return .failure(.decoding(decodeError))
             }
 
-            // 4. data 为 nil：空数据（非错误场景）
+            // 4. data 为 nil：空数据（非错误场景，但 T 无法凭空构造）
             guard let data = apiResponse.data else {
                 return .failure(.emptyData)
             }
@@ -194,10 +218,19 @@ public final class NetworkClient: NetworkClientProtocol {
     /// 4. **HTTP 状态码**：401 → tokenExpired，其他 → httpError
     /// 5. **兜底**：`.underlying`
     ///
+    /// ## 关于 HTTP 401 与业务 Token 错误码的区别（重要）
+    /// - **业务 Token 错误码**（`-201/-202/-203/-300`）：
+    ///   HTTP 200 响应体内的 `code` 字段，由 `handle` 方法识别
+    /// - **HTTP 401**：
+    ///   由网关 / Nginx / 反向代理等**中间件层**直接返回的未授权状态码，
+    ///   响应体不一定是标准 JSON
+    ///
+    /// 两者语义相同（登录态失效），但识别路径不同：
+    /// - 本方法负责识别 **HTTP 401**
+    /// - `handle` 负责识别 **业务 Token 错误码**
+    ///
     /// - Parameter error: Alamofire 错误
     /// - Returns: 业务层错误
-    ///
-    /// - Note: `nonisolated` 同上——显式冗余，防御未来变更。
     private nonisolated static func mapError(_ error: AFError) -> NetworkError {
 
         // 1. 显式取消
@@ -229,8 +262,12 @@ public final class NetworkClient: NetworkClientProtocol {
         }
 
         // 4. HTTP 状态码
+        //
+        // - Important: 用 `APIConfiguration.httpUnauthorizedCode`（= HTTP 401），
+        //              **不要**用业务错误码（-201/-202/-203），
+        //              两者语义相同但来源不同（见方法注释）。
         if let responseCode = error.responseCode {
-            if responseCode == APIConfiguration.tokenErrorCode {
+            if responseCode == APIConfiguration.httpUnauthorizedCode {
                 return .tokenExpired
             }
             return .httpError(statusCode: responseCode)
@@ -261,8 +298,6 @@ public final class NetworkClient: NetworkClientProtocol {
     ///
     /// - Parameter api: 请求实例
     /// - Returns: 日志用的 URL 字符串
-    ///
-    /// - Note: `nonisolated` 同上——显式冗余，防御未来变更。
     private nonisolated static func logDescription(for api: APIRequest) -> String {
         // ✅ 核心：用 `api.urlString`（纯字符串拼接），不构造 URLRequest
         let rawURL = api.urlString

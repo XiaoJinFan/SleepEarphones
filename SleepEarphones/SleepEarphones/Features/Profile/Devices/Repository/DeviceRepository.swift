@@ -52,6 +52,9 @@ protocol DeviceRepositoryProtocol: Sendable {
         page: Int,
         pageSize: Int
     ) -> AnyPublisher<DeviceListResult, NetworkError>
+    
+    
+    func deleteDevice(aid: String) -> AnyPublisher<Void, NetworkError>
 }
 
 // MARK: - 仓库实现
@@ -133,6 +136,10 @@ final class DeviceRepository: DeviceRepositoryProtocol {
             )
         }
         .eraseToAnyPublisher()
+    }
+    
+    func deleteDevice(aid: String) -> AnyPublisher<Void, NetworkError> {
+        service.deleteDevice(aid: aid)
     }
 
     // MARK: - Private Helpers

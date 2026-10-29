@@ -17,11 +17,27 @@ import Foundation
 /// if response.isTokenExpired { logout() }
 /// if let err = response.decodeError { log(err) }
 /// ```
+///
+/// ## 与后台错误码表的对应
+/// | code | 含义 | 本类判断 |
+/// |---|---|---|
+/// | `1` | 操作成功 | `isSuccess == true` |
+/// | `0` | 操作失败 | `isSuccess == false` |
+/// | `-201` | 缺少 UserToken | `isTokenExpired == true` |
+/// | `-202` | UserToken 无效 | `isTokenExpired == true` |
+/// | `-203` | UserToken 过期 | `isTokenExpired == true` |
+/// | `-300` | 异地登录 | `isTokenExpired == true` |
+/// | `-800` | 没有数据 | `isNoData == true` |
+/// | `-900` | 参数错误 | `isSuccess == false` |
+/// | `-999` | 系统错误 | `isSuccess == false` |
 public struct APIResponse<T: Decodable>: Decodable {
 
     // MARK: - Fields
 
     /// 业务状态码（已统一为 Int）
+    ///
+    /// - Note: 后端可能以 `Int` / `String` / `Bool` / `Double` 返回，
+    ///         本类内部解码时会归一化为 `Int`。
     public let code: Int
 
     /// 业务消息
@@ -78,14 +94,39 @@ public struct APIResponse<T: Decodable>: Decodable {
 
     // MARK: - 便捷判断
 
-    /// 是否请求成功（成功码从 `APIConfiguration.successCodes` 读取）
+    /// 是否请求成功
+    ///
+    /// - Returns: `code == 1` 时为 `true`
+    ///
+    /// - Important: 后台错误码表明确规定 `0 = 操作失败`，
+    ///              因此 **只有 `1` 视为成功**。
+    ///              （历史版本曾把 `0` / `200` 也当作成功，
+    ///              会导致失败响应被误判为成功，已修正。）
     public var isSuccess: Bool {
         APIConfiguration.successCodes.contains(code)
     }
 
-    /// 是否为 Token 失效
+    /// 是否为"登录态失效"
+    ///
+    /// - 覆盖 4 种后端业务场景：
+    ///   - `-201` 缺少 UserToken
+    ///   - `-202` UserToken 无效
+    ///   - `-203` UserToken 过期
+    ///   - `-300` 异地登录
+    ///
+    /// - Note: 命中后业务层应清除凭证并跳转登录页。
+    ///         具体提示文案可由上层根据 `code` 区分
+    ///         （如 `-300` 显示"您的账号在别处登录"）。
     public var isTokenExpired: Bool {
-        code == APIConfiguration.tokenErrorCode
+        APIConfiguration.tokenErrorCodes.contains(code)
+    }
+
+    /// 是否为"没有数据"（业务正常但内容为空）
+    ///
+    /// - 对应后端 `-800`。与"业务失败"不同——这不算错误，
+    ///   通常是列表无数据 / 详情不存在，UI 层显示空态即可。
+    public var isNoData: Bool {
+        code == APIConfiguration.noDataCode
     }
 
     // MARK: - Private Helpers
@@ -93,22 +134,25 @@ public struct APIResponse<T: Decodable>: Decodable {
     /// 统一解析 `code` 字段
     ///
     /// - Parameter container: 解码容器
-    /// - Returns: 解析后的 Int 值；全部失败时返回 -1
+    /// - Returns: 解析后的 Int 值；全部失败时返回 `-999`（系统错误）
     ///
     /// - Note: 解码优先级 `Int → String → Bool → Double`，
     ///         与后端实际返回值频率一致。
-    ///         返回 -1 是为了走业务失败分支（而非成功码）。
+    ///         全部失败时返回 `-999` 而非 `-1`——
+    ///         `-999` 是后端错误码表里定义的"系统错误"，
+    ///         语义明确、便于日志排查；而 `-1` 不在错误码表中，
+    ///         容易与自定义错误码混淆。
     private static func decodeCode(from container: KeyedDecodingContainer<CodingKeys>) -> Int {
         // 1. Int（最常见）
         if let intCode = try? container.decode(Int.self, forKey: .code) {
             return intCode
         }
-        // 2. String（PHP 接口常序列化成字符串）
+        // 2. String（PHP 接口常序列化成字符串，如 `"1"`）
         if let strCode = try? container.decode(String.self, forKey: .code),
            let parsed = Int(strCode) {
             return parsed
         }
-        // 3. Bool（部分新接口）
+        // 3. Bool（部分新接口；true → 1, false → 0）
         if let boolCode = try? container.decode(Bool.self, forKey: .code) {
             return boolCode ? 1 : 0
         }
@@ -116,8 +160,9 @@ public struct APIResponse<T: Decodable>: Decodable {
         if let doubleCode = try? container.decode(Double.self, forKey: .code) {
             return Int(doubleCode)
         }
-        // 5. 极端情况：code 缺失或类型完全不符，标记为 -1（走业务失败分支）
-        return -1
+        // 5. 极端情况：code 缺失或类型完全不符 → 系统错误
+        AppLog.network.error("APIResponse.code 解码失败，回退为 -999（系统错误）")
+        return APIConfiguration.systemErrorCode
     }
 }
 

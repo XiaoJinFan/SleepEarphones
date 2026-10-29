@@ -23,6 +23,7 @@ enum BatteryChargingState: Equatable, Sendable {
 
 // MARK: - 设备视图数据
 
+/// 设备视图数据（UI 层）
 struct DeviceViewData: Identifiable, Equatable, Sendable {
 
     // MARK: - 核心字段
@@ -46,13 +47,8 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
 
     // MARK: - 充电状态
 
-    /// 左耳充电状态
     let leftCharging: BatteryChargingState
-
-    /// 右耳充电状态
     let rightCharging: BatteryChargingState
-
-    /// 充电盒充电状态
     let boxCharging: BatteryChargingState
 
     // MARK: - 连接 / SDK 状态
@@ -66,15 +62,43 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
     // MARK: - Init
 
     /// 从 SDK 设备对象构造
-    init(device: LCBleDevice, isConnected: Bool) {
+    ///
+    /// - Parameters:
+    ///   - device: SDK 扫描返回的设备对象
+    ///   - isConnected: 是否已连接（蓝牙通道是否建立）
+    ///   - property: SDK 解析的实时属性快照；`nil` 时回退到 `device` 的初始值
+    ///
+    init(device: LCBleDevice, isConnected: Bool, property: LCBleDeviceProperty? = nil) {
         self.id = Self.stableID(for: device)
         self.name = device.name.isEmpty ? "未知设备" : device.name
-        self.leftBattery = device.leftBattery
-        self.rightBattery = device.rightBattery
-        self.boxBattery = device.boxBattery
+
+        // MARK: 电量（优先实时值）
+        self.leftBattery = Self.resolveBattery(
+            realTime: property?.leftBattery,
+            fallback: device.leftBattery
+        )
+        self.rightBattery = Self.resolveBattery(
+            realTime: property?.rightBattery,
+            fallback: device.rightBattery
+        )
+
+        // 充电盒电量特殊处理：0 时用缓存值
+        let boxRealTime: Int? = {
+            guard let property else { return nil }
+            return property.boxBattery == 0 && property.boxCacheBattery > 0
+                ? property.boxCacheBattery
+                : property.boxBattery
+        }()
+        self.boxBattery = Self.resolveBattery(
+            realTime: boxRealTime,
+            fallback: device.boxBattery
+        )
+
+        // MARK: 充电状态（`LCBleDeviceProperty` 无对应字段，只能用 `LCBleDevice`）
         self.leftCharging = Self.mapChargingStatus(device.leftChargingStatus)
         self.rightCharging = Self.mapChargingStatus(device.rightChargingStatus)
         self.boxCharging = Self.mapChargingStatus(device.boxEarbudChargingStatus)
+
         self.isConnected = isConnected
         self.isPopping = device.isPoping
     }
@@ -82,23 +106,19 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
     // MARK: - 展示辅助
 
     /// 是否有任意一方的电量数据
-    ///
-    /// - Returns: 任一侧电量 ≥ 0 时为 `true`
     var hasBatteryData: Bool {
         leftBattery >= 0 || rightBattery >= 0 || boxBattery >= 0
     }
 
-    /// 是否有有效名称（非兜底值）
-    ///
-    /// - Returns: 名称非空且不为兜底值时 `true`
+    /// 是否有有效名称
     var hasName: Bool {
         !name.isEmpty && name != "未知设备"
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Helpers
 
     /// 生成稳定的设备 ID
-    private static func stableID(for device: LCBleDevice) -> String {
+    static func stableID(for device: LCBleDevice) -> String {
         if !device.uuidStr.isEmpty {
             return device.uuidStr
         }
@@ -106,6 +126,20 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
             return "\(device.name)_\(device.leftMacString)"
         }
         return device.name
+    }
+
+    /// 解析电量值：实时值有效（≥ 0）则用实时值，否则回退
+    ///
+    /// - Parameters:
+    ///   - realTime: `LCBleDeviceProperty` 的实时电量；`nil` 表示尚未读取
+    ///   - fallback: `LCBleDevice` 的扫描初始电量
+    /// - Returns: 最终用于展示的电量
+    private static func resolveBattery(realTime: Int?, fallback: Int) -> Int {
+        // SDK 未读取到实时值时返回 -1——此时回退到扫描值
+        guard let realTime, realTime >= 0 else {
+            return fallback
+        }
+        return realTime
     }
 
     /// SDK 充电状态 → UI 层充电状态

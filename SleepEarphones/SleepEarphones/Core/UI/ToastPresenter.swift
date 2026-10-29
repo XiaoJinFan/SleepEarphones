@@ -33,13 +33,21 @@ import Toast_Swift
 @MainActor
 enum ToastPresenter {
 
+    // MARK: - Style Constants
+
+    /// Toast 背景色（**固定深色，不随主题切换**）
+    private static let backgroundColor = UIColor(hex: "#1C1C1E").withAlphaComponent(0.92)
+
+    /// Toast 文字色（固定白色）
+    private static let messageColor = UIColor.white
+
     // MARK: - Configuration
 
     /// 配置全局 Toast 样式
     static func configureGlobalStyle() {
         var style = ToastStyle()
-        style.backgroundColor = AppColor.Text.primary.withAlphaComponent(0.9)
-        style.messageColor = .white
+        style.backgroundColor = backgroundColor
+        style.messageColor = messageColor
         style.messageFont = AppFont.Body.secondary
         style.messageAlignment = .center
         style.cornerRadius = AppSpacing.Corner.medium
@@ -124,10 +132,6 @@ enum ToastPresenter {
     // MARK: - Private Helpers
 
     /// 当前 keyWindow
-    ///
-    /// - Note: 使用 `connectedScenes` 遍历，兼容多场景（iPad 分屏）。
-    ///         只返回 `foregroundActive` 场景的 window，
-    ///         避免后台场景误接 Toast。
     private static var keyWindow: UIWindow? {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }

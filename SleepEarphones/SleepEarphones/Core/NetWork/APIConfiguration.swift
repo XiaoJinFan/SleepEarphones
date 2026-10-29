@@ -21,6 +21,9 @@ import Foundation
 ///
 /// // 3. 业务状态码判定
 /// if APIConfiguration.successCodes.contains(code) { ... }
+///
+/// // 4. Token 失效判定（含 4 种场景）
+/// if APIConfiguration.tokenErrorCodes.contains(code) { ... }
 /// ```
 enum APIConfiguration {
 
@@ -48,9 +51,6 @@ enum APIConfiguration {
     /// - Warning: 当前为 `http://`（非 https）。若线上 App 开启了 ATS，
     ///            需在 `Info.plist` 的 `NSAppTransportSecurity` 中
     ///            为该域名加白名单，否则图片会加载失败。
-    ///
-    ///            建议与后端协商切换到 https：
-    ///            OSS 支持 https 域名（`https://<bucket>.oss-cn-hangzhou.aliyuncs.com/`）
     static let imageCDN = "http://miaopinyouyue.oss-cn-hangzhou.aliyuncs.com/"
 
     // MARK: - 网络默认参数
@@ -58,13 +58,65 @@ enum APIConfiguration {
     /// 接口默认超时（秒）
     static let defaultTimeout: TimeInterval = 15
 
-    // MARK: - 业务状态码
+    // MARK: - 业务状态码（与后台错误码表对齐）
 
-    /// 成功码（兼容 `1` / `200` / `0` 三种约定）
-    static let successCodes: Set<Int> = [1, 200, 0]
+    /// 成功码
+    ///
+    /// - Important: 后台错误码表明确规定：
+    ///   - `1` = **操作成功**
+    ///   - `0` = **操作失败**（旧版曾误将 0 归为成功，已修正）
+    ///   - `200` = **不是本后端的业务成功码**（是 HTTP 状态码，勿混用）
+    ///
+    /// 因此成功码集合**只有** `[1]`。若未来后端约定变化，
+    /// 在此处集中修改即可。
+    static let successCodes: Set<Int> = [1]
 
-    /// Token 失效码
-    static let tokenErrorCode = 401
+    /// 业务错误码 — 缺少 UserToken（未登录 / 未携带 token）
+    static let missingTokenCode = -201
+
+    /// 业务错误码 — UserToken 无效（格式错误 / 已失效）
+    static let invalidTokenCode = -202
+
+    /// 业务错误码 — UserToken 过期（有效期已过）
+    static let expiredTokenCode = -203
+
+    /// 业务错误码 — 异地登录（当前 token 被其他设备顶下线）
+    ///
+    /// - Note: 业务上建议给用户更明确的提示（"您的账号在别处登录"），
+    ///         但当前 `NetworkError` 未细分该 case，统一按 `.tokenExpired` 处理，
+    ///         用户会看到"登录已过期，请重新登录"——可接受。
+    static let remoteLoginCode = -300
+
+    /// 业务错误码 — 没有数据
+    static let noDataCode = -800
+
+    /// 业务错误码 — 参数错误
+    static let parameterErrorCode = -900
+
+    /// 业务错误码 — 系统错误
+    static let systemErrorCode = -999
+
+    /// 所有需要"重新登录"的业务错误码
+    ///
+    /// - Important: 命中任一码都视为"当前登录态失效"，
+    ///              应清除本地凭证并跳转登录页。
+    static let tokenErrorCodes: Set<Int> = [
+        missingTokenCode,
+        invalidTokenCode,
+        expiredTokenCode,
+        remoteLoginCode
+    ]
+
+    // MARK: - HTTP 状态码
+
+    /// HTTP 401 Unauthorized — 标准未授权状态码
+    ///
+    /// - Note: 与业务码 `-201/-202/-203` **不同**：
+    ///         - 业务码：后端处理成功但业务失败（HTTP 200 + `code = -202`）
+    ///         - HTTP 401：后端在网关 / 中间件层直接拒绝（HTTP 401）
+    ///
+    ///         两种场景都需要跳登录页，但识别路径不同。
+    static let httpUnauthorizedCode = 401
 
     // MARK: - 通用文案
 
@@ -86,9 +138,6 @@ enum APIConfiguration {
         }
 
         // 相对路径：URL 编码后拼接
-        //
-        // - Note: `urlPathAllowed` 保留 `/`、`?`、`#` 等路径分隔符，
-        //         但会对空格、中文等进行编码。
         let encoded = path.addingPercentEncoding(
             withAllowedCharacters: .urlPathAllowed
         ) ?? path

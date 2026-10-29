@@ -215,4 +215,18 @@ final class MyDeviceViewModel {
     private var hasUserChanged: Bool {
         lastLoadedUserId != AuthStore.shared.userId
     }
+    
+    // MARK: - Delete
+
+    /// 仅移除本地数据（用于侧滑动画的瞬时响应）
+    func removeDeviceLocally(at index: Int) {
+        guard index < devices.count else { return }
+        devices.remove(at: index)
+        totalCount = max(0, totalCount - 1)
+    }
+
+    /// 发起删除网络请求
+    func requestDeleteDevice(id: String) -> AnyPublisher<Void, NetworkError> {
+        return repository.deleteDevice(aid: id)
+    }
 }

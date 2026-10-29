@@ -121,6 +121,8 @@ final class LoginViewController: UIViewController {
         applyAuthKeyboard(to: emailTextField, mode: .email)
         codeTextField.keyboardType = .numberPad
         
+        loginBtn.layer.cornerRadius = AppSpacing.Corner.card
+        
         // 密码默认隐藏
         passwordTextField.isSecureTextEntry = true
         passwordVisibleBtn.setImage(AppImage.System.eyeSlashFill, for: .normal)

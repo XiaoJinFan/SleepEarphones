@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import OSLog
 
 // MARK: - 仓库协议
 
@@ -49,6 +48,17 @@ protocol UserProfileRepositoryProtocol: Sendable {
 // MARK: - 实现
 
 /// 用户资料仓库实现
+///
+/// ## 线程安全说明（`Sendable` 合规性）
+/// 本类满足 `protocol Sendable`，所有存储属性均为 `let` + `Sendable` 类型：
+/// - `UserDefaults`：系统标注 `@unchecked Sendable`，内部有锁，**任意线程读写安全**
+/// - `DispatchQueue`：`Sendable`
+/// - `URL` / `CGFloat`：值类型 `Sendable`
+///
+/// - Important: 原代码用 `nonisolated(unsafe) private let userDefaults`——
+///              **不必要**。现代 SDK 的 `UserDefaults` 已是 `@unchecked Sendable`，
+///              额外标注属于"防御过度"，反而会误导维护者
+///              （以为需要手动保证线程安全）。
 final class UserProfileRepository: UserProfileRepositoryProtocol {
 
     // MARK: - Keys
@@ -70,10 +80,7 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
 
     // MARK: - Properties
 
-    /// 用户偏好存储
-    ///
-    /// - Note: `UserDefaults` 是 `@unchecked Sendable`——内部有锁保护，
-    ///         任意线程读写安全。因此**不需要** `nonisolated(unsafe)` 修饰。
+    /// 用户偏好存储，添加nonisolated(unsafe) 是为了消除警告
     nonisolated(unsafe) private let userDefaults: UserDefaults
 
     /// 串行队列：用于「压缩 / 文件读写」等后台 IO
@@ -258,13 +265,12 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     /// - 迁移成功后**删除旧键**：释放 `UserDefaults` 的空间（旧头像是
     ///   base64 / Data 形式，可能占用数百 KB，长期留存是浪费）。
     private func migrateLegacyAvatarIfNeeded() {
-        // 快速路径：旧键不存在（大多数用户已迁移或从未用过老版本）
-        guard userDefaults.data(forKey: Keys.legacyAvatar) != nil else {
-            return
-        }
-
-        // 再次读取（防御性——虽然快速路径已检查）
+        // 一次读取 → 同时用于「存在性判断」与「写入文件」
+        //
+        // - Note: 原代码读两次（一次判空、一次取 Data），
+        //         虽然 `UserDefaults` 读取极快，但一次读取更简洁。
         guard let legacyData = userDefaults.data(forKey: Keys.legacyAvatar) else {
+            // 旧键不存在（大多数用户已迁移或从未用过老版本）
             return
         }
 

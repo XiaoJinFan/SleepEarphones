@@ -160,9 +160,6 @@ enum AccountSecurityAPI: APIRequest {
     var method: HTTPMethod { .post }
 
     /// 所有接口统一使用 JSON body
-    ///
-    /// - Note: 改绑 / 校验 / 发送验证码都是结构化参数，
-    ///         没有文件上传场景，因此全部 JSON。
     var encoding: ParameterEncoding { JSONEncoding.default }
 
     /// 请求参数（依 case 分派）
@@ -246,7 +243,7 @@ enum AccountSecurityAPI: APIRequest {
     /// - Note:
     ///   - `AuthStore.shared.token` 内部线程安全（Keychain / UserDefaults 均线程安全），
     ///     `asURLRequest()` 在任意线程调用都安全
-    ///   - 无 token 时返回 `nil`——后端会返回 401，
+    ///   - 无 token 时返回 `nil`——后端会返回业务码 `-201`（缺少 UserToken），
     ///     由 `NetworkClient` 映射为 `.tokenExpired`
     var headers: HTTPHeaders? {
         guard let token = AuthStore.shared.token, !token.isEmpty else {

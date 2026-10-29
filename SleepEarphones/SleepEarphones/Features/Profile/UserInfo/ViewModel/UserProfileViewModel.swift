@@ -10,7 +10,6 @@ import Combine
 import Kingfisher
 
 /// 用户资料视图模型
-///
 @MainActor
 final class UserProfileViewModel {
 
@@ -43,9 +42,6 @@ final class UserProfileViewModel {
     private let repository: UserProfileRepositoryProtocol
     private let service: UserProfileServiceProtocol
 
-    /// 头像加载任务（用于在 VM 释放时取消）
-    private nonisolated(unsafe) var avatarLoadTask: Task<Void, Never>?
-
     // MARK: - Initializer（依赖注入）
 
     /// 初始化
@@ -53,7 +49,6 @@ final class UserProfileViewModel {
     /// - Parameters:
     ///   - repository: 本地存储仓库
     ///   - service: 网络服务
-    ///
     init(
         repository: UserProfileRepositoryProtocol = UserProfileRepository(),
         service: UserProfileServiceProtocol = UserProfileService()
@@ -62,11 +57,6 @@ final class UserProfileViewModel {
         self.service = service
         loadNickname()
         loadAvatarAsync()
-    }
-
-    deinit {
-        // 取消正在进行的头像加载（`Task.cancel()` 线程安全）
-        avatarLoadTask?.cancel()
     }
 
     // MARK: - 数据加载
@@ -94,8 +84,18 @@ final class UserProfileViewModel {
 
     /// 加载头像（优先级：本地设置 → 登录信息（远程下载）→ nil）
     ///
+    /// ## 关于"为什么不保存 task 引用"
+    /// 原代码用 `nonisolated(unsafe) var avatarLoadTask` + `deinit` 里 `cancel()`
+    /// 来实现"VM 释放时取消下载"，但：
+    /// 1. **`[weak self]` 已足够**——Task 内 `guard let self` 会在 VM 释放后立即返回
+    /// 2. **`nonisolated(unsafe)` 是误导**——`Task` 本身是 `Sendable`，
+    ///    VM 是单例之外的普通对象，不存在"跨 actor 访问"问题；
+    ///    该标注只是为了让 `deinit`（`nonisolated`）能访问属性而绕过编译器
+    /// 3. **底层 Kingfisher 有超时/缓存机制**——不会因"未主动 cancel"而资源泄漏
+    ///
+    /// 因此简化：不保存 task 引用，依赖 `[weak self]` 的自然回收。
     private func loadAvatarAsync() {
-        avatarLoadTask = Task { [weak self] in
+        Task { [weak self] in
             guard let self else { return }
 
             // 1. 优先本地（用户主动选过的）
@@ -127,7 +127,6 @@ final class UserProfileViewModel {
     ///
     /// - Parameter urlString: 头像 URL
     /// - Returns: 下载成功的图片；失败时返回 `nil`（不抛错——头像是非关键数据）
-    ///
     private static func downloadAvatar(urlString: String) async -> UIImage? {
         guard let url = URL(string: urlString) else {
             AppLog.profile.error("头像 URL 非法：\(urlString, privacy: .public)")
@@ -147,7 +146,6 @@ final class UserProfileViewModel {
     // MARK: - 刷新（进入「我的」Tab 时调用）
 
     /// 从服务端拉取最新的用户信息并更新 UI
-    ///
     func refresh() async {
         // 未登录：跳过（防御性——正常流程下 MyViewController 只在登录后出现）
         guard AuthStore.shared.isLoggedIn else {
@@ -210,7 +208,6 @@ final class UserProfileViewModel {
     /// - Parameters:
     ///   - avatar: 新头像；`nil` 表示**不改头像**（保留当前）
     ///   - nickname: 新昵称
-    ///
     func save(avatar: UIImage?, nickname: String) async throws {
 
         // 1. 立即进入"保存中"状态（UI 立即禁用按钮）
@@ -236,7 +233,7 @@ final class UserProfileViewModel {
             "保存用户资料：昵称长度=\(nickname.count, privacy: .public) 头像=\(avatar != nil ? "新头像" : "未变更", privacy: .public)"
         )
 
-        // 4. 远程同步（可能抛错——本地已保存，见上方 tradeoff 说明）
+        // 4. 远程同步（可能抛错——本地已保存，见类注释 tradeoff 说明）
         do {
             // 4.1 若头像变更 → 先上传，拿 URL
             var remoteAvatarURL: String?
@@ -267,7 +264,6 @@ final class UserProfileViewModel {
             }
 
             // 4.2 调修改资料接口（昵称 + 头像 URL）
-            
             try await editProfile(
                 nickname: nickname,
                 avatarURL: remoteAvatarURL
@@ -378,7 +374,6 @@ private final class ResumeState: @unchecked Sendable {
     /// 尝试标记为"已 resume"
     ///
     /// - Returns: 首次调用返回 `true`；再次调用返回 `false`
-    ///
     func tryMarkResumed() -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -393,7 +388,6 @@ private final class ResumeState: @unchecked Sendable {
     /// 附加订阅句柄
     ///
     /// - Parameter c: `sink` 返回的 `AnyCancellable`
-    /// 
     func attach(_ c: AnyCancellable) {
         lock.lock()
         if hasResumed {

@@ -7,7 +7,6 @@
 
 import Foundation
 import Alamofire
-import Network
 
 /// 用户资料相关接口
 ///
@@ -20,7 +19,8 @@ import Network
 ///
 /// ## 认证
 /// 所有接口都需要 `user-token` 请求头（从 `AuthStore.shared.token` 读取）。
-/// 缺失时后端会返回 401，由 `NetworkClient` 映射为 `.tokenExpired`。
+/// 缺失时后端会返回业务码 `-201`（缺少 UserToken），
+/// 由 `NetworkClient` 映射为 `.tokenExpired`。
 ///
 /// ## 关于 `avatar` 参数
 /// 后端 `edit_user_info` 的 `avatar` 是 **String**（URL）——
@@ -54,23 +54,11 @@ enum UserProfileAPI: APIRequest {
     ///
     /// - Note: 本项目只改昵称 + 头像，其余选填参数
     ///         （gender / birthday / background / autograph）不传。
-    ///
-    /// ## 后端请求示例
-    /// ```json
-    /// {
-    ///   "avatar": "https://xmsmej.oss-cn-hongkong.aliyuncs.com/m12323/2026-09-30/599e315bb091411ff1533e29d98f6ced.png",
-    ///   "nickname": "划水真的"
-    /// }
-    /// ```
     case editProfile(nickname: String?, avatarURL: String?)
 
     /// 拉取当前登录用户的详细信息
     ///
     /// - Note: 无参数——服务端通过 `user-token` 请求头识别当前用户。
-    ///
-    /// ## 使用场景
-    /// - 进入「我的」Tab 时刷新用户信息
-    /// - 未来"个人中心"页展示更多字段（会员等级、积分等）
     case fetchUserInfo
 
     /// 上传头像文件（multipart/form-data）
@@ -80,9 +68,6 @@ enum UserProfileAPI: APIRequest {
     ///   - fileName: 文件名（如 `"avatar.jpg"`）
     ///   - fieldName: 后端约定的表单字段名（默认 `"file"`）
     ///   - mimeType: MIME 类型（默认 `"image/jpeg"`）
-    ///
-    /// - Note: 后端约定表单字段名就是 `"file"`——
-    ///         从接口文档"参数名字 = file"可以看出。
     case uploadAvatar(
         imageData: Data,
         fileName: String,
@@ -133,16 +118,8 @@ enum UserProfileAPI: APIRequest {
     /// - Note:
     ///   - `AuthStore.shared.token` 内部线程安全（Keychain / UserDefaults 均线程安全），
     ///     `asURLRequest()` 在任意线程调用都安全。
-    ///   - 无 token 时返回 `nil`——后端会返回 401，
+    ///   - 无 token 时返回 `nil`——后端会返回业务码 `-201`，
     ///     由 `NetworkClient` 映射为 `.tokenExpired`。
-    ///
-    /// ## 与 `AccountSecurityAPI.headers` 的相似性
-    /// 两处 token 读取逻辑**几乎一致**——但**当前不抽公共**：
-    /// - 两处的 `path` / 日志需求不同（一个 debug 日志、一个无日志）
-    /// - 抽公共会引入**跨模块**依赖——`AccountSecurityAPI` 与 `UserProfileAPI`
-    ///   分属不同 feature，不应互相依赖
-    /// - **若未来**出现第三个 API 也需要 `user-token`——
-    ///   可考虑在 `APIRequest` 协议扩展加一个 `defaultAuthHeaders` 静态方法
     var headers: HTTPHeaders? {
         guard let token = AuthStore.shared.token, !token.isEmpty else {
             return nil
@@ -185,13 +162,6 @@ enum UserProfileAPI: APIRequest {
     /// （如加入 UA 处理 / 统一 header / 超时策略），本处**不会**自动跟随——
     /// 会造成**两个接口行为不一致**的隐蔽 bug。
     ///
-    /// ## 为什么当前选择"复制"而非"抽取共享工具"？
-    /// - **本文件**是唯一的"覆盖 `asURLRequest`"的 API——
-    ///   只有一处重复，抽取共享工具的成本 > 收益
-    /// - **若未来**出现第二个需要 multipart 的 API——
-    ///   **那时**再把默认实现抽到 `APIRequestBuilder` 或类似工具类——
-    ///   让两处**共享**同一份逻辑
-    ///
     /// ## 维护清单（修改默认实现时的检查点）
     /// 若修改 `APIRequest.asURLRequest()` 的默认实现，**必须**同步本方法——
     /// 检查以下内容是否一致：
@@ -214,7 +184,6 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 构造 `multipart/form-data` 请求
-    ///
     private func buildMultipartRequest(
         imageData: Data,
         fileName: String,
@@ -254,7 +223,6 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 构造 multipart body
-    ///
     private func makeMultipartBody(
         imageData: Data,
         fileName: String,
@@ -282,10 +250,6 @@ enum UserProfileAPI: APIRequest {
         let footerString = "\r\n--\(boundary)--\r\n"
 
         // 4. 编码（几乎不会失败——但**不**强制解包，避免潜在崩溃）
-        //
-        // - Note: 若编码失败（如未来 header 含非 UTF-8 字符），
-        //         抛出 `NetworkError.invalidURL`（语义：请求构造失败）。
-        //         当前实际不会触发——但**防御性**保证代码健壮性。
         guard let headerData = headerString.data(using: .utf8),
               let footerData = footerString.data(using: .utf8) else {
             AppLog.profile.error("multipart header/footer UTF-8 编码失败")
@@ -302,7 +266,6 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 转义 multipart 字段值（防 header injection）
-    ///
     private static func escapeMultipartValue(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\\", with: "\\\\")   // 反斜杠转义（**先**）
@@ -335,8 +298,7 @@ enum UserProfileAPI: APIRequest {
 ///     "real_name": "",
 ///     "email": "",
 ///     "userlevel_name": "普通会员",
-///     "is_cancel": 0,
-///     ...
+///     "is_cancel": 0
 ///   },
 ///   "msg": "请求成功",
 ///   "time": 1790733787
@@ -351,12 +313,6 @@ enum UserProfileAPI: APIRequest {
 /// | `email` | 真实邮箱 |
 ///
 /// 因此**不能复用** `LoginResult`——两个接口结构不同。
-///
-/// ## 容错策略（重要）
-/// 本类型使用**自定义容错解码**而非自动合成：
-/// 1. **每字段独立 `try?`**——任一字段失败不影响其他字段
-/// 2. **数值字段兼容 `Int` / `String`**——后端 PHP 可能把 `0` 序列化为 `"0"`
-/// 3. **失败时输出字段名**——便于 Console 定位
 struct UserDetailInfo: Decodable, Sendable {
 
     // MARK: - 核心字段（UI 会用到的）
@@ -396,10 +352,6 @@ struct UserDetailInfo: Decodable, Sendable {
     ///
     /// ## 后端字段
     /// `user/get_user_info` 返回的 `_mobile`（注意前缀下划线）。
-    ///
-    /// ## 类型兼容
-    /// 后端可能返回 `Int`（如 `18384891021`）或 `String`（`"18384891021"`）——
-    /// 本字段通过自定义解码统一处理。
     let realMobile: String?
 
     // MARK: - 扩展字段（备用）
@@ -550,35 +502,41 @@ struct UserDetailInfo: Decodable, Sendable {
 /// }
 /// ```
 ///
+/// ## 为什么设计成"多场景容错解码"？
+/// 后端 OSS 上传接口在不同历史版本 / 不同文件类型的返回结构**不一致**：
+/// - 标准：`data.data.file`（当前后端）
+/// - 简化：`data` 直接是 URL 字符串
+/// - 变体：`data.url`
+///
+/// `init(from:)` 依次尝试三种结构，任一成功即返回，
+/// 全部失败时输出日志并置 nil（由 `UserProfileService` 抛 `.emptyData`）。
 struct UploadResult: Decodable, Sendable {
 
     /// 文件 URL（完整 URL，可直接传给 `edit_user_info` 的 `avatar` 参数）
-    var fileURL: String?
+    let fileURL: String?
 
     /// 文件 ID（后端分配，可用于后续操作，如删除文件）
     ///
     /// - Note: 当前业务未使用，保留以备扩展。
-    var fileID: Int?
+    let fileID: Int?
 
-    // MARK: - 主结构（标准返回）
+    // MARK: - 解码键
 
-    /// 主结构的根键
+    /// 标准结构：`{ data: { file, fileId } }`
+    ///
+    /// - Note: 根层的 `success` 字段虽然存在于响应里，但业务不使用——
+    ///         只用于后端日志排查，**不参与解码**，
+    ///         故 `RootKeys` **只定义实际解码的 `data`**，
+    ///         避免"定义了却不用"的死字段（P2 优化点）。
     private enum RootKeys: String, CodingKey {
-        /// 内层文件对象 `{ file, fileId }`
         case data
-        /// 操作结果描述（如 `"上传成功AliOss"`），暂不使用
-        case success
     }
 
     /// 内层文件对象的键
     private enum FileKeys: String, CodingKey {
-        /// 文件 URL
         case file
-        /// 文件 ID
         case fileId
     }
-
-    // MARK: - 兼容结构的键
 
     /// 兼容结构：`{ "url": "..." }`
     private enum CompatKeys: String, CodingKey {
@@ -590,18 +548,25 @@ struct UploadResult: Decodable, Sendable {
     /// 宽容解码：先尝试标准嵌套结构，再尝试兼容结构
     ///
     /// ## 解码优先级
-    /// 1. **标准**：`{ data: { file, fileId }, success }` —— 当前后端实际结构
+    /// 1. **标准**：`{ data: { file, fileId } }` —— 当前后端实际结构
     /// 2. **String**：`data` 直接是 URL 字符串
     /// 3. **对象**：`{ url: "..." }` —— 兼容可能的结构变化
     /// 4. **兜底**：全部失败时 `fileURL = nil`
+    ///
+    /// - Note: 各分支的 `fileID` 只有场景 1 会赋值，
+    ///         场景 2 / 3 无此字段（nil 是合理语义）。
     init(from decoder: Decoder) throws {
         // 场景 1：标准嵌套结构 `{ data: { file: "...", fileId: 123 } }`
         if let root = try? decoder.container(keyedBy: RootKeys.self),
            let fileContainer = try? root.nestedContainer(keyedBy: FileKeys.self, forKey: .data) {
-            self.fileURL = try? fileContainer.decodeIfPresent(String.self, forKey: .file)
-            self.fileID  = try? fileContainer.decodeIfPresent(Int.self,    forKey: .fileId)
+            let url = try? fileContainer.decodeIfPresent(String.self, forKey: .file)
 
-            if let fileURL, !fileURL.isEmpty {
+            // fileId 兼容 Int / String（防御后端 PHP 序列化差异）
+            let id = Self.decodeFileID(from: fileContainer)
+
+            if let url, !url.isEmpty {
+                self.fileURL = url
+                self.fileID = id
                 return
             }
         }
@@ -611,7 +576,7 @@ struct UploadResult: Decodable, Sendable {
            let str = try? container.decode(String.self),
            !str.isEmpty {
             self.fileURL = str
-            self.fileID  = nil
+            self.fileID = nil
             return
         }
 
@@ -620,7 +585,7 @@ struct UploadResult: Decodable, Sendable {
            let url = try? container.decodeIfPresent(String.self, forKey: .url),
            !url.isEmpty {
             self.fileURL = url
-            self.fileID  = nil
+            self.fileID = nil
             return
         }
 
@@ -629,6 +594,27 @@ struct UploadResult: Decodable, Sendable {
             "UploadResult 解码失败：未匹配任何已知结构（data.data.file / String / url）"
         )
         self.fileURL = nil
-        self.fileID  = nil
+        self.fileID = nil
+    }
+
+    // MARK: - Private Helpers
+
+    /// 解码 `fileId`，兼容 Int / String
+    ///
+    /// - Parameter container: 内层文件对象容器
+    /// - Returns: 解析出的 Int；缺失或无法转换时返回 `nil`
+    private static func decodeFileID(
+        from container: KeyedDecodingContainer<FileKeys>
+    ) -> Int? {
+        // 优先 Int
+        if let intID = try? container.decodeIfPresent(Int.self, forKey: .fileId) {
+            return intID
+        }
+        // 兼容 String（"12040505" → 12040505）
+        if let strID = try? container.decodeIfPresent(String.self, forKey: .fileId),
+           let parsed = Int(strID) {
+            return parsed
+        }
+        return nil
     }
 }

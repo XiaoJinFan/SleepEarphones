@@ -7,7 +7,6 @@
 
 import Foundation
 import Combine
-import Network
 
 // MARK: - 服务协议
 
@@ -22,6 +21,12 @@ protocol DeviceServiceProtocol: Sendable {
     ///   - pageSize: 每页条数
     /// - Returns: 设备列表数据
     func fetchDeviceList(userId: String, page: Int, pageSize: Int) -> AnyPublisher<DeviceListData, NetworkError>
+
+    /// 删除设备
+    ///
+    /// - Parameter aid: 设备 ID
+    /// - Returns: 成功时返回 `Void`
+    func deleteDevice(aid: String) -> AnyPublisher<Void, NetworkError>
 }
 
 // MARK: - 服务实现
@@ -36,8 +41,7 @@ protocol DeviceServiceProtocol: Sendable {
 /// ## 日志
 /// 使用 `AppLog.device` 记录请求参数。
 /// - `userId` 用 `privacy: .private`（用户 ID 属于敏感信息）
-/// - `page` / `pageSize` 用 `privacy: .public`（无敏感）
-///
+/// - `page` / `pageSize` / `aid` 用 `privacy: .public` 或 `.private`（视是否敏感）
 final class DeviceService: DeviceServiceProtocol {
 
     // MARK: - Properties
@@ -63,6 +67,23 @@ final class DeviceService: DeviceServiceProtocol {
             DeviceAPI.listByUser(userId: userId, page: page, pageSize: pageSize),
             as: DeviceListData.self
         )
+        .eraseToAnyPublisher()
+    }
+
+    // MARK: - Delete
+
+    /// 删除设备
+    ///
+    /// - Parameter aid: 设备 ID（`DeviceModel.id`）
+    /// - Returns: 成功时返回 `Void`
+    func deleteDevice(aid: String) -> AnyPublisher<Void, NetworkError> {
+        AppLog.device.debug("请求删除设备：aid=\(aid, privacy: .private)")
+
+        return client.request(
+            DeviceAPI.deleteDevice(aid: aid),
+            as: EmptyResponse.self
+        )
+        .map { _ in () }
         .eraseToAnyPublisher()
     }
 }
