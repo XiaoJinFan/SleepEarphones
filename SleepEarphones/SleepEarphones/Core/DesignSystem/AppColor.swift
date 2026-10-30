@@ -169,6 +169,9 @@ enum AppColor {
         /// 卡片主背景色（深蓝灰）
         static let cardBackground = UIColor(hex: "#25284B")
         
+        /// 声音库、睡眠报告背景颜色
+        static let soundAndSleepBackground = UIColor(hex: "#343758")
+        
         /// 电量胶囊背景绿
         static let batteryGreen = UIColor(hex: "#14C260")
         

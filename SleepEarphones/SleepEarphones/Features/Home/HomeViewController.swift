@@ -277,7 +277,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         // bleViewModel.connectBySerialNumber(serialNumber)
         
         // 现在直接跳转至设备详情页，并将当前设备的数据（Model）传给详情页
-        let vc = DeviceDetailsController(device: device)
+        let vc = DeviceControllerView(device: device)
         navigationController?.pushViewController(vc, animated: true)
     }
 

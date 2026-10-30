@@ -162,8 +162,26 @@ final class MusicViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        // 主动恢复 tabBar
-        tabBarController?.tabBar.isHidden = false
+        // 判断当前页面是作为 Tab 根控制器，还是被 Push 进来的
+        let isPushed = navigationController?.viewControllers.first !== self
+
+        if isPushed {
+            // 【Push 进入】显示系统导航栏，标题居中，隐藏页面靠左大标题
+            navigationController?.setNavigationBarHidden(false, animated: animated)
+            navigationController?.navigationBar.tintColor = AppColor.Text.primary // 返回按钮颜色适配
+            navigationItem.title = "声音库"
+            musicPageTitle.isHidden = true
+            // 主动隐藏 tabBar
+            tabBarController?.tabBar.isHidden = true
+        } else {
+            // 【Tab 进入】隐藏系统导航栏，显示靠左大标题
+            navigationController?.setNavigationBarHidden(false, animated: animated)
+            navigationItem.title = nil
+            musicPageTitle.isHidden = false
+            // 主动恢复 tabBar
+            tabBarController?.tabBar.isHidden = false
+        }
+        
 
         // 每次进入本页刷新迷你条（返回时可能状态有变化）
         refreshMiniPlayer()

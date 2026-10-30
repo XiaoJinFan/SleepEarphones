@@ -88,8 +88,8 @@ enum AppImage {
         static let defaultDeviceLarge = image(named: "设备占位图")
         
         // 电量
-        static let leftEar = image(named: "左耳")
-        static let rightEar = image(named: "右耳")
+        static let leftEar = image(named: "左耳电量")
+        static let rightEar = image(named: "右耳电量")
         static let batteryBox = image(named: "充电仓")
         
         // 睡眠卡片

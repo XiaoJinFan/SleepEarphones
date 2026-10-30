@@ -1,8 +1,8 @@
 //
-//  DeviceDetailsController.swift
+//  DeviceControl.swift
 //  SleepEarphones
 //
-//  Created by 肖进凡 on 2026/10/22.
+//  Created by 肖进凡 on 2026/10/30.
 //
 
 import UIKit
@@ -16,7 +16,7 @@ import Combine
 /// - 承载睡眠记录、睡眠模式、智能音量等功能的入口
 /// - 使用纯代码 + SnapKit + Combine 替换原 XIB 布局
 @MainActor
-final class DeviceDetailsController: UIViewController {
+final class DeviceControllerView: UIViewController {
 
     // MARK: - Constants
 
@@ -192,30 +192,34 @@ final class DeviceDetailsController: UIViewController {
         // 2. 设置整体图标颜色（适配深色背景，让系统返回按钮变白）
         navigationController?.navigationBar.tintColor = .white
 
-        // 3. 左侧返回按钮：不要写任何 leftBarButtonItem 的代码！
-        // 只要不写，系统会自动生成绝对居中的 `<` 箭头，并完美支持侧滑手势。
-        
-        // 如果你想隐藏返回按钮旁边的文字（默认可能是上一页的标题），可以加上这句
-        // 注意：这个设置最好写在上一页（HomeViewController），在当前页写是影响下一页的
-        // 但你可以尝试在这里写上，看看能否覆盖系统默认行为
+        // 3. 左侧返回按钮：不写任何 leftBarButtonItem 的代码，依靠系统原生居中
         navigationItem.backButtonDisplayMode = .minimal
 
-        // 4. 设置右侧按钮（使用系统纯原生图标）
-        let helpItem = UIBarButtonItem(
-            image: UIImage(systemName: "headphones"),
-            style: .plain,
-            target: self,
-            action: #selector(helpBtnClick)
-        )
-        let settingsItem = UIBarButtonItem(
-            image: UIImage(systemName: "gearshape"),
-            style: .plain,
-            target: self,
-            action: #selector(setBtnClick)
-        )
+        // ================= 右侧按钮修复约束冲突 =================
+        // 核心修复：不要用 SnapKit 约束宽高，直接用 frame 设置尺寸
+        // 这样系统包装器会自动读取 frame 尺寸，避免 NSAutoresizingMaskLayoutConstraint 冲突
         
-        // 数组顺序：left 到 right
-        navigationItem.rightBarButtonItems = [settingsItem, helpItem]
+        let helpBtn = UIButton(type: .system)
+        helpBtn.setImage(UIImage(systemName: "headphones"), for: .normal)
+        helpBtn.tintColor = .white
+        // 显式指定 frame（Swift 推荐写法，避免系统在 Push 瞬间宽度为0的冲突）
+        helpBtn.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+        helpBtn.addTarget(self, action: #selector(helpBtnClick), for: .touchUpInside)
+
+        let settingsBtn = UIButton(type: .system)
+        settingsBtn.setImage(UIImage(systemName: "gearshape"), for: .normal)
+        settingsBtn.tintColor = .white
+        settingsBtn.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+        settingsBtn.addTarget(self, action: #selector(setBtnClick), for: .touchUpInside)
+        
+        let helpItem = UIBarButtonItem(customView: helpBtn)
+        let settingsItem = UIBarButtonItem(customView: settingsBtn)
+        
+        // 添加一个固定宽度的占位符，用来控制两个图标之间的间距
+        let spacer = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+        spacer.width = 8
+
+        navigationItem.rightBarButtonItems = [settingsItem, spacer, helpItem]
     }
 
     // MARK: - Setup UI
@@ -306,7 +310,7 @@ final class DeviceDetailsController: UIViewController {
     // MARK: - Setup Constraints
 
     private func setupConstraints() {
-        // 滚动视图铺满全屏，让系统通过 contentInsetAdjustmentBehavior 自动处理导航栏高度
+        // 滚动视图铺满全屏
         scrollView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
@@ -416,6 +420,9 @@ final class DeviceDetailsController: UIViewController {
 
     @objc private func setBtnClick() {
         AppLog.device.debug("点击设置")
+        // 跳转设置页面，并将当前设备数据传过去
+        let settingsVC = DeviceSettingsViewController(device: device)
+        navigationController?.pushViewController(settingsVC, animated: true)
     }
 
     @objc private func helpBtnClick() {
@@ -426,18 +433,53 @@ final class DeviceDetailsController: UIViewController {
         AppLog.device.debug("点击开始记录睡眠")
     }
 
-    private func typeRowTapped(tag: Int) {
-        AppLog.device.debug("点击列表项: \(tag)")
+    /// 点击睡眠模式旁边的问号图标
+    @objc private func infoIconTapped() {
+        showAlert(
+            "启用此模式以节省电池并延长播放时间。注意：您只能访问已传输到耳机中的内置音频文件。如需更换内置音频，请访问音频库。",
+            title: "提示"
+        )
     }
 
-    @objc private func midBtnTapped(tag: Int) {
+    private func typeRowTapped(tag: Int) {
+        AppLog.device.debug("点击列表项: \(tag)")
+        if tag == 100 {
+            // 跳转闹钟模式页面
+            let alarmVC = AlarmViewController()
+            navigationController?.pushViewController(alarmVC, animated: true)
+        } else if tag == 101 {
+            showToast("睡眠定时页面开发中")
+        } else if tag == 102 {
+            let controlVC = GuestViewController()
+            navigationController?.pushViewController(controlVC, animated: true)
+        } else if tag == 103 {
+            let controlVC = SoundEffectViewController()
+            navigationController?.pushViewController(controlVC, animated: true)
+        }
+    }
+    
+    @objc private func midBtnTapped(_ sender: UIButton) {
+        // 在方法内部获取 tag
+        let tag = sender.tag
         AppLog.device.debug("点击中间卡片按钮: \(tag)")
+        
+        if tag == 200 {
+            // 跳转声音库（MusicViewController）
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            if let musicVC = storyboard.instantiateViewController(withIdentifier: "MusicViewController") as? MusicViewController {
+                musicVC.hidesBottomBarWhenPushed = true
+                navigationController?.pushViewController(musicVC, animated: true)
+            }
+        } else if tag == 201 {
+            // 睡眠报告（暂未开发）
+            showToast("睡眠报告页面开发中")
+        }
     }
 }
 
 // MARK: - UI 组件工厂方法
 
-extension DeviceDetailsController {
+extension DeviceControllerView {
     
     /// 创建 UISwitch
     private func createSwitch() -> UISwitch {
@@ -487,13 +529,13 @@ extension DeviceDetailsController {
     /// 创建记录睡眠卡片中间按钮
     private func makeMidButton(title: String, image: UIImage, tag: Int) -> UIView {
         let container = UIView()
-        container.backgroundColor = AppColor.Device.cardBackground.withAlphaComponent(0.6)
-        container.layer.cornerRadius = 8
+        container.backgroundColor = AppColor.Device.soundAndSleepBackground
+        container.layer.cornerRadius = AppSpacing.Corner.button
         container.clipsToBounds = true
         
         let btn = UIButton(type: .custom)
         btn.tag = tag
-        btn.addTarget(self, action: #selector(midBtnTapped(tag:)), for: .touchUpInside)
+        btn.addTarget(self, action: #selector(midBtnTapped(_:)), for: .touchUpInside)
         
         let iconView = UIImageView(image: image)
         iconView.contentMode = .scaleAspectFit
@@ -528,8 +570,14 @@ extension DeviceDetailsController {
 
     /// 创建行尾箭头图标
     private func makeArrowIcon() -> UIImageView {
-        // 修复了这里可能引发编译报错的 Optional 语法（去掉了 ?. ）
-        let iv = UIImageView(image: AppImage.Device.iconArrowNext?.withRenderingMode(.alwaysTemplate))
+        let iv = UIImageView()
+        // 安全解包：兼容 iconArrowNext 为可选类型的情况
+        if let nextImg = AppImage.Device.iconArrowNext {
+            iv.image = nextImg.withRenderingMode(.alwaysTemplate)
+        } else {
+            iv.image = UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate)
+        }
+        
         iv.tintColor = AppColor.Device.arrowGray
         iv.contentMode = .scaleAspectFit
         iv.snp.makeConstraints { make in
@@ -566,13 +614,14 @@ extension DeviceDetailsController {
         label.textColor = .white
         container.addSubview(label)
         
-        // 帮助信息图标（可选）
+        // 帮助信息图标（可选，改用 Button 以支持点击交互）
         if showInfoIcon {
-            let info = UIImageView(image: AppImage.Device.iconInfo)
-            info.contentMode = .scaleAspectFit
-            container.addSubview(info)
+            let infoBtn = UIButton(type: .custom)
+            infoBtn.setImage(AppImage.Device.iconInfo, for: .normal)
+            infoBtn.addTarget(self, action: #selector(infoIconTapped), for: .touchUpInside)
+            container.addSubview(infoBtn)
             
-            info.snp.makeConstraints { make in
+            infoBtn.snp.makeConstraints { make in
                 make.leading.equalTo(label.snp.trailing).offset(10)
                 make.centerY.equalTo(label)
                 make.width.height.equalTo(16)
