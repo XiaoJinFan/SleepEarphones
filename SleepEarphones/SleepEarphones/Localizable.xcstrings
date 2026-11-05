@@ -72,7 +72,6 @@
       }
     },
     "%@失败" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -107,7 +106,6 @@
       }
     },
     "%@格式不正确" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -142,7 +140,6 @@
       }
     },
     "%lld s" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -177,7 +174,6 @@
       }
     },
     "%lld 分钟" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -212,7 +208,6 @@
       }
     },
     "%lldM" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -247,7 +242,6 @@
       }
     },
     "%lldS" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -282,7 +276,6 @@
       }
     },
     "copyright©%lld 睡眠耳机" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1192,7 +1185,6 @@
       }
     },
     "最多 %lld 个字符" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1227,7 +1219,6 @@
       }
     },
     "最多选择 %lld 个" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1402,7 +1393,6 @@
       }
     },
     "删除失败: %@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2067,7 +2057,6 @@
       }
     },
     "备案服务号：%@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2170,6 +2159,12 @@
           }
         }
       }
+    },
+    "完成 100% (%lld 项)" : {
+
+    },
+    "完成 100%% (%lld 项)" : {
+
     },
     "定时关闭" : {
       "extractionState" : "stale",
@@ -2837,7 +2832,6 @@
       }
     },
     "开始播放%@查找声音" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2942,7 +2936,6 @@
       }
     },
     "当前版本 %@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4307,7 +4300,6 @@
       }
     },
     "昵称最长 %lld 个字符" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4657,7 +4649,6 @@
       }
     },
     "服务器错误 (%lld)" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4937,7 +4928,6 @@
       }
     },
     "未获取到当前绑定的%@，请稍后重试" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5181,8 +5171,13 @@
         }
       }
     },
+    "欢迎 %@" : {
+
+    },
+    "欢迎，%@" : {
+
+    },
     "正在连接 %@…" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5707,7 +5702,6 @@
       }
     },
     "电信业务经营许可证：%@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7527,7 +7521,6 @@
       }
     },
     "请完善%@信息" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7877,7 +7870,6 @@
       }
     },
     "请输入 %lld 位验证码" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8052,7 +8044,6 @@
       }
     },
     "请输入新%@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8577,7 +8568,6 @@
       }
     },
     "请验证当前绑定的%@：" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8716,6 +8706,9 @@
         }
       }
     },
+    "进度 %.1f" : {
+
+    },
     "连接" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -8787,7 +8780,6 @@
       }
     },
     "连接失败: %@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8822,7 +8814,6 @@
       }
     },
     "连接失败：%@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9311,6 +9302,12 @@
         }
       }
     },
+    "错误 %d" : {
+
+    },
+    "错误 %lld" : {
+
+    },
     "闹钟模式" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9522,7 +9519,6 @@
       }
     },
     "音频加载失败：%@" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
