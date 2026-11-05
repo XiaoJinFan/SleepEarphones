@@ -31,14 +31,12 @@ protocol MusicRepositoryProtocol: Sendable {
 
 // MARK: - 仓库实现
 
-final class MusicRepository: MusicRepositoryProtocol {
+/// 音乐仓库实现
+final class MusicRepository: MusicRepositoryProtocol, Sendable {
 
     // MARK: - Singleton
 
     /// 共享实例
-    ///
-    /// - Note: 单例 + `MusicService.shared` 双重保证，
-    ///         整个 App 内 Session / 网络配置只有一份。
     static let shared = MusicRepository()
 
     // MARK: - Properties
@@ -80,6 +78,7 @@ final class MusicRepository: MusicRepositoryProtocol {
 
     // MARK: - Fetch Custom Noises
 
+    /// 拉取自定义白噪音列表
     func fetchCustomNoises() -> AnyPublisher<[MusicSong], NetworkError> {
         service.fetchSongs(
             freemusicsubcategory_id: nil,
@@ -92,15 +91,6 @@ final class MusicRepository: MusicRepositoryProtocol {
 // MARK: - 匹配便捷方法
 
 /// 统一"拉取 → 匹配"逻辑
-///
-/// ## 背景
-/// `MusicViewController.fetchAndPlaySong` 与
-/// `MusicListViewController.playSong` 都做同样的事：
-/// 1. 拉取指定子分类的歌曲列表
-/// 2. 用 `subCategoryId` 匹配目标
-/// 3. 匹配失败时用第一条兜底
-///
-/// 抽到此处后，2 个调用方只需一行 `fetchMatchedSong`。
 extension MusicRepositoryProtocol {
 
     /// 拉取并匹配指定子分类的音乐
@@ -110,16 +100,34 @@ extension MusicRepositoryProtocol {
     ///   - customWhiteNoise: 是否只拉自定义白噪音；`nil` 表示不过滤
     /// - Returns: 匹配到的音乐（匹配失败用第一条兜底）；无数据时抛 `.emptyData`
     func fetchMatchedSong(subCategoryId: String, customWhiteNoise: Bool? = nil) -> AnyPublisher<MusicSong, NetworkError> {
-        fetchSongs(freemusicsubcategory_id: subCategoryId, customWhiteNoise: customWhiteNoise)
-            .tryMap { songs -> MusicSong in
-                let targetId = Int(subCategoryId)
-                guard let song = songs.first(where: { $0.subCategoryId == targetId })
-                    ?? songs.first else {
-                    throw NetworkError.emptyData
-                }
-                return song
+        fetchSongs(
+            freemusicsubcategory_id: subCategoryId,
+            customWhiteNoise: customWhiteNoise
+        )
+        .tryMap { songs -> MusicSong in
+            // 防御性：空列表直接抛错（原实现隐式通过 `?? songs.first` 处理）
+            guard !songs.isEmpty else {
+                throw NetworkError.emptyData
             }
-            .mapError { ($0 as? NetworkError) ?? .underlying($0) }
-            .eraseToAnyPublisher()
+
+            // 若 subCategoryId 不是数字字符串，跳过匹配直接用第一条
+            guard let targetId = Int(subCategoryId) else {
+                AppLog.app.debug(
+                    "fetchMatchedSong：subCategoryId 非数字（\(subCategoryId, privacy: .public)），使用第一条"
+                )
+                return songs[0]
+            }
+
+            // 优先匹配 targetId，未命中用第一条兜底
+            let matched = songs.first(where: { $0.subCategoryId == targetId })
+                ?? songs[0]
+
+            AppLog.app.debug(
+                "fetchMatchedSong：targetId=\(targetId, privacy: .public) → song.aid=\(matched.id, privacy: .public)（匹配成功=\(matched.subCategoryId == targetId)）"
+            )
+            return matched
+        }
+        .mapError { ($0 as? NetworkError) ?? .underlying($0) }
+        .eraseToAnyPublisher()
     }
 }

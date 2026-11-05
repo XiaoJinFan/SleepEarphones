@@ -52,9 +52,6 @@ final class CountdownTimer {
     // MARK: - Private
 
     /// 当前运行的倒计时任务
-    ///
-    /// - Note: 用 `[weak self]` 捕获，避免 Task 强持有 self 造成循环引用。
-    ///         Task 本身由 `self` 持有，self 释放时 Task 也随之释放。
     private var task: Task<Void, Never>?
 
     // MARK: - Public
@@ -62,14 +59,23 @@ final class CountdownTimer {
     /// 是否正在运行
     ///
     /// - Returns: `remaining > 0` 时为 `true`
+    ///
     var isRunning: Bool { remaining > 0 }
 
     /// 启动倒计时
     ///
     /// - Parameter seconds: 总秒数，默认 60
     ///
-    /// - Note: 若已有倒计时在运行，会先取消再重新开始（幂等）。
+    /// - Note:
+    ///   - 若已有倒计时在运行，会先取消再重新开始（幂等）
+    ///   - `seconds <= 0` 时直接取消，不启动 Task
     func start(seconds: Int = 60) {
+        // 非法入参：直接视为"取消"，不创建 Task
+        guard seconds > 0 else {
+            cancel()
+            return
+        }
+
         // 若已有任务，先取消
         cancel()
 
@@ -88,7 +94,7 @@ final class CountdownTimer {
                 do {
                     try await Task.sleep(nanoseconds: 1_000_000_000)
                 } catch {
-                    // 被取消，直接结束
+                    // 被取消，直接结束（cancel 已清空 task / remaining）
                     return
                 }
 
@@ -107,9 +113,12 @@ final class CountdownTimer {
     ///
     /// - Note: 会将 `remaining` 重置为 0，
     ///         保证订阅方立即收到"倒计时结束"通知。
+    ///
     func cancel() {
         task?.cancel()
         task = nil
-        remaining = 0
+        if remaining != 0 {
+            remaining = 0
+        }
     }
 }

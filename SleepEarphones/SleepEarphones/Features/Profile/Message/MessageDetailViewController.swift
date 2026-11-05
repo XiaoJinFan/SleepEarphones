@@ -17,9 +17,9 @@ final class MessageDetailViewController: UIViewController {
 
     private enum Layout {
         /// 进度条高度：hairline（0.5pt）
-        static let progressHeight: CGFloat = 0.5
+        static let progressHeight: CGFloat = AppSpacing.Border.hairline
         /// 内容左右边距
-        static let horizontalInset: CGFloat = 20
+        static let horizontalInset: CGFloat = AppSpacing.lg
         /// 标题与进度条间距
         static let titleTopInset: CGFloat = AppSpacing.md
         /// 标题与时间间距
@@ -36,11 +36,6 @@ final class MessageDetailViewController: UIViewController {
     private let message: MessageModel
 
     /// KVO 观察者
-    ///
-    /// - Note: 无需在 `deinit` 里手动 `invalidate`——
-    ///         `NSKeyValueObservation` 会在 observe 的对象释放时自动失效；
-    ///         而且 Swift 6 下 `@MainActor` 类的 `deinit` 是 `nonisolated`，
-    ///         直接访问本属性会触发并发警告。
     private var progressObservation: NSKeyValueObservation?
 
     /// 是否已经提示过加载错误（避免重复弹窗）
@@ -48,7 +43,7 @@ final class MessageDetailViewController: UIViewController {
 
     // MARK: - UI
 
-    /// 标题
+    /// 标题（**内容来自后端，已本地化**）
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Body.emphasized
@@ -57,7 +52,7 @@ final class MessageDetailViewController: UIViewController {
         return l
     }()
 
-    /// 时间
+    /// 时间（**内容来自后端，已本地化**）
     private let timeLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Caption.regular
@@ -93,11 +88,11 @@ final class MessageDetailViewController: UIViewController {
 
     /// 初始化
     ///
-    /// - Parameter message: 消息模型（含 HTML content）
+    /// - Parameter message: 消息模型（含 HTML content；标题 / 分类名已本地化）
     init(message: MessageModel) {
         self.message = message
         super.init(nibName: nil, bundle: nil)
-        // 导航栏标题用分类名（如"平台公告"）——标识页面类型
+        // 导航栏标题用**分类名**（如"平台公告"）——标识页面类型
         // 文章标题在内容区显示——标识具体文章
         self.title = message.categoryName
         // push 时自动隐藏 tabBar，pop 时自动恢复
@@ -142,20 +137,24 @@ final class MessageDetailViewController: UIViewController {
 
         // 标题：与进度条留出间距
         titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(progressView.snp.bottom).offset(Layout.titleTopInset)
-            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
+            make.top.equalTo(progressView.snp.bottom)
+                .offset(Layout.titleTopInset)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.horizontalInset)
         }
 
         // 时间
         timeLabel.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(Layout.timeTopInset)
+            make.top.equalTo(titleLabel.snp.bottom)
+                .offset(Layout.timeTopInset)
             make.leading.trailing.equalTo(titleLabel)
             make.height.equalTo(Layout.timeHeight)
         }
 
         // 网页：占据剩余空间，底边贴 safeArea 避免被 Home Indicator 遮挡
         webView.snp.makeConstraints { make in
-            make.top.equalTo(timeLabel.snp.bottom).offset(Layout.headerBottomInset)
+            make.top.equalTo(timeLabel.snp.bottom)
+                .offset(Layout.headerBottomInset)
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
         }
@@ -168,8 +167,6 @@ final class MessageDetailViewController: UIViewController {
     }
 
     /// 监听 `WKWebView.estimatedProgress`，驱动进度条
-    ///
-    /// - Note: KVO 回调不保证在主线程，内部统一切主。
     private func observeWebView() {
         progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             let progress = Float(webView.estimatedProgress)
@@ -200,8 +197,16 @@ final class MessageDetailViewController: UIViewController {
             "渲染消息详情：aid=\(self.message.id, privacy: .private)"
         )
 
+        // **重置进度条**——支持"重试"场景
+        progressView.progress = 0
+        progressView.isHidden = false
+        progressView.alpha = 1
+
         // 用统一模板包装 HTML 片段
-        let html = AgreementHTMLTemplate.wrap(message.content, title: message.title)
+        let html = AgreementHTMLTemplate.wrap(
+            message.content,
+            title: message.title
+        )
         webView.loadHTMLString(html, baseURL: nil)
     }
 
@@ -210,28 +215,28 @@ final class MessageDetailViewController: UIViewController {
     /// 处理加载失败（带防重入）
     ///
     /// - Parameter error: WebKit 抛出的错误
-    ///
-    /// - Note: **只在首次失败时弹 Alert**——
-    ///         若同一页面被多次失败回调触发，只弹一次，避免连续弹窗。
     private func handleLoadFailure(_ error: Error) {
         // 主动取消（用户返回上一页）不算错误
         if (error as NSError).code == NSURLErrorCancelled { return }
 
-        AppLog.profile.error("消息详情加载失败：\(error.localizedDescription, privacy: .public)")
+        AppLog.profile.error(
+            "消息详情加载失败：\(error.localizedDescription, privacy: .public)"
+        )
 
         guard !hasShownErrorAlert else { return }
         hasShownErrorAlert = true
 
         let alert = UIAlertController(
-            title: "加载失败",
+            // **弹窗标题 / 按钮标题已本地化**
+            title: L("加载失败"),
             message: error.localizedDescription,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "重试", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("重试"), style: .default) { [weak self] _ in
             self?.hasShownErrorAlert = false
             self?.loadHTML()
         })
-        alert.addAction(UIAlertAction(title: "返回", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("返回"), style: .cancel) { [weak self] _ in
             self?.navigationController?.popViewController(animated: true)
         })
         present(alert, animated: true)

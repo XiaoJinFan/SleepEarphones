@@ -34,6 +34,7 @@
 		5BC439DD30908EC300700ACC /* Exceptions for "SleepEarphones" folder in "SleepEarphones" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ExtractLocalizable.swift,
 				Info.plist,
 			);
 			target = 5BC439CA30908EC200700ACC /* SleepEarphones */;
@@ -260,6 +261,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LOCALIZED_STRING_MACRO_NAMES = (
+					L,
+					LN,
+					NSLocalizedString,
+					CFCopyLocalizedString,
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.SleepEarphones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -297,6 +304,12 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LOCALIZED_STRING_MACRO_NAMES = (
+					L,
+					LN,
+					NSLocalizedString,
+					CFCopyLocalizedString,
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.SleepEarphones;

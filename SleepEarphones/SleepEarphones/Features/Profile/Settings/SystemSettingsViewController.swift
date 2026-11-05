@@ -36,11 +36,6 @@ final class SystemSettingsViewController: UIViewController {
         static let scrollBottomInset: CGFloat = AppSpacing.xl
     }
 
-    /// 尚未实现的入口提示文案
-    ///
-    /// - Note: 抽为常量便于后续统一替换 / 清理。
-    private static let todoToast = "功能开发中"
-
     // MARK: - UI
 
     private lazy var scrollView: UIScrollView = {
@@ -58,6 +53,13 @@ final class SystemSettingsViewController: UIViewController {
         return s
     }()
 
+    // MARK: - Computed
+
+    /// 尚未实现的入口提示文案（**已本地化**）
+    private var todoToast: String {
+        L("功能开发中")
+    }
+
     // MARK: - Init
 
     /// 初始化
@@ -65,9 +67,6 @@ final class SystemSettingsViewController: UIViewController {
     /// - Parameters:
     ///   - nibNameOrNil: Nib 文件名（默认 nil）
     ///   - nibBundleOrNil: Nib Bundle（默认 nil）
-    ///
-    /// - Note: 用 `init(nibName:bundle:)` 的 override 来设置
-    ///         `hidesBottomBarWhenPushed`，确保从任何入口 Push 都生效。
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
         // ✅ 关键：Push 时自动隐藏 tabBar，Pop 时自动恢复
@@ -91,7 +90,8 @@ final class SystemSettingsViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "系统设置"
+        // **导航标题已本地化**
+        title = L("系统设置")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -104,6 +104,9 @@ final class SystemSettingsViewController: UIViewController {
             make.edges.equalToSuperview()
         }
 
+        // contentStack：
+        // - `contentLayoutGuide`：内容高度由子视图撑开
+        // - `frameLayoutGuide`：宽度等于可视区减去左右边距（防横向滚动）
         contentStack.snp.makeConstraints { make in
             make.edges.equalTo(scrollView.contentLayoutGuide)
                 .inset(UIEdgeInsets(
@@ -133,7 +136,8 @@ final class SystemSettingsViewController: UIViewController {
     /// - Returns: 账号与安全分组卡片
     private func makeAccountCard() -> SettingsCardView {
         SettingsCardView(items: [
-            SettingsItem(title: "账号与安全") { [weak self] in
+            // **菜单项已本地化**
+            SettingsItem(title: L("账号与安全")) { [weak self] in
                 self?.openAccountSecurity()
             }
         ])
@@ -144,17 +148,18 @@ final class SystemSettingsViewController: UIViewController {
     /// - Returns: 协议 / 语言 / 版本分组卡片
     private func makeInfoCard() -> SettingsCardView {
         SettingsCardView(items: [
-            SettingsItem(title: "用户协议") { [weak self] in
+            SettingsItem(title: L("用户协议")) { [weak self] in
                 self?.openUserAgreement()
             },
-            SettingsItem(title: "语言设置") { [weak self] in
+            SettingsItem(title: L("语言设置")) { [weak self] in
                 self?.openLanguageSettings()
             },
-            SettingsItem(title: "隐私政策") { [weak self] in
+            SettingsItem(title: L("隐私政策")) { [weak self] in
                 self?.openPrivacyPolicy()
             },
+            // 当前版本：纯展示，不可点击
             SettingsItem(
-                title: "当前版本",
+                title: L("当前版本"),
                 value: "V\(DeviceInfo.appVersion)",
                 showsArrow: false,
                 action: nil    // ⬅️ 无点击
@@ -167,7 +172,7 @@ final class SystemSettingsViewController: UIViewController {
     /// - Returns: 注销账号分组卡片
     private func makeLogoutCard() -> SettingsCardView {
         SettingsCardView(items: [
-            SettingsItem(title: "注销账号") { [weak self] in
+            SettingsItem(title: L("注销账号")) { [weak self] in
                 self?.openAccountDeletion()
             }
         ])
@@ -183,8 +188,6 @@ final class SystemSettingsViewController: UIViewController {
     }
 
     /// 打开用户协议
-    ///
-    /// - Note: 复用 `AgreementNavigation`（与登录页同一入口）。
     private func openUserAgreement() {
         AppLog.profile.debug("点击用户协议")
         AgreementNavigation.open(from: self, urlString: AgreementLinks.userAgreement)
@@ -205,17 +208,19 @@ final class SystemSettingsViewController: UIViewController {
         AgreementNavigation.open(from: self, urlString: AgreementLinks.privacyPolicy)
     }
 
-    /// 打开注销账号页（危险操作：二次确认后再跳转）
+    /// 打开注销账号页（危险操作：**二次确认**后再跳转）
     private func openAccountDeletion() {
         AppLog.profile.debug("点击注销账号")
+
+        // **弹窗标题 / 正文 / 确认按钮均通过 `L(...)` 本地化**
         showConfirm(
-            title: "注销账号",
-            message: "注销后账号数据将被永久删除，确定要继续吗？",
-            confirmTitle: "继续注销",
+            title: L("注销账号"),
+            message: L("注销后账号数据将被永久删除，确定要继续吗？"),
+            confirmTitle: L("继续注销"),
             destructive: true
         ) { [weak self] in
-            // TODO: 跳转"注销账号"页
-            self?.showToast(Self.todoToast)
+            // TODO: 跳转"注销账号"页（原因选择 + 提交）
+            self?.showToast(self?.todoToast ?? "")
         }
     }
 }

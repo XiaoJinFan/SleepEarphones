@@ -42,30 +42,38 @@ extension String {
 
     // MARK: 字符类型判断
 
-    /// 是否为纯数字（0~9）
+    /// 是否为纯数字（**Swift `Character.isNumber` 语义**）
     ///
     /// ## 调用方法
     /// ```swift
     /// "123".isNumeric     // true
     /// "12.3".isNumeric    // false（含小数点）
     /// "-1".isNumeric      // false（含负号）
-    /// "１２３".isNumeric  // false（全角）
+    /// "１２３".isNumeric  // true（全角数字，Unicode Nd 类）
+    /// "".isNumeric        // false（空字符串）
     /// ```
     ///
-    /// - Note: 不包括小数、正负号。全角数字需先调用
-    ///         `AccountInputValidator.normalizePhone(_:)` 转换。
     var isNumeric: Bool {
         !isEmpty && allSatisfy { $0.isNumber }
     }
 
-    /// 是否为纯字母
+    /// 是否为纯字母（**Swift `Character.isLetter` 语义**）
     ///
     /// ## 调用方法
     /// ```swift
     /// "abc".isAlphabetic   // true
     /// "ABC".isAlphabetic   // true
     /// "ab1".isAlphabetic   // false
+    /// "ＡＢＣ".isAlphabetic // true（全角字母，Unicode L 类）
+    /// "中文".isAlphabetic   // true（汉字也属于 Letter！）
     /// "".isAlphabetic      // false
+    /// ```
+    ///
+    /// - Important: **中文、日文假名、韩文都会被判定为字母**——
+    ///   `Character.isLetter` 对 Unicode `L*`（Letter）类返回 `true`。
+    ///   若业务需要"仅英文 A-Z / a-z"，应显式判断：
+    ///   ```swift
+    /// text.allSatisfy { $0.isASCII && $0.isLetter }
     /// ```
     var isAlphabetic: Bool {
         !isEmpty && allSatisfy { $0.isLetter }
@@ -96,12 +104,14 @@ extension String {
     /// "abc123!@#".isASCII   // true
     /// "中文".isASCII        // false
     /// "😀".isASCII          // false
+    /// "".isASCII            // false（空字符串，避免误判为合法内容）
     /// ```
+    ///
     var isASCII: Bool {
         !isEmpty && allSatisfy { $0.isASCII }
     }
 
-    /// 是否全部为中文字符
+    /// 是否全部为中文字符（CJK Unified Ideographs）
     ///
     /// ## 调用方法
     /// ```swift
@@ -110,8 +120,6 @@ extension String {
     /// "".isChinese         // false
     /// ```
     ///
-    /// - Note: 依赖 Unicode 范围（CJK Unified Ideographs），
-    ///         覆盖常见汉字，不含日文假名 / 韩文。
     var isChinese: Bool {
         !isEmpty && allSatisfy { character in
             character.unicodeScalars.allSatisfy { scalar in
@@ -132,11 +140,9 @@ extension String {
     /// ```
     ///
     /// - Parameters:
-    ///   - range: 长度范围（闭区间）
+    ///   - range: 长度范围（**闭区间**，含上下边界）
     /// - Returns: 长度是否在 `[lower, upper]` 区间内
     ///
-    /// - Note: 用 `count` 而非 `utf8.count`：中文、emoji 也算 1 个字符。
-    ///         若需要按字节数校验，改用 `utf8.count`。
     func hasLength(in range: ClosedRange<Int>) -> Bool {
         range.contains(count)
     }
@@ -184,6 +190,8 @@ extension String {
     /// ```
     ///
     /// - Note: **会同时做 trim**，避免把 `" a "` 作为参数发出。
+    ///         这是唯一一个"返回值 ≠ self"的 `nilIf*` 方法——
+    ///         如果调用方需要保留首尾空格，应改用 `nilIfEmpty`。
     var nilIfBlank: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
@@ -211,13 +219,12 @@ extension String {
     /// ```swift
     /// "abcdef".truncated(to: 3)   // "abc"
     /// "abc".truncated(to: 5)      // "abc"（未超长，原样返回）
+    /// "👍🏽👍🏽👍🏽".truncated(to: 2)  // "👍🏽👍🏽"（按 Character 计数，emoji 不被拆坏）
     /// ```
     ///
     /// - Parameter length: 最大保留长度
     /// - Returns: 若原长 ≤ length，返回自身；否则返回前 length 个字符
     ///
-    /// - Note: 按 `Character` 计数，中文 / emoji 不会被拆坏。
-    ///         若需要在截断后加省略号，用 `truncatedWithEllipsis(to:)`。
     func truncated(to length: Int) -> String {
         guard length >= 0, count > length else { return self }
         return String(prefix(length))
@@ -233,6 +240,7 @@ extension String {
     ///
     /// - Parameter length: 最大保留长度（**不含省略号**）
     /// - Returns: 若原长 ≤ length，返回自身；否则返回 `前 length 个字符 + "…"`
+    ///
     func truncatedWithEllipsis(to length: Int) -> String {
         guard length >= 0 else { return self }
         guard count > length else { return self }
@@ -256,9 +264,9 @@ extension String {
     ///         用于界面展示，**不要**用于日志（日志请用 `AppLog` 的 `privacy:`）。
     var maskedMobile: String {
         guard count >= 7 else { return self }
-        let prefix = self.prefix(3)
-        let suffix = self.suffix(4)
-        return "\(prefix)****\(suffix)"
+        let prefixPart = self.prefix(3)
+        let suffixPart = self.suffix(4)
+        return "\(prefixPart)****\(suffixPart)"
     }
 
     /// 邮箱脱敏（保留首字符）
@@ -267,7 +275,11 @@ extension String {
     /// ```swift
     /// "user@example.com".maskedEmail    // "u***@example.com"
     /// "invalid".maskedEmail             // "invalid"（无 @，原样返回）
+    /// "@example.com".maskedEmail        // "@example.com"（local 部分为空，原样返回）
     /// ```
+    ///
+    /// - Note: 无 `@` 或 local 部分为空时原样返回——
+    ///         这两种情况说明输入本身非法，脱敏无意义。
     var maskedEmail: String {
         let parts = split(separator: "@", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2 else { return self }
@@ -285,19 +297,19 @@ extension String {
     /// ```swift
     /// "1234567890".masked(prefix: 2, suffix: 2)   // "12***90"
     /// "ab".masked(prefix: 2, suffix: 2)           // "ab"（总长不足，原样返回）
+    /// "abc".masked(prefix: 1, suffix: 1)          // "abc"（总长 == prefix+suffix，原样返回）
     /// ```
     ///
     /// - Parameters:
     ///   - prefixLength: 保留前缀长度
     ///   - suffixLength: 保留后缀长度
     /// - Returns: 中间用 `*` 替代
-    ///
-    /// - Note: 若总长度 ≤ prefix + suffix，直接返回自身。
+    /// 
     func masked(prefix prefixLength: Int, suffix suffixLength: Int) -> String {
         guard prefixLength >= 0, suffixLength >= 0 else { return self }
         guard count > prefixLength + suffixLength else { return self }
-        let prefix = self.prefix(prefixLength)
-        let suffix = self.suffix(suffixLength)
-        return "\(prefix)***\(suffix)"
+        let prefixPart = self.prefix(prefixLength)
+        let suffixPart = self.suffix(suffixLength)
+        return "\(prefixPart)***\(suffixPart)"
     }
 }

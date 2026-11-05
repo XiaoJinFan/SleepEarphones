@@ -45,6 +45,17 @@ import Combine
 /// vm.clearError()
 /// ```
 ///
+/// ## 与 `HelpFeedbackViewModel` 的对称性
+/// 本 VM 与 `HelpFeedbackViewModel` 结构**几乎完全相同**：
+/// - 同样的 `requestToken` 竞态处理
+/// - 同样的 `isLoading` / `errorMessage` / `isEmpty` 输出
+/// - 唯一的区别是 `MessageModel` vs `HelpFAQItem`
+///
+/// **当前不抽基类**的原因：
+/// - 抽 `BaseListViewModel<T>` 需要泛型 + 类型擦除，引入额外复杂度
+/// - 只有 2 个实现，收益 < 成本
+/// - 若未来出现第 3 个同类 VM（如设备列表 / 订单列表），再抽不迟
+///
 /// ## 竞态处理
 /// 用单调递增的 `requestToken` 标识"当前有效的请求"：
 /// - 每次发起新请求前 `&+= 1`
@@ -54,6 +65,10 @@ import Combine
 /// 本类**不实现** `deinit`。原因：
 /// - Swift 6 中 `deinit` 是 `nonisolated`，不能访问 `@MainActor` 属性
 /// - `AnyCancellable` 在 VM 释放时随属性一同释放，自动取消订阅
+///
+/// ## 关于国际化
+/// - 错误提示通过 `L(...)` 读取
+/// - **日志**（`AppLog.profile.debug`）保持中文，**不参与国际化**
 @MainActor
 final class MessageListViewModel {
 
@@ -65,15 +80,12 @@ final class MessageListViewModel {
     /// 是否正在加载（首屏显示菊花）
     @Published private(set) var isLoading: Bool = false
 
-    /// 错误信息
+    /// 错误信息（**已本地化**）
     @Published private(set) var errorMessage: String?
 
     /// 空数据状态
     ///
-    /// - Returns: 无数据 + 不在加载 + 无错误时为 `true`
-    ///
-    /// - Note: 计算属性，不占用内存。有错误时返回 `false`——
-    ///         弹 Alert 后页面留白，与"空数据"视觉区分。
+    /// - Returns: 无数据 + 不在加载 + **无错误** 时为 `true`
     var isEmpty: Bool {
         messages.isEmpty && !isLoading && errorMessage == nil
     }
@@ -83,9 +95,6 @@ final class MessageListViewModel {
     private let repository: MessageRepositoryProtocol
 
     /// 当前进行中的请求（用于取消，避免竞态）
-    ///
-    /// - Note: 本 VM 只维护**一个**在飞请求，用单独属性持有即可；
-    ///         无需 `Set<AnyCancellable>`（后者适用于多订阅场景）。
     private var currentRequest: AnyCancellable?
 
     /// 请求身份令牌
@@ -103,15 +112,8 @@ final class MessageListViewModel {
     // MARK: - Input
 
     /// 加载消息列表
-    ///
-    /// ## 幂等
-    /// 若已在加载中，忽略本次调用（防止重复请求）。
-    ///
-    /// ## 行为
-    /// - 取消旧请求 + 递增令牌（避免竞态）
-    /// - 仅首屏（`messages` 为空）时显示菊花
-    /// - 成功后更新 `messages`，失败后设置 `errorMessage`
     func loadMessages() {
+        // 防抖：已在加载中不重复请求
         guard !isLoading else {
             AppLog.profile.debug("消息列表加载被拦截：已在加载中")
             return
@@ -125,7 +127,7 @@ final class MessageListViewModel {
 
         errorMessage = nil
 
-        // 仅首屏（无数据）时显示菊花
+        // **仅首屏**（无数据）时显示菊花
         if messages.isEmpty {
             isLoading = true
         }
@@ -148,7 +150,9 @@ final class MessageListViewModel {
                         AppLog.profile.error(
                             "消息列表加载失败：\(error.logCode, privacy: .public)"
                         )
-                        self.errorMessage = error.errorDescription ?? "加载失败，请稍后重试"
+                        // **错误提示已本地化**
+                        self.errorMessage = error.errorDescription
+                            ?? L("加载失败，请稍后重试")
                     }
                 },
                 receiveValue: { [weak self] messages in
@@ -164,9 +168,6 @@ final class MessageListViewModel {
     // MARK: - 状态清理
 
     /// 清除错误
-    ///
-    /// - Note: UI 层弹完 Alert 后应调用本方法重置状态，
-    ///         避免 `$errorMessage` 的 `compactMap` 反复触发。
     func clearError() {
         errorMessage = nil
     }

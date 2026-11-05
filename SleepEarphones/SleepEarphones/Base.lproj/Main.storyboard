@@ -858,13 +858,19 @@
                     </view>
                     <tabBarItem key="tabBarItem" title="我的" image="mine_un" selectedImage="mine_select" id="Y1m-lb-XPj"/>
                     <connections>
+                        <outlet property="aboutUSLab" destination="dy1-4R-Fae" id="TV1-q3-gG7"/>
                         <outlet property="clearCacheContainer" destination="fXt-CQ-1zI" id="DHv-Rr-d51"/>
+                        <outlet property="clearCacheLab" destination="eb0-RM-3uF" id="mzL-eH-B2n"/>
+                        <outlet property="connectUSLab" destination="7LQ-4C-Qre" id="QPR-eM-4Iv"/>
                         <outlet property="curCacheSize" destination="KUx-8t-thY" id="kDI-X2-B3d"/>
                         <outlet property="deviceContainer" destination="XGp-pB-vqS" id="Atm-u6-Zgf"/>
+                        <outlet property="deviceLab" destination="Vve-XC-1I0" id="oMt-JO-b92"/>
                         <outlet property="devicePicture" destination="815-6j-hEH" id="imo-zT-S11"/>
                         <outlet property="devicesNum" destination="dp5-xo-f0H" id="70w-Kp-fAR"/>
                         <outlet property="helpFeedContainer" destination="8KQ-rs-bqT" id="N4N-sG-fNV"/>
+                        <outlet property="helpFeedLab" destination="QQ7-El-3oR" id="mU0-qQ-k0M"/>
                         <outlet property="moreSettingContainer" destination="j2H-kA-uWO" id="LGo-NR-NBl"/>
+                        <outlet property="moreSettingLab" destination="NEB-qO-ud7" id="raW-rJ-33d"/>
                         <outlet property="personalAvatar" destination="b4E-mt-N7l" id="Fbm-xB-Zdg"/>
                         <outlet property="personalNickName" destination="Yws-HA-y46" id="q1H-Bl-scI"/>
                     </connections>

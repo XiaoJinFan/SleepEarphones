@@ -9,6 +9,30 @@ import UIKit
 
 /// 全局颜色定义
 ///
+/// ## 设计原则
+/// - **品牌色**：表达"强调"（主要操作、选中态、品牌识别）
+/// - **语义色**：表达"状态"（成功 / 警告 / 错误 / 信息）
+/// - **文字色**：按重要性分四级（primary / secondary / tertiary / inverse）
+/// - **背景色**：三级层次（primary → secondary → card）
+/// - **动态色**：所有颜色都随系统深色模式自动切换
+///
+/// ## 调用方法
+/// ```swift
+/// // 1. 品牌色
+/// button.backgroundColor = AppColor.Brand.primary
+///
+/// // 2. 语义色（表达状态）
+/// statusDot.backgroundColor = AppColor.Semantic.success
+///
+/// // 3. 文字 / 背景
+/// label.textColor = AppColor.Text.primary
+/// view.backgroundColor = AppColor.Background.primary
+///
+/// // 4. 动态色（手动解析指定外观）
+/// let lightColor = AppColor.Text.primary.resolvedColor(
+///     with: UITraitCollection(userInterfaceStyle: .light)
+/// )
+/// ```
 enum AppColor {
 
     // MARK: - Brand
@@ -33,8 +57,6 @@ enum AppColor {
     // MARK: - Semantic
 
     /// 语义色（表达状态：成功 / 警告 / 错误 / 信息）
-    ///
-    /// - Note: 与品牌色区分——品牌色表达"强调"，语义色表达"状态"。
     enum Semantic {
 
         /// 成功（浅色 #34C759 / 深色 #30D158）
@@ -151,37 +173,36 @@ enum AppColor {
     /// 链接色（浅色 #3478F6 / 深色 #0A84FF）
     ///
     /// - 使用场景：协议文本中的可点击链接（《用户注册协议》《隐私政策》）
-    /// 
+    ///
     static let link = dynamic(
         light: "#3478F6",
         dark:  "#0A84FF"
     )
-    
-    // MARK: - Device (设备控制页专属深色主题)
-    
-    /// 设备控制页（如 DeviceDetails）专属的沉浸式深色配色
-    ///
-    /// - Note: 为了与全局的亮/暗主题区分开，这里使用固定色值，不跟随系统切换。
+
+    // MARK: - Device（设备控制页专属深色主题）
+
+    /// 设备控制页（如 `DeviceControllerView`）专属的沉浸式深色配色
     enum Device {
-        /// 页面主背景色（深蓝）
+
+        /// 页面主背景色（深蓝 #0B102B）
         static let background = UIColor(hex: "#0B102B")
-        
-        /// 卡片主背景色（深蓝灰）
+
+        /// 卡片主背景色（深蓝灰 #25284B）
         static let cardBackground = UIColor(hex: "#25284B")
-        
-        /// 声音库、睡眠报告背景颜色
+
+        /// 声音库、睡眠报告背景颜色（#343758）
         static let soundAndSleepBackground = UIColor(hex: "#343758")
-        
-        /// 电量胶囊背景绿
+
+        /// 电量胶囊背景绿（#14C260）
         static let batteryGreen = UIColor(hex: "#14C260")
-        
-        /// 卡片内按钮文字浅蓝
+
+        /// 卡片内按钮文字浅蓝（#A1C6FF）
         static let buttonTextLightBlue = UIColor(hex: "#A1C6FF")
-        
-        /// 列表右侧箭头灰
+
+        /// 列表右侧箭头灰（#8A8A8E）
         static let arrowGray = UIColor(hex: "#8A8A8E")
-        
-        /// 开关激活状态主题蓝
+
+        /// 开关激活状态主题蓝（#1C96D5）
         static let switchTint = UIColor(hex: "#1C96D5")
     }
 
@@ -192,17 +213,20 @@ enum AppColor {
     /// - Parameters:
     ///   - light: 浅色模式下的 hex 值
     ///   - dark: 深色模式下的 hex 值
-    /// - Returns: 动态 UIColor
+    /// - Returns: 动态 `UIColor`
     /// 
     private static func dynamic(light: String, dark: String) -> UIColor {
-        UIColor { traitCollection in
+        let lightColor = UIColor(hex: light)
+        let darkColor  = UIColor(hex: dark)
+
+        return UIColor { traitCollection in
             switch traitCollection.userInterfaceStyle {
             case .dark:
-                return UIColor(hex: dark)
+                return darkColor
             case .light, .unspecified:
-                return UIColor(hex: light)
+                return lightColor
             @unknown default:
-                return UIColor(hex: light)
+                return lightColor
             }
         }
     }

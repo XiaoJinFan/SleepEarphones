@@ -17,24 +17,31 @@ import OSLog
 /// AppLog.auth.error("登录失败：\(msg, privacy: .public)")
 /// AppLog.ui.warning("布局异常")
 ///
-/// // 2. Debug 快速打印（仅 DEBUG 生效）
+/// // 2. 性能计时（常用场景，避免手写样板）
+/// let elapsed = await AppLog.measure("音乐加载") {
+///     await loadMusic()
+/// }
+///
+/// // 3. Debug 快速打印（仅 DEBUG 生效）
 /// AppLog.trace("用户点击了登录按钮")
 /// // 输出：📎 [LoginViewController.swift:88] loginButtonTapped(_:) → 用户点击了登录按钮
 /// ```
 ///
 /// ## 隐私级别（重要）
-/// - `privacy: .public`：明文输出（适用于 URL、类型名等非敏感信息）
-/// - `privacy: .private`：<private> 脱敏（适用于用户 ID、昵称、手机号）
-/// - `privacy: .sensitive`：<private> 且不可在系统诊断中查看
-/// 
+/// | 级别 | 输出 | 适用场景 |
+/// |---|---|---|
+/// | `privacy: .public` | 明文 | URL、类型名、枚举值、非敏感 ID |
+/// | `privacy: .private` | `<private>` 脱敏 | 用户 ID、昵称、手机号、地址 |
+/// | `privacy: .sensitive` | `<private>` 且**系统诊断日志中不可见** | 密码、Token、身份证号 |
+///
 enum AppLog {
 
     // MARK: - Subsystem
 
-    /// 统一 subsystem（与 Bundle ID 一致，便于 Console.app 过滤）
-    ///
-    /// - Note: 修改此处即可全站生效，不再散落在各文件的 `Logger(subsystem:)` 中。
-    private static let subsystem = "com.sleepearphones.app"
+    /// 统一 subsystem
+    private static let subsystem: String = {
+        Bundle.main.bundleIdentifier ?? "com.sleepearphones.app"
+    }()
 
     // MARK: - App
 
@@ -63,11 +70,74 @@ enum AppLog {
     /// 协议（隐私政策 / 用户协议）
     static let agreement = Logger(subsystem: subsystem, category: "Agreement")
 
-    /// 设备
+    /// 设备（BLE 扫描 / 连接 / 属性）
     static let device = Logger(subsystem: subsystem, category: "Device")
 
-    /// 用户资料
+    /// 用户资料（我的 / 设置 / 帮助 / 消息）
     static let profile = Logger(subsystem: subsystem, category: "Profile")
+}
+
+// MARK: - 性能计时
+
+extension AppLog {
+
+    /// 测量闭包执行耗时并记录到日志
+    ///
+    /// ## 调用方法
+    /// ```swift
+    /// // 1. 同步闭包
+    /// let elapsed = AppLog.measure("解析 JSON") {
+    ///     try JSONDecoder().decode(Model.self, from: data)
+    /// }
+    /// // 日志输出：⏱ 解析 JSON 耗时 0.003s
+    ///
+    /// // 2. 异步闭包
+    /// let elapsed = await AppLog.measure("加载音乐") {
+    ///     await repository.fetchSongs()
+    /// }
+    ///
+    /// // 3. 自定义 Logger（默认用 AppLog.app）
+    /// AppLog.measure("登录请求", using: AppLog.auth) {
+    ///     await service.login()
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - label: 操作名（用于日志标识）
+    ///   - logger: 目标 Logger，默认 `AppLog.app`
+    ///   - operation: 要测量的闭包
+    /// - Returns: 闭包的返回值
+    ///
+    @discardableResult
+    static func measure<T>(_ label: String, using logger: Logger = AppLog.app, operation: () throws -> T) rethrows -> T {
+        let start = CFAbsoluteTimeGetCurrent()
+        defer {
+            let elapsed = CFAbsoluteTimeGetCurrent() - start
+            logger.debug(
+                "⏱ \(label, privacy: .public) 耗时 \(elapsed, format: .fixed(precision: 3))s"
+            )
+        }
+        return try operation()
+    }
+
+    /// 异步版本的耗时测量
+    ///
+    /// - Parameters:
+    ///   - label: 操作名
+    ///   - logger: 目标 Logger，默认 `AppLog.app`
+    ///   - operation: 要测量的异步闭包
+    /// - Returns: 闭包的返回值
+    @discardableResult
+    static func measure<T>(_ label: String, using logger: Logger = AppLog.app, operation: () async throws -> T) async rethrows -> T {
+        let start = CFAbsoluteTimeGetCurrent()
+        defer {
+            let elapsed = CFAbsoluteTimeGetCurrent() - start
+            logger.debug(
+                "⏱ \(label, privacy: .public) 耗时 \(elapsed, format: .fixed(precision: 3))s"
+            )
+        }
+        return try await operation()
+    }
 }
 
 // MARK: - Debug 辅助
@@ -76,6 +146,12 @@ enum AppLog {
 extension AppLog {
 
     /// 仅 Debug 生效的快速日志
+    ///
+    /// ## 调用方法
+    /// ```swift
+    /// AppLog.trace("用户点击了登录按钮")
+    /// // 输出：📎 [LoginViewController.swift:88] loginButtonTapped(_:) → 用户点击了登录按钮
+    /// ```
     ///
     /// - Parameters:
     ///   - message: 日志内容（自动闭包，Release 下不求值）

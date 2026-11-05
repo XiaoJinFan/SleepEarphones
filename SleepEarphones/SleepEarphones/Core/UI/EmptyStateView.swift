@@ -12,16 +12,16 @@ import SnapKit
 ///
 /// ## 调用方法
 /// ```swift
-/// // 1. 预设样式
+/// // 1. 预设样式（文案已内置国际化）
 /// let emptyView = EmptyStateView(style: .device)
 ///
-/// // 2. 自定义（图文）
+/// // 2. 自定义（图文）——调用方负责传入已本地化的文案
 /// let emptyView = EmptyStateView()
-/// emptyView.configure(image: AppImage.Local.emptyData, text: "暂无消息")
+/// emptyView.configure(image: AppImage.Local.emptyData, text: L("暂无消息"))
 ///
 /// // 3. 仅文案（无图）
-/// emptyView.configure(image: nil, text: "暂无数据")
-/// ```
+/// emptyView.configure(image: nil, text: L("暂无数据"))
+/// 
 @MainActor
 final class EmptyStateView: UIView {
 
@@ -36,13 +36,13 @@ final class EmptyStateView: UIView {
             AppImage.Local.emptyData
         }
 
-        /// 提示文案
+        /// 提示文案（**已本地化**）
         var text: String {
             switch self {
-            case .device:  return "暂无设备"
-            case .message: return "暂无消息"
-            case .music:   return "暂无音乐"
-            case .sleep:   return "暂无记录"
+            case .device:  return LN("暂无设备")
+            case .message: return LN("暂无消息")
+            case .music:   return LN("暂无音乐")
+            case .sleep:   return LN("暂无记录")
             }
         }
     }
@@ -81,7 +81,7 @@ final class EmptyStateView: UIView {
 
     private let titleLabel: UILabel = {
         let l = UILabel()
-        l.text = "暂无数据"
+        l.text = L("暂无数据")
         l.font = AppFont.Body.secondary
         l.textColor = AppColor.Text.secondary
         l.textAlignment = .center
@@ -137,10 +137,9 @@ final class EmptyStateView: UIView {
     ///
     /// - Parameters:
     ///   - image: 占位图；传 nil 时隐藏图片且文案上移
-    ///   - text: 提示文案；传 nil / 空字符串时隐藏文案
-    ///
-    /// - Note: 切换约束组而非仅隐藏视图——
-    ///         仅 `isHidden = true` 会导致文案上方仍留 140pt 空白。
+    ///   - text: 提示文案（**调用方负责传入已本地化的字符串**）；
+    ///           传 nil / 空字符串时隐藏文案
+    ///           
     func configure(image: UIImage?, text: String?) {
         let hasImage = (image != nil)
 

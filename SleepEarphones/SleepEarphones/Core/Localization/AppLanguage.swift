@@ -26,10 +26,22 @@ import Foundation
 /// let lang = AppLanguage(rawValue: "zh-Hans")
 /// ```
 ///
-/// ## 与系统语言的对应
-/// `rawValue` 必须与 `Localizable.strings` 目录名 / `Info.plist` 里
-/// `CFBundleLocalizations` 保持一致，否则 `NSLocalizedString` 找不到资源。
+/// ## 三方同步约束（重要，最容易出错）
+/// `rawValue` 必须**同时**与以下三处保持一致，否则语言切换会失效：
 ///
+/// | 位置 | 示例 |
+/// |---|---|
+/// | `rawValue`（本枚举） | `"zh-Hans"` |
+/// | `.lproj` 目录名 | `zh-Hans.lproj/Localizable.strings` |
+/// | `Info.plist` → `CFBundleLocalizations` | `["zh-Hans", "en", "fr", "ja", "de"]` |
+///
+/// **检查清单**（新增语言时）：
+/// 1. 在本枚举增加 case（`rawValue` = ISO 639-1 / BCP 47 code）
+/// 2. 在 Xcode 中创建对应 `.lproj/Localizable.strings`（Xcode 自动加入 build）
+/// 3. 在 `Info.plist` 的 `CFBundleLocalizations` 中追加同值
+/// 4. 在 `Info.plist` 的 `CFBundleDevelopmentRegion` 中保持默认语言（`zh-Hans`）
+///
+/// ## 与系统语言的对应
 /// | rawValue | 显示名 | 说明 |
 /// |---|---|---|
 /// | `zh-Hans` | 简体中文 | 默认语言 |
@@ -62,9 +74,6 @@ enum AppLanguage: String, CaseIterable {
     ///
     /// - Returns: 该语言的原生写法（如 `"简体中文"` / `"English"`）
     ///
-    /// - Note: 无论当前 App 是什么语言，都用**该语言的原生写法**展示。
-    ///         这是国际惯例——用户即使看不懂当前界面语言，
-    ///         也能凭母语文字找到自己的语言。
     var displayName: String {
         switch self {
         case .chinese:  return "简体中文"
@@ -72,6 +81,20 @@ enum AppLanguage: String, CaseIterable {
         case .french:   return "Français"
         case .japanese: return "日本語"
         case .german:   return "Deutsch"
+        }
+    }
+
+    // MARK: - RTL
+
+    /// 是否为从右到左（RTL）书写的语言
+    ///
+    /// - Returns: 当前支持的语言均非 RTL，始终返回 `false`
+    ///
+    var isRTL: Bool {
+        // 当前支持的语言（zh-Hans / en / fr / ja / de）全部是 LTR
+        switch self {
+        case .chinese, .english, .french, .japanese, .german:
+            return false
         }
     }
 

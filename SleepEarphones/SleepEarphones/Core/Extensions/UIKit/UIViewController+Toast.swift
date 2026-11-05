@@ -13,29 +13,29 @@ import Toast_Swift
 /// ## 调用方法
 /// ```swift
 /// // 1. 轻提示（自动消失）
-/// showToast("保存成功")
-/// showToast("网络连接失败", duration: 2.0, position: .bottom)
+/// showToast(L("保存成功"))
+/// showToast(L("网络连接失败"), duration: 2.0, position: .bottom)
 ///
 /// // 2. 单按钮提示
-/// showAlert("网络连接失败")
-/// showAlert("加载失败，请重试", popOnDismiss: true)
-/// showAlert("权限不足", onConfirm: { openSettings() })
+/// showAlert(L("网络连接失败"))
+/// showAlert(L("加载失败，请重试"), popOnDismiss: true)
+/// showAlert(L("权限不足"), onConfirm: { openSettings() })
 ///
 /// // 3. 危险操作确认
-/// showConfirm(title: "退出登录",
-///             message: "确定要退出当前账号吗？",
+/// showConfirm(title: L("退出登录"),
+///             message: L("确定要退出当前账号吗？"),
 ///             destructive: true) {
 ///     logout()
 /// }
 ///
 /// // 4. 底部操作表
-/// showActionSheet(title: "选择头像来源", actions: [
-///     .init(title: "从相册选择") { pickFromAlbum() },
-///     .init(title: "拍照")     { pickFromCamera() }
+/// showActionSheet(title: L("选择头像来源"), actions: [
+///     .init(title: L("从相册选择")) { pickFromAlbum() },
+///     .init(title: L("拍照"))     { pickFromCamera() }
 /// ])
 ///
 /// // 5. 全屏加载（必须成对调用）
-/// showLoading("提交中…")
+/// showLoading(L("提交中…"))
 /// hideLoading()
 /// ```
 @MainActor
@@ -46,7 +46,7 @@ extension UIViewController {
     /// 显示轻量 Toast（自动消失，不打断用户）
     ///
     /// - Parameters:
-    ///   - message: 提示文案
+    ///   - message: 提示文案（**调用方应传入 `L(...)` 已本地化的字符串**）
     ///   - duration: 停留时长，默认 1.2s
     ///   - position: 显示位置，默认居中
     ///
@@ -61,7 +61,7 @@ extension UIViewController {
     /// 单按钮提示（点击"确定"后可选回调）
     ///
     /// - Parameters:
-    ///   - message: 提示正文
+    ///   - message: 提示正文（**调用方应传入 `L(...)` 已本地化的字符串**）
     ///   - title: 提示标题，传 nil 时无标题
     ///   - popOnDismiss: 点击"确定"后是否返回上一页
     ///                   （Push 场景 pop，Modal 场景 dismiss）
@@ -72,7 +72,7 @@ extension UIViewController {
             message: message,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "确定", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("确定"), style: .default) { [weak self] _ in
             onConfirm?()
             if popOnDismiss {
                 self?.dismissOrPop()
@@ -86,14 +86,13 @@ extension UIViewController {
     /// 通用确认框
     ///
     /// - Parameters:
-    ///   - title: 标题
-    ///   - message: 正文，默认 nil
-    ///   - confirmTitle: 确认按钮标题，默认"确定"
-    ///   - cancelTitle: 取消按钮标题，默认"取消"
+    ///   - title: 标题（**调用方应传入 `L(...)`**）
+    ///   - message: 正文（**调用方应传入 `L(...)`**），默认 nil
+    ///   - confirmTitle: 确认按钮标题，默认本地化的"确定"
+    ///   - cancelTitle: 取消按钮标题，默认本地化的"取消"
     ///   - destructive: 确认按钮是否为危险操作（红色）
     ///   - onConfirm: 点击确认后的回调
-    ///
-    func showConfirm(title: String, message: String? = nil, confirmTitle: String = "确定", cancelTitle: String = "取消", destructive: Bool = false, onConfirm: @escaping () -> Void) {
+    func showConfirm(title: String, message: String? = nil, confirmTitle: String = LN("确定"), cancelTitle: String = LN("取消"), destructive: Bool = false, onConfirm: @escaping () -> Void) {
         let alert = UIAlertController(
             title: title,
             message: message,
@@ -116,10 +115,9 @@ extension UIViewController {
     /// - Parameters:
     ///   - title: 标题，默认 nil
     ///   - message: 副标题，默认 nil
-    ///   - actions: 操作项数组
-    ///   - cancelTitle: 取消按钮标题，默认"取消"
-    ///
-    func showActionSheet(title: String? = nil, message: String? = nil, actions: [ActionSheetAction], cancelTitle: String = "取消") {
+    ///   - actions: 操作项数组（每项的 `title` 应由调用方本地化）
+    ///   - cancelTitle: 取消按钮标题，默认本地化的"取消"
+    func showActionSheet(title: String? = nil, message: String? = nil, actions: [ActionSheetAction], cancelTitle: String = LN("取消")) {
         let sheet = UIAlertController(
             title: title,
             message: message,
@@ -156,13 +154,11 @@ extension UIViewController {
 
     /// 显示全屏加载指示器（模态）
     ///
-    /// - Parameter message: 加载文案，默认 nil（仅显示菊花）
+    /// - Parameter message: 加载文案（**调用方应传入 `L(...)` 已本地化的字符串**），
+    ///                      默认 nil（仅显示菊花）
     ///
-    /// - Important: 必须与 `hideLoading()` 成对调用。
+    /// - Important: **必须与 `hideLoading()` 成对调用**。
     ///              若同一 VC 已存在 loading，会先移除旧的再显示新的。
-    ///
-    /// - Note: 用于网络请求等需要在页面级阻止交互的场景。
-    ///         若只是某按钮的加载态，用 `PrimaryButton.isLoading` 更合适。
     func showLoading(_ message: String? = nil) {
         // 先移除旧的（避免叠加）
         hideLoading()
@@ -253,7 +249,6 @@ extension UIViewController {
     private static var loadingTag: Int { 0x10A_D_19 }
 
     /// 关闭当前 VC：Push 场景 pop，Modal 场景 dismiss
-    ///
     private func dismissOrPop() {
         if let nav = navigationController, nav.viewControllers.first !== self {
             nav.popViewController(animated: true)
@@ -269,16 +264,17 @@ extension UIViewController {
 ///
 /// ## 调用方法
 /// ```swift
-/// showActionSheet(title: "选择来源", actions: [
-///     ActionSheetAction(title: "从相册选择") { pickFromAlbum() },
-///     ActionSheetAction(title: "拍照")       { pickFromCamera() },
-///     ActionSheetAction(title: "删除", style: .destructive) { delete() }
+/// showActionSheet(title: L("选择来源"), actions: [
+///     ActionSheetAction(title: L("从相册选择")) { pickFromAlbum() },
+///     ActionSheetAction(title: L("拍照"))       { pickFromCamera() },
+///     ActionSheetAction(title: L("删除"), style: .destructive) { delete() }
 /// ])
 /// ```
 ///
+/// - Note: `title` 参数**由调用方负责本地化**——本类不内置任何文案。
 struct ActionSheetAction {
 
-    /// 操作标题
+    /// 操作标题（**调用方应传入 `L(...)` 已本地化的字符串**）
     let title: String
 
     /// 操作样式（默认 `.default`）

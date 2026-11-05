@@ -9,8 +9,20 @@ import UIKit
 import Combine
 
 /// 注册页
+///
+/// ## 职责
+/// - 手机号 / 邮箱注册（`segmentControl` 切换）
+/// - 验证码发送 + 密码设置
+/// - 隐私协议勾选（未勾选时拦截提交）
+/// - "已有账号，前去登录"链接（pop 回登录页）
+/// 
 @MainActor
 final class RegistViewController: UIViewController {
+
+    // MARK: - Constants
+
+    /// 注册成功后的延时 pop（秒）
+    private static let popDelaySeconds: TimeInterval = 1.2
 
     // MARK: - IBOutlet
 
@@ -90,15 +102,32 @@ final class RegistViewController: UIViewController {
 
     // MARK: - Setup
 
+    /// 配置 UI
     private func setupUI() {
-        title = "注册账号"
+        title = L("注册账号")
 
-        // 用扩展统一配置键盘
+        // MARK: Segment 标题（覆盖 storyboard 中的 "手机号码注册" / "邮箱账号注册"）
+        segmentControl.setTitle(LoginAccountMode.phone.title, forSegmentAt: 0)
+        segmentControl.setTitle(LoginAccountMode.email.title, forSegmentAt: 1)
+
+        // MARK: 输入框占位符（覆盖 storyboard 中的硬编码）
+        phoneTextField.placeholder = LoginAccountMode.phone.placeholder
+        emailTextField.placeholder = LoginAccountMode.email.placeholder
+        codeTextField.placeholder = L("请输入验证码")
+        passwordTextField.placeholder = L("请输入密码(6~12位字母+数字)")
+
+        // MARK: 按钮标题（覆盖 storyboard 中的 "注册" / "获取验证码"）
+        //
+        // - Note: `getCodeBtn` 标题也会被 `refreshAuthGetCodeButton(isSending:countdown:)`
+        //         动态管理（"发送中…" / "N s" / "获取验证码"）。
+        registerBtn.setTitle(L("注册"), for: .normal)
+        getCodeBtn.setTitle(L("获取验证码"), for: .normal)
+
+        // MARK: 键盘配置（用扩展统一）
         applyAuthKeyboard(to: phoneTextField, mode: .phone)
         applyAuthKeyboard(to: emailTextField, mode: .email)
         codeTextField.keyboardType = .numberPad
-        
-        
+
         registerBtn.layer.cornerRadius = AppSpacing.Corner.card
 
         // 密码默认隐藏
@@ -110,6 +139,25 @@ final class RegistViewController: UIViewController {
 
         // 隐私协议默认未勾选
         refreshAuthPrivacyButton(isAgreed: false)
+
+        // MARK: "已有账号，前去登录" 链接
+        updateGotoLoginHintLabels()
+    }
+
+    /// 更新"已有账号，前去登录"行的两个 Label 文案
+    private func updateGotoLoginHintLabels() {
+        guard let container = gotoLoginBtn.superview else { return }
+        let labels = container.subviews.compactMap { $0 as? UILabel }
+        guard labels.count >= 2 else {
+            AppLog.ui.warning(
+                "注册页 '已有账号' 行的 Label 数量不足，跳过本地化"
+            )
+            return
+        }
+
+        // storyboard 中顺序固定：第一个是"已有账号，前去"，第二个是"登录"
+        labels[0].text = L("已有账号，前去")
+        labels[1].text = L("登录")
     }
 
     private func bindTextFields() {
@@ -131,7 +179,7 @@ final class RegistViewController: UIViewController {
                 self?.syncUIWithViewModel(animated: true)
             }
             .store(in: &cancellables)
-        
+
         // 验证码按钮
         viewModel.$isSendingCode
             .combineLatest(viewModel.$countdown)
@@ -139,7 +187,7 @@ final class RegistViewController: UIViewController {
                 self?.refreshAuthGetCodeButton(isSending: isSending, countdown: sec)
             }
             .store(in: &cancellables)
-        
+
         // 提交中：禁用注册按钮
         viewModel.$isLoading
             .sink { [weak self] isLoading in
@@ -171,8 +219,8 @@ final class RegistViewController: UIViewController {
         viewModel.$registerSuccess
             .filter { $0 }
             .sink { [weak self] _ in
-                AppLog.auth.debug("注册成功，1.2s 后返回登录页")
-                self?.popAfterDelay(seconds: 1.2)
+                AppLog.auth.debug("注册成功，\(Self.popDelaySeconds)s 后返回登录页")
+                self?.popAfterDelay(seconds: Self.popDelaySeconds)
             }
             .store(in: &cancellables)
     }
@@ -232,7 +280,7 @@ final class RegistViewController: UIViewController {
         view.endEditing(true)
 
         guard isPrivacyAgreed else {
-            showToast("请先阅读并同意《用户注册协议》与《隐私政策》")
+            showToast(L("请先阅读并同意《用户注册协议》与《隐私政策》"))
             return
         }
         viewModel.register()
@@ -252,7 +300,6 @@ final class RegistViewController: UIViewController {
     /// 延时后 pop 回上一页
     ///
     /// - Parameter seconds: 延时秒数（用于让 Toast 展示完后才 pop）
-    /// 
     private func popAfterDelay(seconds: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
             guard let self else { return }

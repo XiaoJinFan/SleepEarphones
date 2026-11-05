@@ -63,9 +63,6 @@ final class MusicViewController: UIViewController {
     // MARK: - Constants
 
     /// CollectionView 布局参数
-    ///
-    /// - Important: 这些参数与 `MusicCardCell` 的**内部约束严格对应**——
-    ///              改动任何一项都需要同步修改另一侧（见 `MusicCardCell` 注释）。
     private enum CardLayout {
         /// 卡片固定宽度
         static let cardWidth: CGFloat = 150
@@ -85,18 +82,12 @@ final class MusicViewController: UIViewController {
         static let sectionSpacing: CGFloat = 30
     }
 
-    // MARK: - 顶部固定部分高度拆解
-
-    /// Banner 高度（storyboard: `L3j-eY-pBW.height = 180`）
+    /// 顶部固定部分高度拆解
     private static let bannerHeight: CGFloat = 180
-
-    /// 入口卡片高度（storyboard: `pFn-aH-2ki.height = 95`）
     private static let entryCardHeight: CGFloat = 95
-
-    /// 顶部各段之间的间距（storyboard 中两处 `constant = 30`）
     private static let topSectionSpacing: CGFloat = 30
 
-    /// 顶部固定部分总高度 = banner + 间距 + 入口 + 间距 = 180 + 30 + 95 + 30 = **335**
+    /// 顶部固定部分总高度 = banner + 间距 + 入口 + 间距 = **335**
     private static var topFixedHeight: CGFloat {
         bannerHeight + topSectionSpacing + entryCardHeight + topSectionSpacing
     }
@@ -123,6 +114,9 @@ final class MusicViewController: UIViewController {
 
     /// 主滚动容器（用于设置 contentInset 避免迷你条遮挡）
     private weak var mainScrollView: UIScrollView?
+
+    /// 上次更新渐变 frame 时的尺寸
+    private var lastGradientSize: CGSize = .zero
 
     // MARK: - UI
 
@@ -169,7 +163,8 @@ final class MusicViewController: UIViewController {
             // 【Push 进入】显示系统导航栏，标题居中，隐藏页面靠左大标题
             navigationController?.setNavigationBarHidden(false, animated: animated)
             navigationController?.navigationBar.tintColor = AppColor.Text.primary // 返回按钮颜色适配
-            navigationItem.title = "声音库"
+            // 导航标题已本地化
+            navigationItem.title = L("声音库")
             musicPageTitle.isHidden = true
             // 主动隐藏 tabBar
             tabBarController?.tabBar.isHidden = true
@@ -181,7 +176,6 @@ final class MusicViewController: UIViewController {
             // 主动恢复 tabBar
             tabBarController?.tabBar.isHidden = false
         }
-        
 
         // 每次进入本页刷新迷你条（返回时可能状态有变化）
         refreshMiniPlayer()
@@ -195,21 +189,24 @@ final class MusicViewController: UIViewController {
             recalculateContentHeight()
         }
 
-        // 更新入口卡片渐变层 frame
-        updateGradientFrames()
+        // 更新入口卡片渐变层 frame（仅在尺寸变化时）
+        updateGradientFramesIfNeeded()
     }
 
     // MARK: - Setup
 
     private func setupUI() {
-        // 1. 隐藏"默认"标签——分类名改由 section header 显示
+        // 1. 页面大标题（**覆盖 storyboard 硬编码**——改文案请改这里，不要改 storyboard）
+        musicPageTitle.text = L("音乐")
+
+        // 2. 隐藏"默认"标签——分类名改由 section header 显示
         musicCategoryTitle.isHidden = true
         for constraint in musicCategoryTitle.constraints
             where constraint.firstAttribute == .height {
             constraint.constant = 0
         }
 
-        // 2. 找到 musicCategoryView 的高度约束
+        // 3. 找到 musicCategoryView 的高度约束
         categoryHeightConstraint = musicCategoryView.constraints.first {
             $0.firstAttribute == .height
                 && ($0.firstItem as? UIView) === musicCategoryView
@@ -304,23 +301,31 @@ final class MusicViewController: UIViewController {
 
         // 图标（白色圆角底 + SF Symbol）
         icon.backgroundColor = .white
-        icon.layer.cornerRadius = 8
+        icon.layer.cornerRadius = AppSpacing.Corner.medium
         icon.clipsToBounds = true
         icon.contentMode = .center
         icon.image = UIImage(
             systemName: entry.iconName,
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: 18,
+                weight: .semibold
+            )
         )
         icon.tintColor = UIColor(hex: entry.gradientStartColorHex)
 
-        // 标题
+        // 标题（**`entry.title` 已本地化**——见 `MusicModels.swift`）
         title.text = entry.title
         title.textColor = .white
         title.font = AppFont.Body.emphasized
     }
 
-    /// 更新入口卡片渐变层的 frame
-    private func updateGradientFrames() {
+    /// 更新入口卡片渐变层的 frame（仅在尺寸变化时）
+    private func updateGradientFramesIfNeeded() {
+        guard let first = customWhiteNoiseView else { return }
+        let size = first.bounds.size
+        guard size != lastGradientSize else { return }
+        lastGradientSize = size
+
         [customWhiteNoiseView, builtInAudioView]
             .compactMap { $0 }
             .forEach { card in
@@ -501,9 +506,6 @@ final class MusicViewController: UIViewController {
     // MARK: - Dynamic Height
 
     /// 重算并更新 `viewConstraintsHeight` 与 `categoryHeightConstraint`
-    ///
-    /// - Note: `CardLayout.titleHeight` 是计算属性——每次调用都按当前
-    ///         `AppFont.Body.secondary.lineHeight` 求值，Dynamic Type 天然跟随。
     private func recalculateContentHeight() {
         let collectionHeight = calculateCollectionHeight()
 
@@ -524,10 +526,6 @@ final class MusicViewController: UIViewController {
     /// 计算 CollectionView 需要的总高度
     ///
     /// - Returns: 内容高度（含所有 section 的 header + items + 间距）
-    ///
-    /// - Note: `CardLayout.titleHeight` 为计算属性——
-    ///         本方法每次调用都拿到**当前**字体行高对应的值，
-    ///         保证与 `MusicCardCell` 内部布局对齐。
     private func calculateCollectionHeight() -> CGFloat {
         guard !viewModel.sections.isEmpty else { return 0 }
 
@@ -546,11 +544,11 @@ final class MusicViewController: UIViewController {
 
     /// 弹出错误提示，关闭后清除错误
     ///
-    /// - Parameter message: 错误信息
+    /// - Parameter message: 错误信息（**已本地化**）
     private func presentError(_ message: String) {
         showAlert(
             message,
-            title: "提示",
+            title: L("提示"),
             onConfirm: { [weak self] in
                 self?.viewModel.clearError()
             }
@@ -646,7 +644,7 @@ extension MusicViewController: UICollectionViewDelegate {
 
                     // .emptyData = 列表为空（无匹配也无兜底）→ 提示用户
                     if case .emptyData = error {
-                        self?.showToast("该音乐暂时无法播放")
+                        self?.showToast(L("该音乐暂时无法播放"))
                     }
                 },
                 receiveValue: { [weak self] song in

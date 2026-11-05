@@ -8,6 +8,16 @@
 import UIKit
 import SnapKit
 
+/// 音乐列表单元格（播放列表页 / `MusicListViewController` 使用）
+///
+/// ## 布局结构
+/// ```
+/// ┌──────────────────────────────────────────┐
+/// │ ┌────┐                                   │
+/// │ │封面│  音乐名                    [▶/⏸]  │
+/// │ └────┘                                   │
+/// └──────────────────────────────────────────┘
+/// ```
 @MainActor
 final class MusicListItemCell: UITableViewCell {
 
@@ -27,9 +37,15 @@ final class MusicListItemCell: UITableViewCell {
         /// 封面尺寸
         static let coverSize: CGFloat = 60
         /// 封面圆角
-        static let coverCornerRadius: CGFloat = 8
+        static let coverCornerRadius: CGFloat = AppSpacing.Corner.medium
         /// 播放图标容器尺寸（**不是**图标本身尺寸——图标 18pt 居中于 24pt 容器）
         static let playIconContainerSize: CGFloat = 24
+        /// 播放图标 SF Symbol 字号
+        static let playIconPointSize: CGFloat = 18
+        /// 封面到标题的间距
+        static let coverToTitleSpacing: CGFloat = AppSpacing.md
+        /// 标题到图标的间距
+        static let titleToIconSpacing: CGFloat = AppSpacing.sm
     }
 
     // MARK: - UI
@@ -53,7 +69,7 @@ final class MusicListItemCell: UITableViewCell {
         return iv
     }()
 
-    /// 标题
+    /// 标题（**内容来自后端，已本地化**）
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Body.regular
@@ -64,8 +80,6 @@ final class MusicListItemCell: UITableViewCell {
     }()
 
     /// 播放 / 暂停图标
-    ///
-    /// - Note: `isUserInteractionEnabled = false`——点击整行都触发播放。
     private let playIconView: UIImageView = {
         let iv = UIImageView()
         iv.tintColor = AppColor.Text.primary
@@ -92,9 +106,11 @@ final class MusicListItemCell: UITableViewCell {
         coverImageView.cancelRemoteImageLoad()
         coverImageView.image = nil
         titleLabel.text = nil
-        // 复位默认字体——`configure` 会按播放状态重新设置
+
+        // 复位默认字体与颜色——`configure` 会按播放状态重新设置
         titleLabel.font = AppFont.Body.regular
         titleLabel.textColor = AppColor.Text.primary
+
         playIconView.image = nil
         playIconView.tintColor = AppColor.Text.primary
     }
@@ -137,8 +153,8 @@ final class MusicListItemCell: UITableViewCell {
 
         // 标题：封面与播放按钮之间
         titleLabel.snp.makeConstraints { make in
-            make.leading.equalTo(coverImageView.snp.trailing).offset(AppSpacing.md)
-            make.trailing.equalTo(playIconView.snp.leading).offset(-AppSpacing.sm)
+            make.leading.equalTo(coverImageView.snp.trailing).offset(Layout.coverToTitleSpacing)
+            make.trailing.equalTo(playIconView.snp.leading).offset(-Layout.titleToIconSpacing)
             make.centerY.equalToSuperview()
         }
     }
@@ -148,10 +164,13 @@ final class MusicListItemCell: UITableViewCell {
     /// 配置单元格
     ///
     /// - Parameters:
-    ///   - item: 子分类卡片数据
-    ///   - isPlaying: 是否为"正在播放"（包含播放中 + 暂停中）
-    ///   - isPaused: 是否为"正在播放但已暂停"（决定图标是 ⏸ 还是 ▶）
-    ///   
+    ///   - item: 子分类卡片数据（`title` 已由后端本地化）
+    ///   - isPlaying: **是否为当前播放曲目**（包含"正在播放"和"已暂停"两种状态）
+    ///                ⚠️ 参数名易误解——实际语义是"**是否为当前活跃曲目**"，
+    ///                而非"是否正在发声"。判断依据是 `song.subCategoryId == Int(item.id)`。
+    ///   - isPaused: **是否为当前曲目 + 已暂停**——
+    ///               仅在 `isPlaying == true` 时有意义；
+    ///               调用方保证 `isPaused = isPlaying && !manager.isPlaying`
     func configure(with item: MusicCardItem, isPlaying: Bool, isPaused: Bool) {
         titleLabel.text = item.title
         coverImageView.setImage(
@@ -159,7 +178,7 @@ final class MusicListItemCell: UITableViewCell {
             placeholder: AppImage.Local.emptyData
         )
 
-        // 图标
+        // 图标名称
         let iconName: String
         if isPlaying && !isPaused {
             iconName = "pause.fill"        // 播放中 → 显示暂停按钮
@@ -167,7 +186,10 @@ final class MusicListItemCell: UITableViewCell {
             iconName = "play.fill"         // 未播放 / 已暂停 → 显示播放按钮
         }
 
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        let config = UIImage.SymbolConfiguration(
+            pointSize: Layout.playIconPointSize,
+            weight: .regular
+        )
         playIconView.image = UIImage(systemName: iconName, withConfiguration: config)
 
         // 视觉状态：字体 + 颜色（标题与图标同步）

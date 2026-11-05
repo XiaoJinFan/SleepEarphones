@@ -8,7 +8,14 @@
 import UIKit
 import SnapKit
 
-
+/// 音乐分组标题（Section Header）
+///
+/// ## 布局
+/// ```
+/// ┌──────────────────────────────────┐
+/// │ 推荐白噪音                        │  ← 高度 = CardLayout.headerHeight (50)
+/// └──────────────────────────────────┘
+/// ```
 @MainActor
 final class MusicSectionHeaderView: UICollectionReusableView {
 
@@ -16,13 +23,30 @@ final class MusicSectionHeaderView: UICollectionReusableView {
 
     static let reuseID = "MusicSectionHeaderView"
 
+    // MARK: - Layout
+
+    private enum Layout {
+        /// 标题字号（基准 20pt）
+        static let titleBaseSize: CGFloat = 20
+        /// 字号上限（保证能放进 50pt 的 header 高度）
+        static let titleMaxSize: CGFloat = 28
+    }
+
     // MARK: - UI
 
     /// 分组标题
     private let titleLabel: UILabel = {
         let l = UILabel()
-        l.font = .systemFont(ofSize: 20, weight: .bold)
+        l.font = AppFont.scaled(
+            size: Layout.titleBaseSize,
+            weight: .bold,
+            textStyle: .title3,
+            maximumPointSize: Layout.titleMaxSize
+        )
         l.textColor = AppColor.Text.primary
+        // 单行 + 尾部截断——避免分类名过长时与右侧内容重叠
+        l.numberOfLines = 1
+        l.lineBreakMode = .byTruncatingTail
         return l
     }()
 
@@ -30,24 +54,32 @@ final class MusicSectionHeaderView: UICollectionReusableView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        addSubview(titleLabel)
-        
-        titleLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview()
-            make.centerY.equalToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
+        setupUI()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Setup
+
+    private func setupUI() {
+        addSubview(titleLabel)
+
+        titleLabel.snp.makeConstraints { make in
+            make.leading.equalToSuperview()
+            make.centerY.equalToSuperview()
+            // `lessThanOrEqualTo`——分类名较短时不强行拉满宽度
+            make.trailing.lessThanOrEqualToSuperview()
+        }
+    }
+
     // MARK: - Configure
 
     /// 配置分组标题
     ///
-    /// - Parameter title: 分组标题（如"推荐白噪音" / "自然"）
+    /// - Parameter title: 分组标题（如 `"推荐白噪音"` / `"自然"`）
+    ///                    **来自后端，已按 `Accept-Language` 本地化**
     func configure(title: String) {
         titleLabel.text = title
     }

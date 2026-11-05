@@ -21,10 +21,15 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
     private enum Layout {
         /// 胶囊高度
         static let chipHeight: CGFloat = 36
+
         /// 水平内边距（文字左右）
         static let chipHorizontalPadding: CGFloat = AppSpacing.md
+
         /// 最小宽度
         static let chipMinWidth: CGFloat = 60
+
+        /// 未选中态背景色（chip 专属色值）
+        static let unselectedBackgroundHex = "#252B4D"
     }
 
     // MARK: - UI
@@ -32,7 +37,7 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
     /// 胶囊背景
     private let chipBackgroundView: UIView = {
         let v = UIView()
-        v.backgroundColor = UIColor(hex: "#252B4D")
+        v.backgroundColor = UIColor(hex: Layout.unselectedBackgroundHex)
         v.layer.cornerRadius = Layout.chipHeight / 2
         v.clipsToBounds = true
         return v
@@ -43,6 +48,7 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
         let l = UILabel()
         // 默认用 regular（未选中态）
         l.font = AppFont.Body.secondary
+        // **白色文字**——本页固定深色主题下唯一可读选择
         l.textColor = .white
         l.textAlignment = .center
         l.numberOfLines = 1
@@ -75,7 +81,8 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
         }
 
         titleLabel.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.chipHorizontalPadding)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.chipHorizontalPadding)
             make.centerY.equalToSuperview()
         }
     }
@@ -85,16 +92,18 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
     /// 配置 chip
     ///
     /// - Parameters:
-    ///   - title: 标题（如"海浪铃声"）
+    ///   - title: 标题（如 `"海浪铃声"`；**由调用方传入已本地化的字符串**）
     ///   - isSelected: 是否选中
     func configure(title: String, isSelected: Bool) {
         titleLabel.text = title
 
         if isSelected {
+            // 选中态：品牌色背景 + 加粗字体
             chipBackgroundView.backgroundColor = AppColor.Brand.primary
             titleLabel.font = AppFont.Body.emphasized
         } else {
-            chipBackgroundView.backgroundColor = UIColor(hex: "#252B4D")
+            // 未选中态：深蓝背景 + 常规字体
+            chipBackgroundView.backgroundColor = UIColor(hex: Layout.unselectedBackgroundHex)
             titleLabel.font = AppFont.Body.secondary
         }
     }
@@ -105,15 +114,12 @@ final class CustomNoiseCategoryCell: UICollectionViewCell {
     ///
     /// - Parameter title: 标题
     /// - Returns: 建议尺寸（宽度自适应，高度固定）
-    ///
-    /// - Important: ⚠️ **用 `emphasized`（选中态字体）计算宽度**——
-    ///              选中时字重变粗 + 字号变大，需要更宽的宽度。
-    ///              若用 `secondary`（未选中态字体）计算，
-    ///              选中后会因宽度不足而截断（显示 `...`）。
     static func size(for title: String) -> CGSize {
         // ✅ 关键修复：用 emphasized 计算
         let font = AppFont.Body.emphasized
-        let textWidth = (title as NSString).size(withAttributes: [.font: font]).width
+        let textWidth = (title as NSString)
+            .size(withAttributes: [.font: font])
+            .width
         let width = max(Layout.chipMinWidth, textWidth + Layout.chipHorizontalPadding * 2)
         return CGSize(width: ceil(width), height: Layout.chipHeight)
     }

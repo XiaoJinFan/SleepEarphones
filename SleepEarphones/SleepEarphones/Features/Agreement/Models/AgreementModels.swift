@@ -24,9 +24,9 @@ import Foundation
 /// | 字段 | 用途 |
 /// |---|---|
 /// | `aid` | 文章 ID（备用） |
-/// | `name` | 页面标题（用于替换导航栏标题） |
+/// | `name` | 页面标题（用于替换导航栏标题，**后端已按 Accept-Language 本地化**） |
 /// | `thumbImg` | 缩略图路径（未使用，预留） |
-/// | `content` | HTML 正文（核心字段） |
+/// | `content` | HTML 正文（核心字段，**后端已本地化**） |
 /// | `introduce` | 简介（未使用，预留） |
 ///
 /// ## 调用方法
@@ -42,32 +42,18 @@ struct AgreementContent: Decodable, Sendable {
     // MARK: - Fields
 
     /// 文章 ID
-    ///
-    /// - Note: 兼容后端 `Int` / `String` 两种格式。
-    ///         PHP 后端常把数字序列化成字符串，这层适配是必需的。
     let aid: Int?
 
     /// 页面标题
-    ///
-    /// - Note: `AgreementViewController` 用它替换导航栏标题。
-    ///         若为空则保留进入页面时的 `customTitle`。
     let name: String?
 
     /// 缩略图路径
-    ///
-    /// - Note: 后端返回的是**相对路径**（如 `uploads/thumb/xxx.jpg`），
-    ///         使用前需经 `thumbImageURL` 拼成完整 URL。
     let thumbImg: String?
 
     /// 正文（HTML 片段）
-    ///
-    /// - Note: 由 `AgreementHTMLTemplate.wrap(_:)` 包裹后加载到 `WKWebView`。
-    ///         后端返回的是 **HTML 片段**（不是完整 HTML 文档）。
     let content: String?
 
     /// 简介
-    ///
-    /// - Note: 当前未使用（预留给未来的"协议摘要"展示）。
     let introduce: String?
 
     // MARK: - 展示辅助
@@ -76,10 +62,6 @@ struct AgreementContent: Decodable, Sendable {
     ///
     /// - Returns: 拼接 CDN 前缀后的完整 URL；`thumbImg` 为空时返回 nil
     ///
-    /// - Note: 复用 `APIConfiguration.imageURL(_:)`：
-    ///   - `thumbImg` 为 nil / 空 → 返回 nil
-    ///   - `thumbImg` 已是完整 URL → 原样返回
-    ///   - `thumbImg` 是相对路径 → 拼接 CDN 前缀并 URL 编码
     var thumbImageURL: String? {
         APIConfiguration.imageURL(thumbImg)
     }
@@ -87,6 +69,7 @@ struct AgreementContent: Decodable, Sendable {
     /// 是否有标题
     ///
     /// - Returns: `name` 非空时为 `true`
+    ///
     var hasName: Bool {
         guard let name else { return false }
         return !name.isEmpty
@@ -96,7 +79,6 @@ struct AgreementContent: Decodable, Sendable {
     ///
     /// - Returns: `content` 非空时为 `true`
     ///
-    /// - Note: 用于判断是否需要展示"暂无内容"占位。
     var hasContent: Bool {
         guard let content else { return false }
         return !content.isEmpty
@@ -106,7 +88,6 @@ struct AgreementContent: Decodable, Sendable {
     ///
     /// - Returns: `introduce` 非空时为 `true`
     ///
-    /// - Note: 预留给未来的"协议摘要"展示。
     var hasIntroduce: Bool {
         guard let introduce else { return false }
         return !introduce.isEmpty
@@ -129,18 +110,10 @@ struct AgreementContent: Decodable, Sendable {
     /// - Parameter decoder: 解码器
     /// - Throws: `DecodingError`（仅当 `keyedContainer` 构造失败时）
     ///
-    /// ## 容错语义（重要）
-    /// 使用 `try? c.decodeIfPresent(...)` 而非严格 `try`：
-    /// - 字段**缺失** → 返回 `nil`（正常情况）
-    /// - 字段**存在但类型不符**（如后端把 `name` 返回为数组）→ 也返回 `nil`
-    ///
-    /// 这是**有意的容错**——某个字段解码失败不应拖垮整个模型。
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
         // aid —— 兼容 Int / String
-        //
-        // 优先级：Int > String（与后端实际返回频率、其他模型一致）
         if let intID = try? c.decode(Int.self, forKey: .aid) {
             self.aid = intID
         } else if let strID = try? c.decode(String.self, forKey: .aid),

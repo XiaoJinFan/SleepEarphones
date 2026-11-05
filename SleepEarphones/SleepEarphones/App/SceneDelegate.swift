@@ -34,8 +34,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
 
         // 4. 冷启动若携带 URL / 用户活动，交给深链处理
-        //    注意：冷启动时系统不会触发 `scene(_:openURLContexts:)`，
-        //         必须在此处手动读取 `connectionOptions`。
         handleConnectionOptions(connectionOptions)
     }
 
@@ -83,10 +81,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // MARK: - Deep Link（预留）
 
     /// 通过 URL Scheme / Universal Link 打开 App
+    ///
+    /// - Parameters:
+    ///   - scene: 当前场景
+    ///   - URLContexts: URL 上下文集合
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        AppLog.app.debug("openURL: \(url.absoluteString, privacy: .public)")
-        // TODO: 在此分发到各业务模块（如推送跳转、活动落地页）
+        handleDeepLink(.url(url))
     }
 
     /// 通过用户活动（Handoff / Universal Link）打开 App
@@ -94,15 +95,30 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// - Parameters:
     ///   - scene: 当前场景
     ///   - userActivity: 用户活动
-    ///
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        AppLog.app.debug(
-            "continue userActivity: \(userActivity.activityType, privacy: .public)"
-        )
-        // TODO: 在此处理 NSUserActivity 类型（如 NSUserActivityTypeBrowsingWeb）
+        handleDeepLink(.userActivity(userActivity))
     }
 
     // MARK: - Private
+
+    /// 深链来源
+    ///
+    /// - Note: 统一 URL 与 `NSUserActivity` 的分发入口，
+    ///         未来接入业务跳转时只需在 `handleDeepLink` 内扩展。
+    private enum DeepLinkSource {
+        case url(URL)
+        case userActivity(NSUserActivity)
+
+        /// 日志用的描述文本
+        var logDescription: String {
+            switch self {
+            case .url(let url):
+                return "URL: \(url.absoluteString)"
+            case .userActivity(let activity):
+                return "userActivity: \(activity.activityType)"
+            }
+        }
+    }
 
     /// 处理冷启动时携带的连接选项
     ///
@@ -111,13 +127,24 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func handleConnectionOptions(_ options: UIScene.ConnectionOptions) {
         if let url = options.urlContexts.first?.url {
             AppLog.app.debug("冷启动 URL: \(url.absoluteString, privacy: .public)")
-            // TODO: 与 openURLContexts 走同一套路由
+            handleDeepLink(.url(url))
         }
         if let activity = options.userActivities.first {
             AppLog.app.debug(
                 "冷启动 userActivity: \(activity.activityType, privacy: .public)"
             )
-            // TODO: 与 continue userActivity 走同一套路由
+            handleDeepLink(.userActivity(activity))
         }
+    }
+
+    /// 深链统一分发
+    ///
+    /// - Parameter source: 深链来源（URL 或 `NSUserActivity`）
+    ///
+    private func handleDeepLink(_ source: DeepLinkSource) {
+        AppLog.app.debug(
+            "收到深链：\(source.logDescription, privacy: .public)"
+        )
+        // TODO: 解析并分发给对应业务模块
     }
 }

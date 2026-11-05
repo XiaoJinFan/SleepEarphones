@@ -9,6 +9,8 @@ import Foundation
 import LinkcosBluetooth
 
 // MARK: - 电池充电状态（UI 层枚举）
+
+/// 电池充电状态（UI 层枚举）
 enum BatteryChargingState: Equatable, Sendable {
 
     /// 充电中
@@ -33,6 +35,9 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
 
     /// 设备名称
     let name: String
+
+    /// 名称是否走了"未知设备"兜底
+    let isNameFallback: Bool
 
     // MARK: - 电量
 
@@ -67,10 +72,14 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
     ///   - device: SDK 扫描返回的设备对象
     ///   - isConnected: 是否已连接（蓝牙通道是否建立）
     ///   - property: SDK 解析的实时属性快照；`nil` 时回退到 `device` 的初始值
-    ///
     init(device: LCBleDevice, isConnected: Bool, property: LCBleDeviceProperty? = nil) {
         self.id = Self.stableID(for: device)
-        self.name = device.name.isEmpty ? "未知设备" : device.name
+
+        // MARK: 名称（空时用本地化的"未知设备"兜底）
+        let rawName = device.name
+        let isFallback = rawName.isEmpty
+        self.isNameFallback = isFallback
+        self.name = isFallback ? LN("未知设备") : rawName
 
         // MARK: 电量（优先实时值）
         self.leftBattery = Self.resolveBattery(
@@ -106,13 +115,17 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
     // MARK: - 展示辅助
 
     /// 是否有任意一方的电量数据
+    ///
+    /// - Returns: 任一电量 ≥ 0 时为 `true`
     var hasBatteryData: Bool {
         leftBattery >= 0 || rightBattery >= 0 || boxBattery >= 0
     }
 
     /// 是否有有效名称
+    ///
+    /// - Returns: 名称**不是**"未知设备"兜底时为 `true`
     var hasName: Bool {
-        !name.isEmpty && name != "未知设备"
+        !isNameFallback
     }
 
     // MARK: - Helpers
@@ -125,7 +138,10 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
         if !device.leftMacString.isEmpty {
             return "\(device.name)_\(device.leftMacString)"
         }
-        return device.name
+        // 兜底：UUID 保证唯一（但每次调用都不同——
+        // 意味着"同一设备每次刷新会被当成新设备"，
+        // 极端场景才会触发，可接受）
+        return "unknown_\(UUID().uuidString)"
     }
 
     /// 解析电量值：实时值有效（≥ 0）则用实时值，否则回退
@@ -143,6 +159,9 @@ struct DeviceViewData: Identifiable, Equatable, Sendable {
     }
 
     /// SDK 充电状态 → UI 层充电状态
+    ///
+    /// - Parameter status: SDK 的 `ChargingStatus`（`@objc enum: Int`）
+    /// - Returns: UI 层的 `BatteryChargingState`
     private static func mapChargingStatus(_ status: ChargingStatus) -> BatteryChargingState {
         switch status.rawValue {
         case 1:  return .charging

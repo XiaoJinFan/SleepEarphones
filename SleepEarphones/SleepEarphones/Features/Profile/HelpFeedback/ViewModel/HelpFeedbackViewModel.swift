@@ -9,20 +9,7 @@ import Foundation
 import Combine
 
 /// 帮助与反馈页视图模型
-///
-/// ## 数据流
-/// ```
-/// HelpFeedbackViewController
-///   ↓ loadFAQs()
-/// HelpFeedbackViewModel（本类）
-///   ↓ fetchFAQs(categoryId:)
-/// HelpRepository
-///   ↓ fetchHelpList(categoryId:)
-/// HelpService
-///   ↓
-/// NetworkClient
-/// ```
-///
+/// 
 /// ## 调用方法
 /// ```swift
 /// // 1. 初始化
@@ -44,16 +31,6 @@ import Combine
 /// // 4. 弹窗后清除错误
 /// vm.clearError()
 /// ```
-///
-/// ## 竞态处理
-/// 用单调递增的 `requestToken` 标识"当前有效的请求"：
-/// - 每次发起新请求前 `&+= 1`
-/// - 回调中比对令牌，过期回调直接丢弃
-///
-/// ## 关于 `deinit`
-/// 本类**不实现** `deinit`。原因：
-/// - Swift 6 中 `deinit` 是 `nonisolated`，不能访问 `@MainActor` 属性
-/// - `AnyCancellable` 在 VM 释放时随属性一同释放，自动取消订阅
 @MainActor
 final class HelpFeedbackViewModel {
 
@@ -65,15 +42,12 @@ final class HelpFeedbackViewModel {
     /// 是否正在加载（首屏显示菊花）
     @Published private(set) var isLoading: Bool = false
 
-    /// 错误信息
+    /// 错误信息（**已本地化**）
     @Published private(set) var errorMessage: String?
 
     /// 空数据状态
     ///
-    /// - Returns: 无数据 + 不在加载 + 无错误时为 `true`
-    ///
-    /// - Note: 计算属性，不占用内存。有错误时返回 `false`——
-    ///         弹 Alert 后页面留白，与"空数据"视觉区分。
+    /// - Returns: 无数据 + 不在加载 + **无错误** 时为 `true`
     var isEmpty: Bool {
         items.isEmpty && !isLoading && errorMessage == nil
     }
@@ -83,9 +57,6 @@ final class HelpFeedbackViewModel {
     private let repository: HelpRepositoryProtocol
 
     /// 当前进行中的请求（用于取消，避免竞态）
-    ///
-    /// - Note: 本 VM 只维护**一个**在飞请求，用单独属性持有即可；
-    ///         无需 `Set<AnyCancellable>`（后者适用于多订阅场景）。
     private var currentRequest: AnyCancellable?
 
     /// 请求身份令牌
@@ -103,14 +74,6 @@ final class HelpFeedbackViewModel {
     // MARK: - Input
 
     /// 加载帮助列表
-    ///
-    /// ## 幂等
-    /// 若已在加载中，忽略本次调用（防止重复请求）。
-    ///
-    /// ## 行为
-    /// - 取消旧请求 + 递增令牌（避免竞态）
-    /// - 仅首屏（`items` 为空）时显示菊花
-    /// - 成功后更新 `items`，失败后设置 `errorMessage`
     func loadFAQs() {
         // 防抖：已在加载中不重复请求
         guard !isLoading else {
@@ -126,7 +89,7 @@ final class HelpFeedbackViewModel {
 
         errorMessage = nil
 
-        // 仅首屏（无数据）时显示菊花
+        // **仅首屏**（无数据）时显示菊花
         if items.isEmpty {
             isLoading = true
         }
@@ -149,7 +112,9 @@ final class HelpFeedbackViewModel {
                         AppLog.profile.error(
                             "帮助列表加载失败：\(error.logCode, privacy: .public)"
                         )
-                        self.errorMessage = error.errorDescription ?? "加载失败，请稍后重试"
+                        // **错误提示已本地化**
+                        self.errorMessage = error.errorDescription
+                            ?? L("加载失败，请稍后重试")
                     }
                 },
                 receiveValue: { [weak self] items in
@@ -165,8 +130,7 @@ final class HelpFeedbackViewModel {
     // MARK: - 状态清理
 
     /// 清除错误
-    ///
-    /// - Note: UI 层弹完 Alert 后应调用本方法重置状态，
-    ///         避免 `$errorMessage` 的 `compactMap` 反复触发。
-    func clearError() { errorMessage = nil }
+    func clearError() {
+        errorMessage = nil
+    }
 }

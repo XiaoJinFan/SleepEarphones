@@ -5,7 +5,7 @@
 //  Created by 肖进凡 on 2026/9/17.
 //
 
-import UIKit   // 需要 UIKeyboardType / UITextContentType 等 UIKit 枚举
+import UIKit
 
 // MARK: - 账号模式（segmentControl）
 
@@ -27,7 +27,6 @@ import UIKit   // 需要 UIKeyboardType / UITextContentType 等 UIKit 枚举
 /// // 3. 配置输入框键盘（配合 AuthFormUIHelper）
 /// applyAuthKeyboard(to: textField, mode: .phone)
 /// ```
-///
 enum LoginAccountMode: Int, Sendable, CaseIterable {
 
     /// 手机号
@@ -41,9 +40,6 @@ enum LoginAccountMode: Int, Sendable, CaseIterable {
     /// 对应的账号类型（传给后端的 `account_type`）
     ///
     /// - Returns: `.mobile` / `.email`
-    ///
-    /// - Note: 手机号走 `.mobile`（不是 `.account`），
-    ///         因为 `.account` 仅密码登录接口支持。
     var accountType: AccountType {
         switch self {
         case .phone: return .mobile
@@ -53,23 +49,23 @@ enum LoginAccountMode: Int, Sendable, CaseIterable {
 
     // MARK: - Display
 
-    /// 输入框占位符
+    /// 输入框占位符（**已本地化**）
     ///
-    /// - Returns: `"请输入手机号"` / `"请输入邮箱"`
+    /// - Returns: `L("请输入手机号")` / `L("请输入邮箱")`
     var placeholder: String {
         switch self {
-        case .phone: return "请输入手机号"
-        case .email: return "请输入邮箱"
+        case .phone: return LN("请输入手机号")
+        case .email: return LN("请输入邮箱")
         }
     }
 
-    /// 分段控件标题
+    /// 分段控件标题（**已本地化**）
     ///
-    /// - Returns: `"手机号码"` / `"邮箱账号"`
+    /// - Returns: `L("手机号码")` / `L("邮箱账号")`
     var title: String {
         switch self {
-        case .phone: return "手机号码"
-        case .email: return "邮箱账号"
+        case .phone: return LN("手机号码")
+        case .email: return LN("邮箱账号")
         }
     }
 
@@ -80,9 +76,6 @@ enum LoginAccountMode: Int, Sendable, CaseIterable {
     /// - Returns:
     ///   - 手机号：`.numberPad`（纯数字键盘）
     ///   - 邮箱：`.emailAddress`（含 @ 与 . 的键盘）
-    ///
-    /// - Note: 返回 `UIKeyboardType` 而非 `Int`——
-    ///         硬编码 `UIKeyboardType.rawValue` 无语义且易错。
     var keyboardType: UIKeyboardType {
         switch self {
         case .phone: return .numberPad
@@ -95,8 +88,6 @@ enum LoginAccountMode: Int, Sendable, CaseIterable {
     /// - Returns:
     ///   - 手机号：`.telephoneNumber`——iOS 会自动弹出键盘上方的"填充"提示
     ///   - 邮箱：`.emailAddress`
-    ///
-    /// - Note: 前提是用户在系统设置里开启了自动填充。
     var textContentType: UITextContentType {
         switch self {
         case .phone: return .telephoneNumber
@@ -133,11 +124,11 @@ enum LoginAccountMode: Int, Sendable, CaseIterable {
 /// var method: LoginMethod = .code
 /// method.toggle()   // → .password
 ///
-/// // 2. 获取切换按钮标题
-/// let title = method.switchButtonTitle   // "密码登录" / "验证码登录"
+/// // 2. 获取切换按钮标题（**已本地化**）
+/// let title = method.switchButtonTitle   // "密码登录" / "验证码登录"（或对应语言）
 ///
 /// // 3. 日志 / 埋点
-/// print(method.description)   // "验证码登录" / "密码登录"
+/// print(method.description)   // "验证码登录" / "密码登录"（**始终中文**）
 /// ```
 ///
 /// ## 与 `LoginAccountMode` 的区别
@@ -156,37 +147,25 @@ enum LoginMethod: Int, Sendable, CaseIterable {
     // MARK: - Toggle
 
     /// 在「验证码登录」与「密码登录」之间切换
-    ///
-    /// - Note: 用 `mutating` 让业务层可以直接：
-    ///         ```swift
-    ///         var method: LoginMethod = .code
-    ///         method.toggle()
-    ///         ```
     mutating func toggle() {
         self = (self == .code) ? .password : .code
     }
 
     // MARK: - Display
 
-    /// 切换按钮上显示的文案
+    /// 切换按钮上显示的文案（**已本地化**）
     ///
     /// - Returns: 点击后**切换到的方式**（不是当前方式）
-    ///
-    /// ## 命名说明
-    /// - 当前是"验证码登录" → 按钮显示"密码登录"（提示用户"点我切到密码登录"）
-    /// - 当前是"密码登录" → 按钮显示"验证码登录"
     var switchButtonTitle: String {
         switch self {
-        case .code:     return "密码登录"
-        case .password: return "验证码登录"
+        case .code:     return LN("密码登录")
+        case .password: return LN("验证码登录")
         }
     }
 
-    /// 当前登录方式名称
+    /// 当前登录方式名称（**日志 / 埋点专用，不参与国际化**）
     ///
     /// - Returns: `"验证码登录"` / `"密码登录"`
-    ///
-    /// - Note: 用于日志 / 埋点 / 分析。
     var description: String {
         switch self {
         case .code:     return "验证码登录"

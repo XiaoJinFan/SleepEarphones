@@ -16,20 +16,21 @@ import Toast_Swift
 /// ToastPresenter.configureGlobalStyle()
 ///
 /// // 2. 语义化（推荐）
-/// ToastPresenter.success("保存成功")
-/// ToastPresenter.error("网络连接失败")
-/// ToastPresenter.warning("请检查输入")
-/// ToastPresenter.info("已复制到剪贴板")
+/// ToastPresenter.success(L("保存成功"))
+/// ToastPresenter.error(L("网络连接失败"))
+/// ToastPresenter.warning(L("请检查输入"))
+/// ToastPresenter.info(L("已复制到剪贴板"))
 ///
 /// // 3. 自定义
-/// ToastPresenter.show("自定义消息", duration: 2.0, position: .bottom)
+/// ToastPresenter.show(L("自定义消息"), duration: 2.0, position: .bottom)
 ///
 /// // 4. 在指定容器内展示
-/// ToastPresenter.show("消息", in: someView)
+/// ToastPresenter.show(L("消息"), in: someView)
 ///
 /// // 5. 立即隐藏
 /// ToastPresenter.hide()
 /// ```
+///
 @MainActor
 enum ToastPresenter {
 
@@ -40,6 +41,17 @@ enum ToastPresenter {
 
     /// Toast 文字色（固定白色）
     private static let messageColor = UIColor.white
+
+    // MARK: - Semantic Prefix（装饰性 emoji，不参与国际化）
+
+    /// 成功前缀
+    private static let successPrefix = "✅"
+    /// 错误前缀
+    private static let errorPrefix = "⚠️"
+    /// 警告前缀
+    private static let warningPrefix = "⚡️"
+    /// 信息前缀
+    private static let infoPrefix = "ℹ️"
 
     // MARK: - Configuration
 
@@ -64,37 +76,37 @@ enum ToastPresenter {
     /// 成功提示
     ///
     /// - Parameters:
-    ///   - message: 提示文案
+    ///   - message: 提示文案（调用方应传入 `L(...)` 已本地化的字符串）
     ///   - duration: 停留时长，默认 1.2s
     static func success(_ message: String, duration: TimeInterval = 1.2) {
-        show("✅ \(message)", duration: duration)
+        show("\(successPrefix) \(message)", duration: duration)
     }
 
     /// 错误提示
     ///
     /// - Parameters:
-    ///   - message: 提示文案
+    ///   - message: 提示文案（调用方应传入 `L(...)` 已本地化的字符串）
     ///   - duration: 停留时长，默认 1.8s（错误停留更久便于阅读）
     static func error(_ message: String, duration: TimeInterval = 1.8) {
-        show("⚠️ \(message)", duration: duration)
+        show("\(errorPrefix) \(message)", duration: duration)
     }
 
     /// 警告提示
     ///
     /// - Parameters:
-    ///   - message: 提示文案
+    ///   - message: 提示文案（调用方应传入 `L(...)` 已本地化的字符串）
     ///   - duration: 停留时长，默认 1.5s
     static func warning(_ message: String, duration: TimeInterval = 1.5) {
-        show("⚡️ \(message)", duration: duration)
+        show("\(warningPrefix) \(message)", duration: duration)
     }
 
     /// 信息提示
     ///
     /// - Parameters:
-    ///   - message: 提示文案
+    ///   - message: 提示文案（调用方应传入 `L(...)` 已本地化的字符串）
     ///   - duration: 停留时长，默认 1.2s
     static func info(_ message: String, duration: TimeInterval = 1.2) {
-        show("ℹ️ \(message)", duration: duration)
+        show("\(infoPrefix) \(message)", duration: duration)
     }
 
     // MARK: - Generic API
@@ -120,7 +132,13 @@ enum ToastPresenter {
     ///   - view: 目标容器视图；通常在 VC 内部用 `view`
     ///   - duration: 停留时长，默认 1.2s
     ///   - position: 显示位置，默认居中
+    ///
     static func show(_ message: String, in view: UIView, duration: TimeInterval = 1.2, position: ToastPosition = .center) {
+        // 防御：view 未上屏时不展示（否则 makeToast 静默无效且无日志）
+        guard view.window != nil else {
+            AppLog.ui.error("Toast 无法在未上屏的 view 上展示，已忽略")
+            return
+        }
         view.makeToast(message, duration: duration, position: position)
     }
 
@@ -133,10 +151,20 @@ enum ToastPresenter {
 
     /// 当前 keyWindow
     private static var keyWindow: UIWindow? {
-        UIApplication.shared.connectedScenes
+        let scenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }?
+
+        // 1. 优先取前台活跃场景的 key window
+        if let activeWindow = scenes
+            .first(where: { $0.activationState == .foregroundActive })?
             .windows
+            .first(where: { $0.isKeyWindow }) {
+            return activeWindow
+        }
+
+        // 2. 兜底：任意场景的 key window
+        return scenes
+            .flatMap { $0.windows }
             .first { $0.isKeyWindow }
     }
 }

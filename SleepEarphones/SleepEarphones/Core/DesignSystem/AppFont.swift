@@ -9,6 +9,25 @@ import UIKit
 
 /// 全局字体定义（全部支持 Dynamic Type）
 ///
+/// 完整示例：
+/// ```swift
+/// let label = UILabel()
+/// label.font = AppFont.Body.regular
+/// label.adjustsFontForContentSizeCategory = true  // ✅ 必须
+/// ```
+///
+/// ## 调用方法
+/// ```swift
+/// // 1. 按语义取字体
+/// label.font = AppFont.Title.page
+/// button.titleLabel?.font = AppFont.Button.primary
+///
+/// // 2. 等宽字体（MAC / 序列号 / 验证码）
+/// macLabel.font = AppFont.Mono.regular
+///
+/// // 3. 多行正文行高
+/// paragraphStyle.lineHeightMultiple = AppFont.lineHeightMultiple
+/// ```
 enum AppFont {
 
     // MARK: - Title
@@ -139,7 +158,6 @@ enum AppFont {
     /// 等宽字体
     ///
     /// - 使用场景：MAC 地址、序列号、验证码等需要字符对齐的文本
-    ///
     enum Mono {
 
         /// 等宽正文（基准 15pt Regular）
@@ -165,7 +183,16 @@ enum AppFont {
     ///
     /// - 使用场景：多行正文需要设置 `lineHeightMultiple` 时使用，
     ///   避免各处传入不同倍数导致视觉不一致。
-    ///   
+    ///
+    /// ## 调用方法
+    /// ```swift
+    /// let paragraphStyle = NSMutableParagraphStyle()
+    /// paragraphStyle.lineHeightMultiple = AppFont.lineHeightMultiple
+    /// label.attributedText = NSAttributedString(
+    ///     string: text,
+    ///     attributes: [.paragraphStyle: paragraphStyle]
+    /// )
+    /// ```
     static let lineHeightMultiple: CGFloat = 1.35
 
     // MARK: - Helper
@@ -181,5 +208,28 @@ enum AppFont {
     private static func scaled(size: CGFloat, weight: UIFont.Weight, textStyle: UIFont.TextStyle) -> UIFont {
         let base = UIFont.systemFont(ofSize: size, weight: weight)
         return UIFontMetrics(forTextStyle: textStyle).scaledFont(for: base)
+    }
+
+    /// 构造带最大字号上限的字体（供**布局脆弱**的场景使用）
+    ///
+    /// - Parameters:
+    ///   - size: 基准字号（pt）
+    ///   - weight: 字重
+    ///   - textStyle: 对应的 Apple 语义化样式
+    ///   - maximumPointSize: 最大字号上限（pt）
+    /// - Returns: 已应用 Dynamic Type 的 `UIFont`，最大不超过 `maximumPointSize`
+    /// 
+    /// textField.font = AppFont.scaled(
+    ///     size: 16, weight: .regular,
+    ///     textStyle: .body,
+    ///     maximumPointSize: 22
+    /// )
+    /// 
+    static func scaled(size: CGFloat, weight: UIFont.Weight, textStyle: UIFont.TextStyle, maximumPointSize: CGFloat) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        return UIFontMetrics(forTextStyle: textStyle).scaledFont(
+            for: base,
+            maximumPointSize: maximumPointSize
+        )
     }
 }

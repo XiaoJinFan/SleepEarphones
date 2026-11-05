@@ -9,6 +9,11 @@ import UIKit
 
 /// 全局间距、圆角、阴影、动画、边框定义
 ///
+/// ## 设计原则
+/// - **间距**：统一的 8pt 网格体系（4 / 8 / 12 / 16 / 20 / 24 / 32）
+/// - **圆角**：按组件类型分级（small / medium / card / button / capsule）
+/// - **动画**：参考 Apple HIG 的时长节奏（quick / standard / slow）
+/// - **阴影**：预置 `card` / `floating` 两套常用阴影，并提供 `apply(to:)` 便捷方法
 enum AppSpacing {
 
     // MARK: - Insets（内边距 / 间距）
@@ -37,11 +42,9 @@ enum AppSpacing {
     // MARK: - Horizontal（常用水平边距）
 
     /// 页面水平边距：20pt
-    ///
     static let horizontal: CGFloat = 20
 
     /// 卡片水平边距：16pt
-    ///
     static let horizontalCard: CGFloat = 16
 
     // MARK: - Corner（圆角）
@@ -63,6 +66,17 @@ enum AppSpacing {
 
         /// 头像圆角：直径的一半
         ///
+        /// ## 调用方法
+        /// ```swift
+        /// // 在 viewDidLayoutSubviews 中调用——此时 bounds 已确定
+        /// override func viewDidLayoutSubviews() {
+        ///     super.viewDidLayoutSubviews()
+        ///     avatarImageView.layer.cornerRadius = AppSpacing.Corner.avatar(
+        ///         width: avatarImageView.bounds.width
+        ///     )
+        /// }
+        /// ```
+        ///
         /// - Parameter width: 头像宽度
         /// - Returns: 圆形头像所需的圆角值
         ///
@@ -80,35 +94,78 @@ enum AppSpacing {
     ///
     /// ## 调用方法
     /// ```swift
-    /// AppSpacing.Shadow.card.apply(to: cardView)
-    /// ```
+    /// // ✅ 推荐：在 layoutSubviews 中 apply——
+    /// //    此时 bounds 已经确定，shadowPath 计算正确
+    /// override func layoutSubviews() {
+    ///     super.layoutSubviews()
+    ///     AppSpacing.Shadow.card.apply(to: cardView)
+    /// }
     ///
+    /// // ⚠️ 若必须在 viewDidLoad 中 apply——
+    /// //    后续 bounds 变化时需要手动更新 path
+    /// AppSpacing.Shadow.card.apply(to: cardView)
+    ///
+    /// override func layoutSubviews() {
+    ///     super.layoutSubviews()
+    ///     AppSpacing.Shadow.card.updateShadowPath(for: cardView)
+    /// }
+    /// ```
     struct Shadow {
 
         /// 阴影颜色
         let color: UIColor
+
         /// 阴影偏移
         let offset: CGSize
+
         /// 阴影不透明度
         let opacity: Float
+
         /// 阴影模糊半径
         let radius: CGFloat
 
-        /// 应用到视图的 layer
+        // MARK: Apply / Update
+
+        /// 应用阴影到视图的 layer
         ///
         /// - Parameter view: 目标视图
-        /// 
+        ///
+        /// - Important: 本方法会**按当前 `view.bounds`** 计算 `shadowPath`。
+        ///   若在 `bounds` 尚未确定时调用（如 `viewDidLoad`），
+        ///   `shadowPath` 会基于 `.zero` 计算，导致阴影不可见。
+        ///
+        ///   **正确用法**：在 `layoutSubviews` 中调用，或调用 `apply` 后在
+        ///   `layoutSubviews` 中额外调用 `updateShadowPath(for:)`。
         func apply(to view: UIView) {
             view.layer.shadowColor = color.cgColor
             view.layer.shadowOffset = offset
             view.layer.shadowOpacity = opacity
             view.layer.shadowRadius = radius
             // 性能优化：指定阴影路径避免离屏渲染
+            updateShadowPath(for: view)
+        }
+
+        /// 仅更新阴影路径（**不修改**阴影其他属性）
+        ///
+        /// - Parameter view: 目标视图
+        ///
+        func updateShadowPath(for view: UIView) {
             view.layer.shadowPath = UIBezierPath(
                 roundedRect: view.bounds,
                 cornerRadius: view.layer.cornerRadius
             ).cgPath
         }
+
+        /// 移除视图上的阴影
+        ///
+        /// - Parameter view: 目标视图
+        /// 
+        static func remove(from view: UIView) {
+            view.layer.shadowPath = nil
+            view.layer.shadowOpacity = 0
+        }
+
+        // MARK: Presets
 
         /// 卡片阴影：轻微、柔和
         ///

@@ -16,7 +16,6 @@ import UIKit
 /// - 隐私协议勾选
 /// - 验证码按钮倒计时
 /// - 密码可见性切换
-/// 
 @MainActor
 protocol AuthFormViewControllerProtocol: UIViewController {
 
@@ -55,21 +54,26 @@ extension AuthFormViewControllerProtocol {
     ///     configureAuthPrivacyTextView(delegate: agreementHandler)
     /// }
     /// ```
-    ///
-    /// - Note: 三页共用同一段文案。若未来需要多语言，
-    ///         把 `text` / `link.text` 换成 `L(...)` 即可。
     func configureAuthPrivacyTextView(delegate: UITextViewDelegate) {
-        let text = "已阅读并同意《用户注册协议》与《隐私政策》"
+        // 1. 获取两个链接文本（已本地化）
+        let agreementText = L("《用户注册协议》")
+        let privacyText = L("《隐私政策》")
 
+        // 2. 用 `%@` 拼接完整句子——
+        //    `Localizable.strings` 中的 key 为 `"已阅读并同意%@与%@"`，
+        //    各语言翻译须保留 `%@` 占位符（见最终 Localizable.json）
+        let fullText = L("已阅读并同意%@与%@", agreementText, privacyText)
+
+        // 3. 设置富文本 + 链接
         authPrivacyTextView.setAgreementText(
-            text,
+            fullText,
             links: [
                 AgreementLink(
-                    text: "《用户注册协议》",
+                    text: agreementText,
                     url: AgreementLinks.userAgreement
                 ),
                 AgreementLink(
-                    text: "《隐私政策》",
+                    text: privacyText,
                     url: AgreementLinks.privacyPolicy
                 )
             ]
@@ -82,10 +86,6 @@ extension AuthFormViewControllerProtocol {
     /// 刷新隐私勾选按钮的视觉
     ///
     /// - Parameter isAgreed: 是否已勾选
-    ///
-    /// - Note: 用 `AppImage.System.checkmarkCircleFill`（已勾选）
-    ///         与 `AppImage.System.circle`（未勾选）切换，
-    ///         颜色分别走 `.success` 与 `.secondary`。
     func refreshAuthPrivacyButton(isAgreed: Bool) {
         let icon = isAgreed
             ? AppImage.System.checkmarkCircleFill
@@ -103,16 +103,13 @@ extension AuthFormViewControllerProtocol {
     /// 刷新验证码按钮的标题 / 可用性
     ///
     /// ## 状态优先级
-    /// 1. 发送中 → "发送中…" + 禁用
-    /// 2. 倒计时中 → "N s" + 禁用
-    /// 3. 空闲 → "获取验证码" + 可用
+    /// 1. 发送中 → `"发送中…"` + 禁用
+    /// 2. 倒计时中 → `"N s"` + 禁用
+    /// 3. 空闲 → `"获取验证码"` + 可用
     ///
     /// - Parameters:
     ///   - isSending: 是否正在发送
     ///   - countdown: 倒计时剩余秒数
-    ///
-    /// - Note: `alpha` 变化用 `UIView.animate` 过渡，
-    ///         避免从可用→禁用时"啪"一下变灰。
     func refreshAuthGetCodeButton(isSending: Bool, countdown: Int) {
         let canTap = !isSending && countdown == 0
 
@@ -126,24 +123,18 @@ extension AuthFormViewControllerProtocol {
         }
 
         if isSending {
-            authGetCodeButton.setTitle("发送中…", for: .normal)
+            authGetCodeButton.setTitle(L("发送中…"), for: .normal)
         } else if countdown > 0 {
-            authGetCodeButton.setTitle("\(countdown) s", for: .normal)
+            // `L("%lld s", countdown)` 生成如 `"60 s"` / `"60秒"`（依语言）
+            authGetCodeButton.setTitle(L("%lld s", countdown), for: .normal)
         } else {
-            authGetCodeButton.setTitle("获取验证码", for: .normal)
+            authGetCodeButton.setTitle(L("获取验证码"), for: .normal)
         }
     }
 
     // MARK: - 密码可见性
 
     /// 切换密码可见性并更新按钮图标
-    ///
-    /// ## 状态
-    /// - `isSecureTextEntry == true` → 显示"闭眼"图标（`eye.slash.fill`）
-    /// - `isSecureTextEntry == false` → 显示"开眼"图标（`eye.fill`）
-    ///
-    /// - Note: 图标语义遵循"**显示当前状态**"而非"**点击后的动作**"。
-    ///         闭眼 = 密码隐藏中，开眼 = 密码可见中。
     func toggleAuthPasswordVisibility() {
         authPasswordTextField.isSecureTextEntry.toggle()
         let icon = authPasswordTextField.isSecureTextEntry
@@ -159,10 +150,6 @@ extension AuthFormViewControllerProtocol {
     /// - Parameters:
     ///   - segment: 分段控件
     ///   - viewModel: 表单 VM
-    ///
-    /// - Note: 在 `syncUIWithViewModel` 里调用，保证 segment 状态与 VM 一致。
-    ///         典型场景：VM 内部切换了 `accountMode`（如程序化切换），
-    ///         UI 需要跟随更新；反之 UI 手动切换时，VM 也要被更新。
     func syncAuthSegment(_ segment: UISegmentedControl, with viewModel: AuthFormViewModel) {
         if segment.selectedSegmentIndex != viewModel.accountMode.rawValue {
             segment.selectedSegmentIndex = viewModel.accountMode.rawValue

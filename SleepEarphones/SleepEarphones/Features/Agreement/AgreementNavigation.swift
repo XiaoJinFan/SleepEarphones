@@ -8,11 +8,7 @@
 import UIKit
 
 /// 协议页导航中心
-///
-/// ## 职责
-/// - 从协议 URL 反查 `column_id` 与标题
-/// - 统一打开协议页的入口
-///
+/// 
 /// ## 调用方法
 /// ```swift
 /// // 1. 从任意 VC 打开协议页（推荐）
@@ -27,6 +23,7 @@ import UIKit
 /// 1. 在 `AgreementAPI.ColumnID` 增加常量
 /// 2. 在 `meta(for:)` 的 `switch` 里增加对应分支
 /// 3. 在 `AgreementLinks` 增加对应的 URL 拼装方法
+///
 @MainActor
 enum AgreementNavigation {
 
@@ -37,12 +34,7 @@ enum AgreementNavigation {
         /// 单页 KID（可能为 nil，如第三方链接未带 column_id）
         let columnId: Int?
 
-        /// 展示标题
-        ///
-        /// - Note: 未识别时回退到 `"详情"`——
-        ///         是**兜底标题**而非业务标题——
-        ///         若需要更友好的展示，可在 `AgreementViewController`
-        ///         内部用接口返回的 `content.name` 覆盖。
+        /// 展示标题（**已本地化**）
         let title: String
     }
 
@@ -77,20 +69,20 @@ enum AgreementNavigation {
     private static func meta(for url: String) -> Meta {
         guard let columnId = extractColumnId(from: url) else {
             // 未解析到 column_id：保留 nil + 兜底标题
-            return Meta(columnId: nil, title: "详情")
+            return Meta(columnId: nil, title: L("详情"))
         }
 
         switch columnId {
         case AgreementAPI.ColumnID.userAgreement:
-            return Meta(columnId: columnId, title: "用户注册协议")
+            return Meta(columnId: columnId, title: L("用户注册协议"))
 
         case AgreementAPI.ColumnID.privacyPolicy:
-            return Meta(columnId: columnId, title: "隐私政策")
+            return Meta(columnId: columnId, title: L("隐私政策"))
 
         default:
             // column_id 存在但未在 `ColumnID` 中登记——
             // 保留 columnId（用于接口请求）+ 兜底标题
-            return Meta(columnId: columnId, title: "详情")
+            return Meta(columnId: columnId, title: L("详情"))
         }
     }
 
@@ -104,8 +96,10 @@ enum AgreementNavigation {
             return nil
         }
 
+        // 大小写不敏感匹配（`column_id` / `columnId` / `COLUMN_ID` 都命中）
+        let target = "column_id"
         return items
-            .first { $0.name == "column_id" }
+            .first { $0.name.lowercased().replacingOccurrences(of: "_", with: "") == target.replacingOccurrences(of: "_", with: "") }
             .flatMap { $0.value }
             .flatMap { Int($0) }
     }
@@ -114,33 +108,6 @@ enum AgreementNavigation {
 // MARK: - UITextViewDelegate 通用实现
 
 /// 协议 TextView 的通用点击处理
-///
-/// ## 背景
-/// 因为 Swift 协议扩展**不能**实现 `@objc` 方法（`UITextViewDelegate`
-/// 的部分方法是 `@objc` 的），这里用一层 `NSObject` 基类承接。
-///
-/// ## 调用方法
-/// ```swift
-/// // 1. 在 VC 里持有 handler（**必须强引用**，因为 delegate 是 weak）
-/// private let agreementHandler = AgreementTextViewHandler()
-///
-/// override func viewDidLoad() {
-///     super.viewDidLoad()
-///     privacyTextView.delegate = agreementHandler
-/// }
-/// ```
-///
-/// ## 关于子类扩展
-/// 当前类**未声明 `final`**，可被本 module 内的子类继承并覆写
-/// `handleAgreementLink(_:from:)` 加埋点 / 特殊逻辑：
-/// ```swift
-/// final class TrackedAgreementHandler: AgreementTextViewHandler {
-///     override func handleAgreementLink(_ url: URL, from vc: UIViewController) {
-///         Analytics.track("agreement_link_tapped", ["url": url.absoluteString])
-///         super.handleAgreementLink(url, from: vc)
-///     }
-/// }
-/// ```
 @MainActor
 class AgreementTextViewHandler: NSObject, UITextViewDelegate {
 
@@ -151,9 +118,6 @@ class AgreementTextViewHandler: NSObject, UITextViewDelegate {
     /// - Parameters:
     ///   - url: 被点击的链接 URL
     ///   - vc: 链接所属的 VC（由 `textView.findViewController()` 反查）
-    ///
-    /// - Note: 默认走 `AgreementNavigation.open(from:urlString:)`。
-    ///         子类可覆盖，加埋点 / 特殊逻辑后调用 `super`。
     func handleAgreementLink(_ url: URL, from vc: UIViewController) {
         AgreementNavigation.open(from: vc, urlString: url.absoluteString)
     }
@@ -168,9 +132,6 @@ class AgreementTextViewHandler: NSObject, UITextViewDelegate {
     ///   - characterRange: 链接的字符范围
     ///   - interaction: 交互类型
     /// - Returns: 固定返回 `false`——表示由我们**自己**处理跳转
-    ///
-    /// - Note: **必须**在返回前调用 `handleAgreementLink(...)`，
-    ///         否则点击链接不会有任何响应。
     func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
         guard let vc = textView.findViewController() else {
             AppLog.agreement.error("无法从 UITextView 找到所属 VC，忽略链接点击")
@@ -212,21 +173,11 @@ class AgreementTextViewHandler: NSObject, UITextViewDelegate {
 // MARK: - UIView → 所在 VC
 
 /// 视图 → 所属 ViewController 的响应链查找
-///
-/// - Note: 扩展在 `UIView` 上，所有视图都可调用。
-///         命名与语义清晰，不会与其他扩展冲突。
 extension UIView {
 
     /// 向上查找所在的 UIViewController
     ///
     /// - Returns: 所属 VC；未找到时返回 `nil`
-    ///
-    /// ## 用途
-    /// - 在 `UITextViewDelegate` 回调中，从 `UITextView` 反查所属 VC，
-    ///   以便 `push` 到目标页
-    ///
-    /// ## 实现
-    /// 沿响应链向上查找，直到找到 `UIViewController`
     @MainActor
     func findViewController() -> UIViewController? {
         var responder: UIResponder? = self

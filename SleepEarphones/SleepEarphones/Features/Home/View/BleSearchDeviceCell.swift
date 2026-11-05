@@ -8,6 +8,16 @@
 import UIKit
 import SnapKit
 
+/// 搜索页面的 BLE 设备单元格
+///
+/// ## 布局结构
+/// ```
+/// ┌──────────────────────────────────────┐
+/// │ ┌────────┐                           │
+/// │ │ 设备图 │ 设备名称         [连接]    │
+/// │ └────────┘                           │
+/// └──────────────────────────────────────┘
+/// ```
 @MainActor
 final class BleSearchDeviceCell: UITableViewCell {
 
@@ -27,9 +37,13 @@ final class BleSearchDeviceCell: UITableViewCell {
         /// 设备图尺寸
         static let imageSize: CGFloat = 56
         /// 设备图圆角
-        static let imageCornerRadius: CGFloat = 12
-        /// "连接"按钮尺寸
-        static let connectButtonSize = CGSize(width: 72, height: 36)
+        static let imageCornerRadius: CGFloat = AppSpacing.Corner.card
+        /// "连接"按钮高度
+        static let connectButtonHeight: CGFloat = 36
+        /// "连接"按钮**最小**宽度（短标题的视觉下限；长标题自适应更宽）
+        static let connectButtonMinWidth: CGFloat = 72
+        /// 设备图 SF Symbol 字号
+        static let deviceSymbolPointSize: CGFloat = 28
     }
 
     // MARK: - Callback
@@ -57,7 +71,10 @@ final class BleSearchDeviceCell: UITableViewCell {
         iv.clipsToBounds = true
         iv.image = UIImage(
             systemName: "airpodspro",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: Layout.deviceSymbolPointSize,
+                weight: .regular
+            )
         )
         iv.tintColor = AppColor.Text.secondary
         return iv
@@ -78,7 +95,7 @@ final class BleSearchDeviceCell: UITableViewCell {
         var config = UIButton.Configuration.filled()
         config.baseBackgroundColor = AppColor.Text.primary
         config.baseForegroundColor = AppColor.Background.card
-        config.background.cornerRadius = Layout.connectButtonSize.height / 2
+        config.background.cornerRadius = Layout.connectButtonHeight / 2
         config.contentInsets = NSDirectionalEdgeInsets(
             top: 0,
             leading: AppSpacing.md,
@@ -86,7 +103,8 @@ final class BleSearchDeviceCell: UITableViewCell {
             trailing: AppSpacing.md
         )
 
-        var titleAttr = AttributedString("连接")
+        // 初始标题（**已本地化**）——`updateConnectButtonState` 会动态覆盖
+        var titleAttr = AttributedString(L("连接"))
         titleAttr.font = AppFont.Body.secondary
         config.attributedTitle = titleAttr
 
@@ -112,10 +130,16 @@ final class BleSearchDeviceCell: UITableViewCell {
         deviceImageView.cancelRemoteImageLoad()
         deviceImageView.image = UIImage(
             systemName: "airpodspro",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: Layout.deviceSymbolPointSize,
+                weight: .regular
+            )
         )
         nameLabel.text = nil
+
+        // 重置按钮状态
         updateConnectButtonState(isConnecting: false)
+
         onConnect = nil
     }
 
@@ -143,7 +167,7 @@ final class BleSearchDeviceCell: UITableViewCell {
             make.trailing.equalToSuperview().offset(-Layout.cardHorizontalMargin)
         }
 
-        // 设备图：核心修复，删除引起冲突的 top/bottom 约束，居中即可
+        // 设备图：居中（删除引起冲突的 top/bottom 约束）
         deviceImageView.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(Layout.cardPadding)
             make.centerY.equalToSuperview()
@@ -154,7 +178,8 @@ final class BleSearchDeviceCell: UITableViewCell {
         connectButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-Layout.cardPadding)
             make.centerY.equalToSuperview()
-            make.size.equalTo(Layout.connectButtonSize)
+            make.height.equalTo(Layout.connectButtonHeight)
+            make.width.greaterThanOrEqualTo(Layout.connectButtonMinWidth)
         }
 
         // 设备名称：在图片和按钮之间，居中
@@ -168,6 +193,11 @@ final class BleSearchDeviceCell: UITableViewCell {
     // MARK: - Configure
 
     /// 配置单元格
+    ///
+    /// - Parameters:
+    ///   - name: 设备名称（**来自 BLE 广播，不参与国际化**）
+    ///   - imageURL: 设备图片 URL（当前为 `nil`，用 SF Symbol 兜底）
+    ///   - isConnecting: 是否正在连接中
     func configure(name: String, imageURL: String?, isConnecting: Bool) {
         nameLabel.text = name
 
@@ -176,7 +206,10 @@ final class BleSearchDeviceCell: UITableViewCell {
         } else {
             deviceImageView.image = UIImage(
                 systemName: "airpodspro",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
+                withConfiguration: UIImage.SymbolConfiguration(
+                    pointSize: Layout.deviceSymbolPointSize,
+                    weight: .regular
+                )
             )
         }
 
@@ -186,12 +219,16 @@ final class BleSearchDeviceCell: UITableViewCell {
     // MARK: - Private
 
     /// 更新"连接"按钮的状态
+    ///
+    /// - Parameter isConnecting: 是否正在连接中
     private func updateConnectButtonState(isConnecting: Bool) {
         connectButton.isEnabled = !isConnecting
         connectButton.alpha = isConnecting ? 0.6 : 1.0
 
         guard var config = connectButton.configuration else { return }
-        var titleAttr = AttributedString(isConnecting ? "连接中…" : "连接")
+        // 标题通过 `L(...)` 本地化
+        let title = isConnecting ? L("连接中…") : L("连接")
+        var titleAttr = AttributedString(title)
         titleAttr.font = AppFont.Body.secondary
         config.attributedTitle = titleAttr
         connectButton.configuration = config

@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 import Combine
 
+/// 音乐播放器单例
 @MainActor
 final class MusicPlayerManager {
 
@@ -134,6 +135,7 @@ final class MusicPlayerManager {
         let session = AVAudioSession.sharedInstance()
         do {
             if !hasConfiguredCategory {
+                // `.playback`：允许 App 在静音模式下播放声音
                 try session.setCategory(.playback, mode: .default, options: [])
                 hasConfiguredCategory = true
             }
@@ -166,8 +168,14 @@ final class MusicPlayerManager {
     // MARK: - Observers Setup
 
     /// 监听播放器与 Item 的内部状态变化
+    ///
+    /// - Parameters:
+    ///   - player: 新创建的播放器
+    ///   - item: 新创建的播放项
     private func setupPlayerObservers(player: AVPlayer, item: AVPlayerItem) {
         // 1. 监听 timeControlStatus（控制 isPlaying 的唯一真相来源）
+        //
+        // - Note: KVO 回调可能在任何线程——用 `Task { @MainActor }` 切回主线程。
         timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
@@ -182,23 +190,28 @@ final class MusicPlayerManager {
         itemStatusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
+
+                // 竞态：旧 item 的失败回调（已切到新歌）
+                guard item === self.player?.currentItem else {
+                    AppLog.app.debug("忽略旧 item 的状态回调（已切歌）")
+                    return
+                }
+
                 if item.status == .failed {
-                    let errorMsg = item.error?.localizedDescription ?? "未知错误"
+                    let errorMsg = item.error?.localizedDescription ?? "unknown"
                     AppLog.app.error("音频播放失败：\(errorMsg, privacy: .public)")
 
-                    // 用 NetworkError 包装，方便 UI 层处理
-                    let networkError = NetworkError.underlying(
-                        NSError(
-                            domain: "MusicPlayer",
-                            code: -1,
-                            userInfo: [NSLocalizedDescriptionKey: "音频加载失败：\(errorMsg)"]
-                        )
+                    // ⚠️ 面向用户的错误——必须本地化
+                    let nsError = NSError(
+                        domain: "MusicPlayer",
+                        code: -1,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: L("音频加载失败：%@", errorMsg)
+                        ]
                     )
-                    self.onPlaybackError.send(networkError)
+                    self.onPlaybackError.send(.underlying(nsError))
 
                     // 播放失败 → 释放播放器 + 取消激活 session
-                    //
-                    // - Note: 若不 deactivate，其他 App 的音频输出会被阻塞。
                     self.cleanupPlayer()
                     self.deactivateAudioSession()
                 }
@@ -330,6 +343,9 @@ final class MusicPlayerManager {
         itemStatusObservation?.invalidate()
         itemStatusObservation = nil
 
+        // ⚠️ 通知观察者必须显式移除——`NotificationCenter` 是全局的，
+        //    不移除会导致观察者随 `playerEndObserver` 属性一起"泄漏"：
+        //    属性置 nil 只是丢失引用，但 `NotificationCenter` 仍持有 observer block。
         if let observer = playerEndObserver {
             NotificationCenter.default.removeObserver(observer)
             playerEndObserver = nil
@@ -338,9 +354,10 @@ final class MusicPlayerManager {
         isPlaying = false
     }
 
-    /// 释放资源
+    // MARK: - Deinit
+
     deinit {
-        // 移除所有通知观察者（AudioSession 与 PlayerEnd）
+        // 移除所有通知观察者
         if let observer = playerEndObserver {
             NotificationCenter.default.removeObserver(observer)
         }

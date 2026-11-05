@@ -34,10 +34,19 @@ import Combine
 /// ```
 ///
 /// ## 与 `HelpService` 的关系
-/// 两者调用的是**同一个后端接口**（`APIEndpoint.helpList`），
-/// 仅通过 `operationarticlecate_id` 区分返回数据：
-/// - `MessageService` → `categoryId = 1`（平台公告）
-/// - `HelpService` → `categoryId = 2`（帮助中心）
+/// | 维度 | `MessageService` | `HelpService` |
+/// |---|---|---|
+/// | 后端接口 | `6729cd8c2190d` | `6729cd8c2190d`（**相同**） |
+/// | `operationarticlecate_id` | `1` | `2` |
+/// | 返回类型 | `[MessageModel]` | `[HelpFAQItem]` |
+///
+/// - Note: 两者调用**同一后端接口**，仅靠 `operationarticlecate_id` 区分返回数据：
+///   - `MessageService` → `categoryId = 1`（平台公告）
+///   - `HelpService` → `categoryId = 2`（帮助中心）
+///
+/// ## 关于 `Sendable`
+/// 协议要求 `Sendable`——实现方需保证 `client` 属性是 `let`
+/// 且类型 `Sendable`。
 protocol MessageServiceProtocol: Sendable {
 
     /// 拉取指定分类下的消息列表
@@ -50,14 +59,7 @@ protocol MessageServiceProtocol: Sendable {
 // MARK: - 服务实现
 
 /// 消息服务实现
-///
-/// ## 依赖注入
-/// `client` 通过协议注入，默认使用 `NetworkClient()`：
-/// - 生产环境：`MessageService()` 使用默认 `NetworkClient`
-/// - 单元测试：`MessageService(client: MockNetworkClient())`
-///
-/// - Note: 无状态服务类，天然 `Sendable`。
-final class MessageService: MessageServiceProtocol {
+final class MessageService: MessageServiceProtocol, Sendable {
 
     // MARK: - Properties
 

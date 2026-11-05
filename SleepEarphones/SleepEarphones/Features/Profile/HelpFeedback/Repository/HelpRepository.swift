@@ -32,14 +32,11 @@ import Combine
 ///     )
 ///     .store(in: &cancellables)
 /// ```
-///
-/// - Note: 当前是纯透传。保留此层是为了与其他模块（Device / Auth / Message）
-///         保持**一致的分层结构**，未来扩展时有落点。
 protocol HelpRepositoryProtocol: Sendable {
 
     /// 拉取帮助文章列表
     ///
-    /// - Parameter categoryId: 分类 ID
+    /// - Parameter categoryId: 分类 ID（见 `HelpAPI.helpCenterCategoryId`）
     /// - Returns: 文章列表 Publisher
     func fetchFAQs(categoryId: Int) -> AnyPublisher<[HelpFAQItem], NetworkError>
 }
@@ -47,7 +44,18 @@ protocol HelpRepositoryProtocol: Sendable {
 // MARK: - 仓库实现
 
 /// 帮助仓库实现
-final class HelpRepository: HelpRepositoryProtocol {
+///
+/// ## 数据流
+/// ```
+/// ViewModel
+///   ↓ fetchFAQs(categoryId:)
+/// HelpRepository（本类）
+///   ↓ 纯透传
+/// HelpService
+///   ↓
+/// NetworkClient
+/// ```
+final class HelpRepository: HelpRepositoryProtocol, Sendable {
 
     // MARK: - Properties
 

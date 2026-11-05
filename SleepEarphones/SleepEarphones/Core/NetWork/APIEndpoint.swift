@@ -9,6 +9,11 @@ import Foundation
 
 /// 后端接口端点登记表
 ///
+/// ## 职责
+/// - **唯一登记**所有后端接口的 `path` 片段（hash 风格的 endpoint ID）
+/// - 为 `APIRequest` 的实现方提供 `path` 常量来源
+/// - 为排障提供 `path → endpoint` 反查能力
+///
 /// ## 调用方法
 /// ```swift
 /// // 1. 在 APIRequest 里引用
@@ -25,6 +30,15 @@ import Foundation
 ///     print(endpoint)  // login
 /// }
 /// ```
+///
+/// ## 分组约定
+/// 枚举 case **按业务域分组**（用 `// MARK:` 分隔）：
+/// - 通用 / 登录注册 / 设备 / 消息 / 我的设置 / 音乐睡眠 / 问卷 / 其他
+///
+/// 新增端点时：
+/// 1. 找到对应业务域的 `MARK` 区块追加 case
+/// 2. `rawValue` 从后端接口文档的 hash ID 复制（**不要手写**）
+/// 3. `Sendable` 是自动的（`rawValue` 为 `String`）
 ///
 /// - Note: 继承 `Sendable`：`rawValue` 是 `String`，天然线程安全。
 enum APIEndpoint: String, Sendable {
@@ -222,8 +236,13 @@ extension APIEndpoint {
     /// 完整 URL 字符串（仅调试 / 打日志时使用）
     ///
     /// - Parameter baseURL: 基础 URL，默认 `APIConfiguration.serverPrefix`
-    /// - Returns: 完整 URL 字符串；拼接失败时退回简单拼接
-    /// 
+    /// - Returns: 完整 URL 字符串；`URLBuilder` 拼接失败时退回简单拼接
+    ///
+    /// - Note: 兜底拼接 `"\(baseURL)/\(rawValue)"` 在极端情况下可能因
+    ///         `rawValue` 含特殊字符而得到非法 URL——但本方法的调用方是
+    ///         **日志 / 调试场景**，即使 URL 非法也不会影响实际请求
+    ///         （实际请求走 `APIRequest.asURLRequest` → `URLBuilder.build`，
+    ///         失败时会抛 `NetworkError.invalidURL`）。
     func urlString(baseURL: String = APIConfiguration.serverPrefix) -> String {
         URLBuilder.build(base: baseURL, path: rawValue)?.absoluteString
             ?? "\(baseURL)/\(rawValue)"
@@ -239,6 +258,13 @@ extension APIEndpoint {
     /// - Parameter path: `APIRequest.path`（可带或不带前导 `/`）
     /// - Returns: 匹配的端点；未登记时返回 `nil`
     ///
+    /// ## 归一化规则
+    /// - 只处理**前导 `/`**（`"/5c78dbfd977cf"` → `"5c78dbfd977cf"`）
+    /// - **不处理** query（`"?id=1"`）、末尾 `/`、URL 编码——
+    ///   调用方应传入 `APIRequest.path` 的**原始值**，而非从完整 URL 截取
+    ///
+    /// - Important: 本方法用于**排障**（如打印"哪个 endpoint 返回了该错误"），
+    ///              不应作为业务逻辑的依赖——业务代码应该直接引用枚举 case。
     init?(path: String) {
         let normalized = path.hasPrefix("/") ? String(path.dropFirst()) : path
         self.init(rawValue: normalized)

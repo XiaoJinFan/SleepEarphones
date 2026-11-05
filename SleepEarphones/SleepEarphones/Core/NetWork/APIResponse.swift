@@ -50,10 +50,7 @@ public struct APIResponse<T: Decodable>: Decodable {
     ///
     /// - Note: 这个字段**不参与** Decodable 解码，仅作为诊断信息向上层暴露。
     ///         上层可据此区分"空数据"与"解码失败"。
-    ///
-    /// - Important: 类型是 `any Error`，Swift 6 下不是 `Sendable`。
-    ///              但本字段只作为诊断用，不参与跨 actor 的逻辑判断，
-    ///              因此 `APIResponse` 用 `@unchecked Sendable` 声明。
+    ///         
     public let decodeError: Error?
 
     // MARK: - CodingKeys
@@ -136,12 +133,15 @@ public struct APIResponse<T: Decodable>: Decodable {
     /// - Parameter container: 解码容器
     /// - Returns: 解析后的 Int 值；全部失败时返回 `-999`（系统错误）
     ///
-    /// - Note: 解码优先级 `Int → String → Bool → Double`，
-    ///         与后端实际返回值频率一致。
-    ///         全部失败时返回 `-999` 而非 `-1`——
-    ///         `-999` 是后端错误码表里定义的"系统错误"，
-    ///         语义明确、便于日志排查；而 `-1` 不在错误码表中，
-    ///         容易与自定义错误码混淆。
+    /// ## 解码顺序
+    /// `Int → String → Bool → Double`
+    ///
+    /// - 优先级与后端实际返回值频率一致：
+    ///   - `Int`：最常见
+    ///   - `String`：PHP 接口常序列化成字符串（如 `"1"`）
+    ///   - `Bool`：部分新接口（`true` → `1`, `false` → `0`）
+    ///   - `Double`：偶发（如 `1.0` / `200.0`）
+    ///
     private static func decodeCode(from container: KeyedDecodingContainer<CodingKeys>) -> Int {
         // 1. Int（最常见）
         if let intCode = try? container.decode(Int.self, forKey: .code) {
@@ -161,7 +161,9 @@ public struct APIResponse<T: Decodable>: Decodable {
             return Int(doubleCode)
         }
         // 5. 极端情况：code 缺失或类型完全不符 → 系统错误
-        AppLog.network.error("APIResponse.code 解码失败，回退为 -999（系统错误）")
+        AppLog.network.error(
+            "APIResponse.code 解码失败（可能是 Int / String / Bool / Double 之外的类型，或字段缺失），回退为 -999（系统错误）"
+        )
         return APIConfiguration.systemErrorCode
     }
 }

@@ -15,7 +15,7 @@ struct MusicBanner: Decodable, Identifiable, Sendable {
     /// 横幅 ID（接口未返回，用 UUID 兜底）
     let id: String
 
-    /// 横幅名称（如"音乐"）
+    /// 横幅名称（如 `"音乐"`，**来自后端，已本地化**）
     let name: String
 
     /// 图片 URL（后端 `thumb` 字段）
@@ -73,8 +73,6 @@ struct MusicBanner: Decodable, Identifiable, Sendable {
 // MARK: - 功能入口
 
 /// 音乐页功能入口（自定义白噪音 / 内置音频）
-///
-/// - Note: 入口是**客户端固定配置**，不来自接口。
 enum MusicEntry: CaseIterable {
 
     /// 自定义白噪音
@@ -83,15 +81,17 @@ enum MusicEntry: CaseIterable {
     /// 内置音频
     case builtInAudio
 
-    /// 显示标题
+    /// 显示标题（**已本地化**）
+    ///
+    /// - Returns: 当前语言下的展示文案
     var title: String {
         switch self {
-        case .customWhiteNoise: return "自定义白噪音"
-        case .builtInAudio:     return "内置音频"
+        case .customWhiteNoise: return LN("自定义白噪音")
+        case .builtInAudio:     return LN("内置音频")
         }
     }
 
-    /// SF Symbols 图标名
+    /// SF Symbols 图标名（**不参与国际化**——图标本身无语言）
     var iconName: String {
         switch self {
         case .customWhiteNoise: return "waveform"
@@ -100,6 +100,8 @@ enum MusicEntry: CaseIterable {
     }
 
     /// 卡片渐变背景起始色（左上）
+    ///
+    /// - Note: 颜色 hex 值**不参与国际化**——纯视觉常量
     var gradientStartColorHex: String {
         switch self {
         case .customWhiteNoise: return "#7B5DD6"
@@ -124,16 +126,16 @@ enum MusicEntry: CaseIterable {
 /// | 本属性 | 后端字段 | 说明 |
 /// |---|---|---|
 /// | `id` | `aid` | 音乐 ID |
-/// | `title` | `name` | 音乐名称（如"篝火夜宴"） |
+/// | `title` | `name` | 音乐名称（如 `"篝火夜宴"`，**后端已本地化**） |
 /// | `coverURL` | `thumb` | 封面图（完整 URL） |
 /// | `categoryId` | `pid` | 分类 ID |
-/// | `categoryName` | `pid_name` | 分类名（如"推荐白噪音"） |
+/// | `categoryName` | `pid_name` | 分类名（如 `"推荐白噪音"`，**后端已本地化**） |
 struct MusicCardItem: Decodable, Identifiable, Sendable {
 
     /// 音乐 ID
     let id: String
 
-    /// 音乐名称
+    /// 音乐名称（**来自后端，已本地化**）
     let title: String
 
     /// 封面图 URL
@@ -142,7 +144,7 @@ struct MusicCardItem: Decodable, Identifiable, Sendable {
     /// 分类 ID
     let categoryId: Int?
 
-    /// 分类名
+    /// 分类名（**来自后端，已本地化**）
     let categoryName: String
 
     // MARK: - 便捷判断
@@ -178,11 +180,13 @@ struct MusicCardItem: Decodable, Identifiable, Sendable {
         } else if let strID = try? c.decode(String.self, forKey: .aid) {
             self.id = strID
         } else {
+            // 兜底：用 UUID 保证 `Identifiable` 唯一性
             self.id = UUID().uuidString
         }
 
-        // name
-        self.title = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? "未命名"
+        // title：后端未返回时用**已本地化**的兜底文案
+        let rawTitle = try? c.decodeIfPresent(String.self, forKey: .name)
+        self.title = rawTitle?.isEmpty == false ? rawTitle! : LN("未命名")
 
         // thumb（完整 URL）
         let rawThumb = try? c.decodeIfPresent(String.self, forKey: .thumb)
@@ -191,7 +195,7 @@ struct MusicCardItem: Decodable, Identifiable, Sendable {
         // pid
         self.categoryId = try? c.decodeIfPresent(Int.self, forKey: .pid)
 
-        // pid_name
+        // pid_name（**来自后端，已本地化**）
         self.categoryName = (try? c.decodeIfPresent(String.self, forKey: .pidName)) ?? ""
     }
 }
@@ -204,7 +208,7 @@ struct MusicCardItem: Decodable, Identifiable, Sendable {
 /// | 本属性 | 后端字段 | 说明 |
 /// |---|---|---|
 /// | `id` | `aid` | 分类 ID |
-/// | `name` | `name` | 分类名（如"推荐白噪音" / "自然"） |
+/// | `name` | `name` | 分类名（如 `"推荐白噪音"` / `"自然"`，**后端已本地化**） |
 /// | `items` | `datas` | 该分类下的音乐列表 |
 ///
 /// ## 调用方法
@@ -218,7 +222,7 @@ struct MusicCategory: Decodable, Identifiable, Sendable {
     /// 分类 ID
     let id: Int
 
-    /// 分类名
+    /// 分类名（**来自后端，已本地化**）
     let name: String
 
     /// 该分类下的音乐列表
@@ -248,10 +252,11 @@ struct MusicCategory: Decodable, Identifiable, Sendable {
                   let parsed = Int(strID) {
             self.id = parsed
         } else {
+            // 兜底：用 0（分类 ID 为 0 时不可用于匹配，但保证可解析）
             self.id = 0
         }
 
-        // name
+        // name（**来自后端，已本地化**）
         self.name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
 
         // datas（缺失 / 类型不符 → 空数组）
@@ -272,7 +277,7 @@ struct MusicSection: Sendable {
     /// 分类 ID
     let id: Int
 
-    /// 分组标题
+    /// 分组标题（**来自后端，已本地化**）
     let title: String
 
     /// 该分组下的音乐卡片
@@ -287,12 +292,12 @@ struct MusicSection: Sendable {
 /// | 本属性 | 后端字段 | 说明 |
 /// |---|---|---|
 /// | `id` | `aid` | 音乐 ID（兼容 Int / String） |
-/// | `title` | `freemusiccategory_classification_name` | 音乐名（如"篝火夜宴"） |
+/// | `title` | `music_name` | 音乐名（如 `"篝火夜宴"`，**后端已本地化**） |
 /// | `coverURL` | `music_image` | 封面图 URL |
 /// | `audioURL` | `resource_path` | 音频文件 URL |
-/// | `categoryName` | `freemusicclassification_musictypename` | 分类名（如"推荐白噪音"） |
+/// | `categoryName` | `freemusicclassification_musictypename` | 分类名（**后端已本地化**） |
 /// | `categoryId` | `freemusicclassification_id` | 分类 ID |
-/// | `subCategoryName` | `freemusiccategory_classification_name` | 子分类名（与 title 相同） |
+/// | `subCategoryName` | `freemusiccategory_classification_name` | 子分类名（**后端已本地化**） |
 /// | `subCategoryId` | `freemusicsubcategory_id` | 子分类 ID |
 /// | `isCustomWhiteNoise` | `custom_white_noise` | 是否自定义白噪音 |
 /// | `isOrdinaryAudio` | `ordinary_audio` | 是否普通音频 |
@@ -309,7 +314,7 @@ struct MusicSong: Decodable, Identifiable, Sendable {
     /// 音乐 ID
     let id: String
 
-    /// 音乐名（如"篝火夜宴"）
+    /// 音乐名（如 `"篝火夜宴"`，**来自后端，已本地化**）
     let title: String
 
     /// 封面图 URL
@@ -318,13 +323,13 @@ struct MusicSong: Decodable, Identifiable, Sendable {
     /// 音频文件 URL（**播放用**）
     let audioURL: String?
 
-    /// 分类名（如"推荐白噪音"）
+    /// 分类名（如 `"推荐白噪音"`，**来自后端，已本地化**）
     let categoryName: String
 
     /// 分类 ID
     let categoryId: Int?
 
-    /// 子分类名（如"篝火夜宴"）
+    /// 子分类名（如 `"篝火夜宴"`，**来自后端，已本地化**）
     let subCategoryName: String?
 
     /// 子分类 ID
@@ -356,17 +361,17 @@ struct MusicSong: Decodable, Identifiable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case aid
-        /// 音乐名（后端字段 `music_name`，如"篝火"）
+        /// 音乐名（后端字段 `music_name`，如 `"篝火"`，**后端已本地化**）
         case title                = "music_name"
         /// 封面图
         case musicImage           = "music_image"
         /// 音频 URL
         case resourcePath         = "resource_path"
-        /// 分类名（如"推荐白噪音"）
+        /// 分类名（如 `"推荐白噪音"`，**后端已本地化**）
         case categoryName         = "freemusicclassification_musictypename"
         /// 分类 ID
         case categoryId           = "freemusicclassification_id"
-        /// 子分类名（如"篝火夜宴"）
+        /// 子分类名（如 `"篝火夜宴"`，**后端已本地化**）
         case subCategoryName      = "freemusicsubcategory_classification_name"
         /// 子分类 ID
         case subCategoryId        = "freemusicsubcategory_id"
@@ -379,6 +384,9 @@ struct MusicSong: Decodable, Identifiable, Sendable {
     // MARK: - 自定义解码
 
     /// 容错解码：`id` 兼容 Int / String，布尔值兼容 Int / Bool
+    ///
+    /// - Parameter decoder: 解码器
+    /// - Throws: `DecodingError`
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -391,7 +399,7 @@ struct MusicSong: Decodable, Identifiable, Sendable {
             self.id = UUID().uuidString
         }
 
-        // 字符串字段
+        // 字符串字段（**均来自后端，已本地化**）
         self.title           = (try? c.decodeIfPresent(String.self, forKey: .title)) ?? ""
         self.categoryName    = (try? c.decodeIfPresent(String.self, forKey: .categoryName)) ?? ""
         self.subCategoryName = try? c.decodeIfPresent(String.self, forKey: .subCategoryName)
@@ -415,13 +423,17 @@ struct MusicSong: Decodable, Identifiable, Sendable {
 
     // MARK: - Private Helpers
 
-    /// 解码 Bool，兼容 Bool / Int
+    /// 解码 Bool，兼容 Bool / Int / String
     private static func bool(from c: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) -> Bool {
         if let boolVal = try? c.decodeIfPresent(Bool.self, forKey: key) {
             return boolVal
         }
         if let intVal = try? c.decodeIfPresent(Int.self, forKey: key) {
             return intVal != 0
+        }
+        if let strVal = try? c.decodeIfPresent(String.self, forKey: key) {
+            let lower = strVal.lowercased()
+            return lower == "1" || lower == "true"
         }
         return false
     }

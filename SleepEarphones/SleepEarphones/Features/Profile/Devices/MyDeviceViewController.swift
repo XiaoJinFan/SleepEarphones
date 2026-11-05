@@ -9,7 +9,6 @@ import UIKit
 import Combine
 import SnapKit
 
-/// 我的设备页
 @MainActor
 final class MyDeviceViewController: UIViewController {
 
@@ -72,8 +71,6 @@ final class MyDeviceViewController: UIViewController {
     ///
     /// - Parameter viewModel: 外部注入的 ViewModel（如由「我的」页面共享）；
     ///                        传 nil 时本页自建一个新实例。
-    ///
-    /// - Note: `init` 已由 `@MainActor` 隔离，可以安全创建 `@MainActor` 的 ViewModel。
     init(viewModel: MyDeviceViewModel? = nil) {
         self.viewModel = viewModel ?? MyDeviceViewModel()
         super.init(nibName: nil, bundle: nil)
@@ -107,7 +104,8 @@ final class MyDeviceViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "我的设备"
+        // **导航标题已本地化**
+        title = L("我的设备")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -121,8 +119,10 @@ final class MyDeviceViewController: UIViewController {
             make.edges.equalToSuperview()
         }
 
+        // 空态：顶部留一点边距，其余铺满
         emptyView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(AppSpacing.xs)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .inset(AppSpacing.xs)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
             make.bottom.equalToSuperview()
         }
@@ -188,13 +188,12 @@ final class MyDeviceViewController: UIViewController {
 
     /// 弹出错误提示，关闭后清除 ViewModel 中的错误状态
     ///
-    /// - Note: 使用 `UIViewController+Toast` 扩展的 `showAlert(_:title:popOnDismiss:onConfirm:)`。
-    ///         原调用 `showAlert(message) { ... }` 依赖尾随闭包，
-    ///         但扩展签名有 4 个参数，需显式命名 `onConfirm:`。
+    /// - Parameter message: 错误信息（**已本地化**）
     private func presentError(_ message: String) {
         showAlert(
             message,
-            title: "提示",
+            // **Alert 标题已本地化**
+            title: L("提示"),
             onConfirm: { [weak self] in
                 self?.viewModel.clearError()
             }
@@ -211,9 +210,6 @@ extension MyDeviceViewController: UITableViewDataSource {
     }
 
     /// ✅ 用 guard 解包替代 `as!` 强制转换
-    ///
-    /// - 若 cell 注册 / Storyboard 配置错误，`as!` 直接崩溃
-    /// - 改为 guard + 日志，即使出错也只返回空白 cell，不闪退
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         guard let cell = tableView.dequeueReusableCell(
@@ -233,6 +229,7 @@ extension MyDeviceViewController: UITableViewDataSource {
 
 extension MyDeviceViewController: UITableViewDelegate {
 
+    /// 点击设备行 → 跳转设备详情
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let device = viewModel.devices[indexPath.row]
         AppLog.device.debug(

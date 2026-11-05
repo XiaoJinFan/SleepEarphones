@@ -27,13 +27,11 @@ import UIKit
 /// // 4. 调试环境判断
 /// if DeviceInfo.isSimulator { ... }
 /// ```
-/// 
 enum DeviceInfo {
 
     // MARK: - Constants
 
     /// 操作系统标识（用于接口 `user_source` 字段）
-    ///
     static let osName = "IOS"
 
     // MARK: - Vendor Identifier
@@ -45,10 +43,18 @@ enum DeviceInfo {
     /// - 用户卸载**该 Vendor 的所有 App** 后才会重置
     /// - 从 App Store / TestFlight / 企业签名安装时，IDFV 稳定
     ///
+    /// ## 为什么是 `String?`
+    /// 极少数场景下 `identifierForVendor` 返回 `nil`：
+    /// - 用户**从未启动过**任何同 Vendor 的 App（如刚刷机）
+    /// - 设备处于"恢复模式"等异常状态
+    ///
+    /// 调用方（如 `AuthAPI.makeBaseParameters`）需处理 `nil`：
+    /// 缺失时**不发送** `client_id` 字段，而非发空串——
+    /// 后者可能被后端当作"有效空值"处理，导致风控异常。
+    ///
     /// ## 用途
     /// - 作为接口 `client_id` 字段（部分后端用它做设备维度识别）
     /// - 作为埋点 / 日志的设备维度唯一标识
-    ///
     static let idfv: String? = {
         UIDevice.current.identifierForVendor?.uuidString
     }()
@@ -87,13 +93,17 @@ enum DeviceInfo {
     static let modelIdentifier: String = {
         var systemInfo = utsname()
         uname(&systemInfo)
-        let machineMirror = Mirror(reflecting: systemInfo.machine)
-        return machineMirror.children.reduce("") { identifier, element in
+
+        // `machine` 是元组，用 `withUnsafeBytes` 转成可遍历的字节视图
+        let machine = systemInfo.machine
+        let mirror = Mirror(reflecting: machine)
+        let scalars: [UnicodeScalar] = mirror.children.compactMap { element in
             guard let value = element.value as? Int8, value != 0 else {
-                return identifier
+                return nil
             }
-            return identifier + String(UnicodeScalar(UInt8(value)))
+            return UnicodeScalar(UInt8(bitPattern: value))
         }
+        return String(String.UnicodeScalarView(scalars))
     }()
 
     // MARK: - App Info
@@ -119,6 +129,11 @@ enum DeviceInfo {
     ///
     /// - Note: 用户切换系统语言后会变化；若需固定语言，
     ///         用 `Locale(identifier:)` 显式指定。
+    ///
+    /// - Important: 本属性是**系统 Locale**，与 `LanguageManager` 的
+    ///   **App 内语言**独立——用户可在 App 内切换到英文，
+    ///   而系统 Locale 仍为中文。需要 App 内语言请用
+    ///   `LanguageManager.shared.current`。
     static var language: String {
         Locale.current.identifier
     }
@@ -135,7 +150,6 @@ enum DeviceInfo {
     // MARK: - Debug
 
     /// 是否运行在模拟器
-    ///
     static var isSimulator: Bool {
         #if targetEnvironment(simulator)
         return true

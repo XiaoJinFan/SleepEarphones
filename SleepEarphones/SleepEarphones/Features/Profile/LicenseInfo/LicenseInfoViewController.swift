@@ -8,30 +8,40 @@
 import UIKit
 import SnapKit
 
-/// 证照信息页
 @MainActor
 final class LicenseInfoViewController: UIViewController {
 
     // MARK: - 文案常量
 
     /// 证照信息文案
-    ///
-    /// - Note: 抽成常量便于集中修改；
-    ///         若未来从后端返回，替换 `Info.xxx` 的赋值来源即可。
     private enum Info {
-        /// 备案服务号
-        static let recordNumber  = "备案服务号：沪ICP备15226020号-8"
-        /// 电信业务经营许可证号
-        static let licenseNumber = "电信业务经营许可证：沪A2-20240226"
+        /// 备案服务号（**法定编号，不翻译**）
+        static let recordNumber  = "沪ICP备15226020号-8"
+
+        /// 电信业务经营许可证号（**法定编号，不翻译**）
+        static let licenseNumber = "沪A2-20240226"
     }
 
     // MARK: - Layout 常量
 
     private enum Layout {
         /// 证照图宽高比（接近 A4 竖版比例）
-        ///
-        /// - Note: 与设计稿一致。若未来证照图换成不同比例，只需改此常量。
         static let certificateAspectRatio: CGFloat = 0.62
+
+        /// 顶部间距
+        static let topInset: CGFloat = AppSpacing.lg
+
+        /// 两个编号之间的间距
+        static let labelSpacing: CGFloat = AppSpacing.md
+
+        /// 证照图与编号的间距
+        static let imageTopSpacing: CGFloat = AppSpacing.md
+
+        /// 水平 inset
+        static let horizontalInset: CGFloat = AppSpacing.lg
+
+        /// 底部间距
+        static let bottomInset: CGFloat = AppSpacing.lg
     }
 
     // MARK: - UI
@@ -48,7 +58,7 @@ final class LicenseInfoViewController: UIViewController {
     /// 备案服务号
     private let recordNumberLabel: UILabel = {
         let l = UILabel()
-        l.text = Info.recordNumber
+        // 文案在 `configureLabels()` 中动态设置（**通过 L(...) 本地化**）
         l.font = AppFont.Body.emphasized
         l.textColor = AppColor.Text.primary
         l.numberOfLines = 0
@@ -58,7 +68,7 @@ final class LicenseInfoViewController: UIViewController {
     /// 电信业务经营许可证号
     private let licenseNumberLabel: UILabel = {
         let l = UILabel()
-        l.text = Info.licenseNumber
+        // 文案在 `configureLabels()` 中动态设置（**通过 L(...) 本地化**）
         l.font = AppFont.Body.emphasized
         l.textColor = AppColor.Text.primary
         l.numberOfLines = 0
@@ -66,11 +76,6 @@ final class LicenseInfoViewController: UIViewController {
     }()
 
     /// 证照图片
-    ///
-    /// - Note:
-    ///   - `contentMode = .scaleAspectFit` 保证整张证照完整可见，
-    ///     不裁切边缘信息（证照可能有边框、印章贴边）。
-    ///   - 占位图用 `emptyData`——证照图不是 logo，用 logo 占位不贴切。
     private let certificateImageView: UIImageView = {
         let iv = UIImageView()
         iv.image = AppImage.Local.emptyData
@@ -100,13 +105,15 @@ final class LicenseInfoViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupConstraints()
+        configureLabels()
         loadCertificateImage()
     }
 
     // MARK: - Setup
 
     private func setupUI() {
-        title = "证照信息"
+        // **导航标题已本地化**
+        title = L("证照信息")
         view.backgroundColor = AppColor.Background.primary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -132,35 +139,51 @@ final class LicenseInfoViewController: UIViewController {
         }
 
         recordNumberLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(AppSpacing.lg)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalToSuperview().offset(Layout.topInset)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.horizontalInset)
         }
 
         licenseNumberLabel.snp.makeConstraints { make in
-            make.top.equalTo(recordNumberLabel.snp.bottom).offset(AppSpacing.md)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalTo(recordNumberLabel.snp.bottom)
+                .offset(Layout.labelSpacing)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.horizontalInset)
         }
 
         // 证照图：宽高比由 `Layout.certificateAspectRatio` 控制
         certificateImageView.snp.makeConstraints { make in
-            make.top.equalTo(licenseNumberLabel.snp.bottom).offset(AppSpacing.md)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalTo(licenseNumberLabel.snp.bottom)
+                .offset(Layout.imageTopSpacing)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.horizontalInset)
             make.height.equalTo(certificateImageView.snp.width)
                 .multipliedBy(Layout.certificateAspectRatio)
             // 撑开 contentView 底部
-            make.bottom.equalToSuperview().offset(-AppSpacing.lg)
+            make.bottom.equalToSuperview().offset(-Layout.bottomInset)
         }
+    }
+
+    /// 配置编号 Label 文案（**已本地化**）
+    ///
+    /// ## 文案结构
+    /// ```
+    /// "备案服务号：沪ICP备15226020号-8"
+    ///  ↑ 前缀（翻译）   ↑ 编号（原样）
+    /// ```
+    private func configureLabels() {
+        recordNumberLabel.text = L("备案服务号：%@", Info.recordNumber)
+        licenseNumberLabel.text = L("电信业务经营许可证：%@", Info.licenseNumber)
     }
 
     // MARK: - 加载证照图
 
     /// 加载证照图片
-    ///
-    /// - Note: 由 `AboutUsViewController` 在 push 前预取，
-    ///         通常直接命中缓存；若网络失败，仅保留占位图，不弹错。
-    ///         证照图不是关键信息，失败时用户可退出重进本页重试。
     private func loadCertificateImage() {
-        certificateImageView.setImage(AppImage.Remote.licenseCertificate, placeholder: AppImage.Local.emptyData) { result in
+        certificateImageView.setImage(
+            AppImage.Remote.licenseCertificate,
+            placeholder: AppImage.Local.emptyData
+        ) { result in
             // 加载失败时保留占位图，不弹错（避免干扰用户浏览文字信息）
             if case .failure(let error) = result {
                 AppLog.profile.error(

@@ -9,6 +9,18 @@ import UIKit
 import Combine
 
 /// 登录页
+///
+/// ## 职责
+/// - 手机号 / 邮箱登录（`segmentControl` 切换）
+/// - 验证码 / 密码登录方式切换（`loginTypeBtn`）
+/// - 三方登录入口（游客 / 微信 / Apple）
+/// - 隐私协议勾选（未勾选时拦截登录）
+/// - 注册 / 找回密码入口
+///
+/// ## 导航栏控制
+/// - **作为 Tab 根之外的 push 页**：隐藏导航栏（本页是沉浸式设计，无返回按钮）
+/// - **push 到注册 / 找回密码后**：显示导航栏（让这两页有返回按钮）
+/// - **pop 回登录页后**：再次隐藏导航栏（`viewWillAppear` 中恢复）
 @MainActor
 final class LoginViewController: UIViewController {
 
@@ -110,34 +122,75 @@ final class LoginViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        // 恢复导航栏，让 push 的注册 / 找回密码页有返回按钮
         navigationController?.setNavigationBarHidden(false, animated: animated)
     }
 
     // MARK: - Setup
 
+    /// 配置 UI
     private func setupUI() {
-        // 用扩展统一配置键盘（依账号模式）
+        // MARK: Segment 标题（覆盖 storyboard 中的 "手机号码登录" / "邮箱账号登录"）
+        segmentControl.setTitle(LoginAccountMode.phone.title, forSegmentAt: 0)
+        segmentControl.setTitle(LoginAccountMode.email.title, forSegmentAt: 1)
+
+        // MARK: 输入框占位符（覆盖 storyboard 中的硬编码）
+        phoneTextField.placeholder = LoginAccountMode.phone.placeholder
+        emailTextField.placeholder = LoginAccountMode.email.placeholder
+        codeTextField.placeholder = L("请输入验证码")
+        passwordTextField.placeholder = L("请输入密码(6~12位字母+数字)")
+
+        // MARK: 按钮标题（覆盖 storyboard 中的硬编码）
+        loginBtn.setTitle(L("登录"), for: .normal)
+        registerBtn.setTitle(L("注册账号"), for: .normal)
+        forgetPwdBtn.setTitle(L("找回密码"), for: .normal)
+        getCodeBtn.setTitle(L("获取验证码"), for: .normal)
+
+        // MARK: 三方登录按钮（覆盖 storyboard 中的硬编码）
+        updateThirdPartyButtonTitle(guestLoginBtn, title: L("游客登录"))
+        updateThirdPartyButtonTitle(weChatLoginBtn, title: L("微信登录"))
+        updateThirdPartyButtonTitle(appleLoginBtn, title: L("苹果登录"))
+
+        // MARK: 键盘配置（用扩展统一）
         applyAuthKeyboard(to: phoneTextField, mode: .phone)
         applyAuthKeyboard(to: emailTextField, mode: .email)
         codeTextField.keyboardType = .numberPad
-        
+
         loginBtn.layer.cornerRadius = AppSpacing.Corner.card
-        
+
         // 密码默认隐藏
         passwordTextField.isSecureTextEntry = true
         passwordVisibleBtn.setImage(AppImage.System.eyeSlashFill, for: .normal)
-        
+
         // segmentControl 默认选中手机号
         segmentControl.selectedSegmentIndex = LoginAccountMode.phone.rawValue
-        
+
         // 隐私协议默认未勾选
         refreshAuthPrivacyButton(isAgreed: false)
-        
-        // 登录方式按钮标题（初值）
+
+        // 登录方式按钮标题（初值，由 VM 的 switchButtonTitle 驱动）
         loginTypeBtn.setTitle(viewModel.loginMethod.switchButtonTitle, for: .normal)
-        
+
         // 让重叠的手机/邮箱、验证码/密码视图先同步一次初始状态
         syncUIWithViewModel(animated: false)
+    }
+
+    /// 更新三方登录按钮的标题（保留 storyboard 中的图片配置）
+    ///
+    /// - Parameters:
+    ///   - button: 三方登录按钮
+    ///   - title: 已本地化的标题
+    private func updateThirdPartyButtonTitle(_ button: UIButton, title: String) {
+        guard var config = button.configuration else {
+            // 兜底：若按钮没有 Configuration（极端情况），用传统方式设置
+            button.setTitle(title, for: .normal)
+            return
+        }
+        var attr = AttributedString(title)
+        // 保留原字体（若 storyboard 已设置 pointSize，则读取之）
+        attr.font = config.attributedTitle?.font ?? UIFont.systemFont(ofSize: 15)
+        config.attributedTitle = attr
+        button.configuration = config
     }
 
     private func bindTextFields() {
@@ -159,7 +212,7 @@ final class LoginViewController: UIViewController {
                 self?.syncUIWithViewModel(animated: true)
             }
             .store(in: &cancellables)
-        
+
         // MARK: 登录方式变化（按钮标题 + 视图显隐）
         viewModel.$loginMethod
             .dropFirst()
@@ -167,6 +220,7 @@ final class LoginViewController: UIViewController {
             .sink { [weak self] method in
                 guard let self else { return }
                 AppLog.auth.debug("loginMethod 变化 → \(method.description, privacy: .public)")
+                // `switchButtonTitle` 已本地化——VM 层通过 `L(...)` 返回
                 self.loginTypeBtn.setTitle(method.switchButtonTitle, for: .normal)
                 self.syncUIWithViewModel(animated: true)
             }
@@ -288,7 +342,7 @@ final class LoginViewController: UIViewController {
     @IBAction func loginButtonTapped(_ sender: UIButton) {
         view.endEditing(true)
         guard isPrivacyAgreed else {
-            showToast("请先阅读并同意《用户注册协议》与《隐私政策》")
+            showToast(L("请先阅读并同意《用户注册协议》与《隐私政策》"))
             return
         }
         viewModel.login()
@@ -318,12 +372,6 @@ final class LoginViewController: UIViewController {
     // MARK: - 登录成功
 
     /// 处理登录成功
-    ///
-    /// ## 分支
-    /// - **外部注入回调**（`onLoginSuccess`）：用于测试 / 特殊场景
-    /// - **默认**：`AppRouter.shared.switchToMain(animated: true)` 切到主界面
-    ///
-    /// - Note: 切换前主动收起键盘——避免切根时键盘闪烁一下。
     private func handleLoginSuccess() {
         AppLog.auth.debug("登录成功，处理导航")
         view.endEditing(true)

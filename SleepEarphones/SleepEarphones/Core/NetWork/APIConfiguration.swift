@@ -32,6 +32,10 @@ enum APIConfiguration {
     /// API 服务根地址
     ///
     /// - Important: 必须以 `/` 结尾，否则 `serverPrefix` 拼接会出错。
+    ///
+    /// - TODO: 当前硬编码生产环境。多环境支持（开发 / 测试 / 预发 / 生产）
+    ///         需要从 `Info.plist` 或 Scheme 环境变量读取——建议未来引入
+    ///         `AppEnvironment` 枚举 + `.xcconfig` 多 Target 方案。
     static let apiDomain = "https://admin.xing-man.com/api/"
 
     /// 租户 / 项目 ID
@@ -120,8 +124,23 @@ enum APIConfiguration {
 
     // MARK: - 通用文案
 
-    /// 服务端异常时的兜底提示
-    static let serverErrorMessage = "您的网络不稳定，请稍后重试"
+    /// 服务端异常时的兜底提示（**已本地化**）
+    ///
+    /// ## 为什么是计算属性？
+    /// 语言可能在运行时切换（`LanguageManager.changeLanguage`）——
+    /// 若缓存为常量，切换语言后新出现的网络错误仍会显示旧语言文案。
+    ///
+    /// ## 为什么不用 `L(...)`？
+    /// 本属性的调用方 `NetworkClient.handle` 与 `NetworkError.errorDescription`
+    /// 都在 **`nonisolated` 上下文**执行（`LocalizedError` 协议要求），
+    /// 而 `L(...)` 是 `@MainActor` 的——直接调用会触发并发编译错误。
+    /// 因此本属性改用 `nonisolatedLocalized(_:)`，直接读 `Bundle` lproj，
+    /// 绕开 actor 隔离。
+    ///
+    /// - Returns: 当前语言下的"网络不稳定"提示文案
+    static var serverErrorMessage: String {
+        nonisolatedLocalized("您的网络不稳定，请稍后重试")
+    }
 
     // MARK: - 图片地址
 
@@ -129,6 +148,11 @@ enum APIConfiguration {
     ///
     /// - Parameter path: 相对路径或完整 URL；传 `nil` / 空字符串时返回 `nil`
     /// - Returns: 完整可用的图片 URL 字符串
+    ///
+    /// ## 分支
+    /// - `path == nil` / 空字符串 → `nil`
+    /// - `path` 已是 `http://` / `https://` → 原样返回
+    /// - `path` 是相对路径 → 拼接 CDN 前缀并 URL 编码
     static func imageURL(_ path: String?) -> String? {
         guard let path, !path.isEmpty else { return nil }
 
@@ -142,5 +166,47 @@ enum APIConfiguration {
             withAllowedCharacters: .urlPathAllowed
         ) ?? path
         return "\(imageCDN)\(encoded)"
+    }
+
+    // MARK: - Nonisolated Localization
+
+    /// `nonisolated` 上下文的本地化辅助方法
+    ///
+    /// ## 与 `L(...)` 的区别
+    /// | 维度 | `L(...)` | 本方法 |
+    /// |---|---|---|
+    /// | 隔离 | `@MainActor` | `nonisolated`（任意线程可调用） |
+    /// | 读取源 | `LanguageManager.currentBundle` | `Bundle.main` + lproj |
+    /// | 语言来源 | `LanguageManager` 内部状态 | `UserDefaults.AppleLanguages` |
+    ///
+    /// ## 实现原理
+    /// 1. 从 `UserDefaults` 读取 `LanguageManager` 写入的 `AppleLanguages` 首项
+    /// 2. 拼接 `{lang}.lproj` 路径并构造 `Bundle`
+    /// 3. 从该 `Bundle` 读 `Localizable.strings`
+    /// 4. 任何一步失败 → 返回 `key` 本身（中文兜底）
+    ///
+    /// ## 性能
+    /// - `UserDefaults.string(forKey:)`：内存缓存命中，纳秒级
+    /// - `Bundle.main.path(forResource:ofType:)`：内部缓存，微秒级
+    /// - `Bundle(path:)` / `localizedString(forKey:)`：微秒级
+    ///
+    /// 总耗时几微秒——只在错误提示路径调用，完全可接受。
+    ///
+    /// - Parameter key: 中文 key（也是 `Localizable.strings` 里的 key）
+    /// - Returns: 当前语言下的翻译；失败时返回 `key`
+    private static func nonisolatedLocalized(_ key: String) -> String {
+        // 1. 读语言偏好
+        let preferred = UserDefaults.standard.string(forKey: "AppleLanguages") ?? "zh-Hans"
+        let langCode = AppLanguage(rawValue: preferred) != nil ? preferred : "zh-Hans"
+
+        // 2. 找 lproj
+        guard let path = Bundle.main.path(forResource: langCode, ofType: "lproj"),
+              let bundle = Bundle(path: path) else {
+            return key
+        }
+
+        // 3. 读翻译
+        let translated = bundle.localizedString(forKey: key, value: key, table: nil)
+        return translated.isEmpty ? key : translated
     }
 }

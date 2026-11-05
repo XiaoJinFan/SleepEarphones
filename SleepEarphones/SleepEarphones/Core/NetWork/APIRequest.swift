@@ -70,9 +70,7 @@ public extension APIRequest {
     /// 默认 15 秒超时
     var timeoutInterval: TimeInterval { APIConfiguration.defaultTimeout }
 
-    /// 完整 URL（调试 / 日志用）
-    ///
-    /// - Note: 拼接逻辑统一走 `URLBuilder.build(base:path:)`。
+    /// 完整 URL（**调试 / 日志用**）
     var urlString: String {
         URLBuilder.build(base: baseURL, path: path)?.absoluteString
             ?? "\(baseURL)/\(path)"
@@ -83,9 +81,6 @@ public extension APIRequest {
     /// - Returns: 完整的 URLRequest
     /// - Throws: `NetworkError.invalidURL`（当 base + path 无法构造合法 URL 时）
     ///
-    /// - Note:
-    ///   - 拼接时自动规范化斜杠，避免出现 `//` 或漏掉 `/`
-    ///   - **不应**在此处做令牌刷新、网络调用等副作用逻辑
     func asURLRequest() throws -> URLRequest {
         guard let url = URLBuilder.build(base: baseURL, path: path) else {
             throw NetworkError.invalidURL
@@ -94,8 +89,14 @@ public extension APIRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.timeoutInterval = timeoutInterval
+
+        // ✅ 正确合并：保留 URLSession 默认 header，追加自定义 header
         if let headers {
-            request.headers = headers
+            var mergedHeaders = request.headers
+            for header in headers {
+                mergedHeaders.add(header)
+            }
+            request.headers = mergedHeaders
         }
 
         // 使用指定的编码方式对参数进行编码
@@ -119,18 +120,31 @@ enum URLBuilder {
     ///   - path: 相对路径（如 `5c78dbfd977cf`，可带或不带前导 `/`）
     /// - Returns: 合法 `URL`；无法构造时返回 `nil`
     ///
-    /// ## 处理规则
-    /// - 去除 `base` 尾部多余的 `/`
-    /// - 若 `path` 不以 `/` 开头则自动补上
-    /// - 用 `URLComponents` 构造，规避中文 / 空格等特殊字符问题
     static func build(base: String, path: String) -> URL? {
         // 规范化：base 去尾斜杠，path 补前斜杠
         let trimmedBase = base.hasSuffix("/") ? String(base.dropLast()) : base
         let trimmedPath = path.hasPrefix("/") ? path : "/" + path
-        let combined = trimmedBase + trimmedPath
 
-        // 用 URLComponents 处理编码问题
-        guard let components = URLComponents(string: combined),
+        // iOS 17+：一行搞定，自动编码
+        if #available(iOS 17.0, *) {
+            guard let components = URLComponents(
+                string: trimmedBase + trimmedPath,
+                encodingInvalidCharacters: true
+            ), let url = components.url else {
+                return nil
+            }
+            return url
+        }
+
+        // iOS 17 以下：手动对 path 做 percent-encode
+        //
+        // - Note: `urlPathAllowed` 不含 `%`，若 path 已编码会被二次编码。
+        //         本项目 path 为 hash / 英文，不受影响。
+        let encodedPath = trimmedPath.addingPercentEncoding(
+            withAllowedCharacters: .urlPathAllowed
+        ) ?? trimmedPath
+
+        guard let components = URLComponents(string: trimmedBase + encodedPath),
               let url = components.url else {
             return nil
         }

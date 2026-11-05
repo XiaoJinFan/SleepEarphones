@@ -16,45 +16,59 @@ final class CustomNoiseViewController: UIViewController {
     // MARK: - Layout Constants
 
     private enum Layout {
-
         // MARK: 网格
         /// 网格每行列数
         static let columns: Int = 4
         /// 网格水平 inset
-        static let gridHorizontalInset: CGFloat = 20
+        static let gridHorizontalInset: CGFloat = AppSpacing.lg
         /// 网格项之间的间距
-        static let gridSpacing: CGFloat = 20
+        static let gridSpacing: CGFloat = AppSpacing.lg
         /// 网格项高度（图标 56 + 间距 8 + 名字 18 = 82）
         static let gridItemHeight: CGFloat = 82
 
         // MARK: 底部工具栏
-        /// 底部工具栏高度（参考 xib：50pt）
+        /// 底部工具栏高度
         static let bottomBarHeight: CGFloat = 50
         /// 底部元素尺寸（设置 / 播放 / slot 均为 50×50）
         static let bottomItemSize: CGFloat = 50
         /// 底部工具栏左右 inset
-        static let bottomBarHorizontalInset: CGFloat = 20
+        static let bottomBarHorizontalInset: CGFloat = AppSpacing.lg
         /// 底部工具栏距 safeArea 底部
-        static let bottomBarBottomInset: CGFloat = 20
+        static let bottomBarBottomInset: CGFloat = AppSpacing.lg
         /// 3 个 slot 之间的间距
-        static let slotSpacing: CGFloat = 20
+        static let slotSpacing: CGFloat = AppSpacing.lg
+        /// slot 到两侧按钮的最小间距
+        static let slotToButtonSpacing: CGFloat = 30
 
         // MARK: Chip 列表
-        /// Chip 列表高度（参考 xib：45pt）
+        /// Chip 列表高度
         static let chipBarHeight: CGFloat = 45
         /// Chip 列表左右 inset
-        static let chipBarHorizontalInset: CGFloat = 20
+        static let chipBarHorizontalInset: CGFloat = AppSpacing.lg
         /// Chip 之间的间距
-        static let chipSpacing: CGFloat = 12
+        static let chipSpacing: CGFloat = AppSpacing.sm
         /// Chip 列表与网格的间距
-        static let chipToGridSpacing: CGFloat = 10
+        static let chipToGridSpacing: CGFloat = AppSpacing.xs
+
+        // MARK: 导航栏
+        /// 添加按钮尺寸
+        static let addButtonSize: CGFloat = 44
+        /// 添加图标 SF Symbol 字号
+        static let addIconPointSize: CGFloat = 18
+        /// 设置图标 SF Symbol 字号
+        static let settingsIconPointSize: CGFloat = 20
+        /// 播放图标 SF Symbol 字号
+        static let playIconPointSize: CGFloat = 20
     }
 
-    /// 背景色（统一深蓝）
-    ///
-    /// - Note: rgb(6, 13, 51) → hex `#060D33`
+    /// 页面专属深色配色
     private enum Background {
+        /// 页面主背景色
         static let hex = "#060D33"
+        /// 底部工具栏按钮 / 空 slot 背景
+        static let bottomButtonHex = "#262C4D"
+        /// Chip 未选中背景
+        static let chipUnselectedHex = "#252B4D"
     }
 
     // MARK: - Properties
@@ -71,12 +85,8 @@ final class CustomNoiseViewController: UIViewController {
     /// 当前展示的歌曲（按 chip 过滤后）
     private var currentSongs: [MusicSong] = []
 
-    /// 分类名列表（"全部" + 从数据里提取的 `subCategoryName`）
-    ///
-    /// - Note: 首项固定为"全部"，其余按**本地化字符串顺序**（拼音）排序——
-    ///         与原代码 `Set<String>.sorted()`（Unicode 字典序）的区别：
-    ///         Unicode 顺序与中文拼音无关，用户会看到"海浪铃声"排在"篝火夜宴"前面。
-    private var categories: [String] = ["全部"]
+    /// 分类名列表（`"全部"` + 从数据里提取的 `subCategoryName`）
+    private var categories: [String] = [L("全部")]
 
     /// 当前选中的分类索引
     private var currentCategoryIndex: Int = 0
@@ -146,7 +156,7 @@ final class CustomNoiseViewController: UIViewController {
 
     // MARK: 底部工具栏
 
-    /// 底部工具栏容器（**透明背景**——3 个元素独立绘制，参考 xib）
+    /// 底部工具栏容器（透明背景——3 个元素独立绘制）
     private lazy var bottomBar: UIView = {
         let v = UIView()
         v.backgroundColor = .clear
@@ -154,17 +164,20 @@ final class CustomNoiseViewController: UIViewController {
     }()
 
     /// 设置按钮（底部左侧）
-    ///
-    /// - Note: 50×50 深色圆形，与 xib 一致
     private lazy var settingsButton: UIButton = {
         let b = UIButton(type: .system)
         b.setImage(
-            UIImage(systemName: "slider.horizontal.3",
-                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)),
+            UIImage(
+                systemName: "slider.horizontal.3",
+                withConfiguration: UIImage.SymbolConfiguration(
+                    pointSize: Layout.settingsIconPointSize,
+                    weight: .medium
+                )
+            ),
             for: .normal
         )
         b.tintColor = .white
-        b.backgroundColor = UIColor(hex: "#262C4D")
+        b.backgroundColor = UIColor(hex: Background.bottomButtonHex)
         b.layer.cornerRadius = Layout.bottomItemSize / 2
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
@@ -172,9 +185,6 @@ final class CustomNoiseViewController: UIViewController {
     }()
 
     /// 3 个槽位容器（居中，均匀分布）
-    ///
-    /// - Note: 用 `UIStackView` 而非逐个约束——
-    ///         居中逻辑由 StackView 天然处理，避免手算偏移。
     private lazy var slotStack: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
@@ -188,12 +198,10 @@ final class CustomNoiseViewController: UIViewController {
     private var slotViews: [CustomNoiseSlotView] = []
 
     /// 播放 / 暂停按钮（底部右侧）
-    ///
-    /// - Note: 50×50 深色圆形，与 xib 一致
     private lazy var playPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.tintColor = .white
-        b.backgroundColor = UIColor(hex: "#262C4D")
+        b.backgroundColor = UIColor(hex: Background.bottomButtonHex)
         b.layer.cornerRadius = Layout.bottomItemSize / 2
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(playPauseTapped), for: .touchUpInside)
@@ -228,10 +236,6 @@ final class CustomNoiseViewController: UIViewController {
         refreshPlayPauseButton()
 
         // 刷新槽位（幂等）——从其他页面返回时确保底部 3 个槽位与 `selectedSongs` 一致
-        //
-        // - Note: 从 `InsertMusicViewController` 返回时，`onSave` 回调已经
-        //         调过 `refreshSlots`；此处多调一次成本极低（3 个 slot 的
-        //         视图配置），但保证从任意入口返回的视觉一致性。
         refreshSlots()
     }
 
@@ -241,7 +245,8 @@ final class CustomNoiseViewController: UIViewController {
         view.backgroundColor = UIColor(hex: Background.hex)
 
         let titleLabel = UILabel()
-        titleLabel.text = "自定义白噪音"
+        // **导航标题已本地化**
+        titleLabel.text = L("自定义白噪音")
         titleLabel.font = AppFont.Title.card
         titleLabel.textColor = .white
         titleLabel.textAlignment = .center
@@ -261,13 +266,20 @@ final class CustomNoiseViewController: UIViewController {
         addButton.setImage(
             UIImage(
                 systemName: "music.note.list",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+                withConfiguration: UIImage.SymbolConfiguration(
+                    pointSize: Layout.addIconPointSize,
+                    weight: .medium
+                )
             ),
             for: .normal
         )
         addButton.tintColor = .white
         addButton.addTarget(self, action: #selector(addMusicTapped), for: .touchUpInside)
-        addButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        addButton.frame = CGRect(
+            x: 0, y: 0,
+            width: Layout.addButtonSize,
+            height: Layout.addButtonSize
+        )
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: addButton)
 
         // 页面内容
@@ -293,14 +305,14 @@ final class CustomNoiseViewController: UIViewController {
     }
 
     private func setupConstraints() {
-        // MARK: Chip 列表（顶部，高 45，左右 inset 20）
+        // MARK: Chip 列表
         categoryCollectionView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(Layout.chipBarHeight)
         }
 
-        // MARK: 底部工具栏（高 50，左右 inset 20，距 safeArea.bottom 20）
+        // MARK: 底部工具栏
         bottomBar.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
                 .inset(Layout.bottomBarHorizontalInset)
@@ -327,8 +339,10 @@ final class CustomNoiseViewController: UIViewController {
         slotStack.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
-            make.leading.greaterThanOrEqualTo(settingsButton.snp.trailing).offset(30)
-            make.trailing.lessThanOrEqualTo(playPauseButton.snp.leading).offset(-30)
+            make.leading.greaterThanOrEqualTo(settingsButton.snp.trailing)
+                .offset(Layout.slotToButtonSpacing)
+            make.trailing.lessThanOrEqualTo(playPauseButton.snp.leading)
+                .offset(-Layout.slotToButtonSpacing)
             make.height.equalTo(Layout.bottomItemSize)
         }
 
@@ -339,7 +353,7 @@ final class CustomNoiseViewController: UIViewController {
             }
         }
 
-        // MARK: 网格列表（chip 下方 10pt，底部贴 bottomBar.top - 8）
+        // MARK: 网格列表
         collectionView.snp.makeConstraints { make in
             make.top.equalTo(categoryCollectionView.snp.bottom)
                 .offset(Layout.chipToGridSpacing)
@@ -372,7 +386,7 @@ final class CustomNoiseViewController: UIViewController {
                     if case .failure(let error) = completion {
                         if case .cancelled = error { return }
                         AppLog.app.error("拉取自定义白噪音失败：\(error.logCode, privacy: .public)")
-                        self.showToast("加载失败，请稍后重试")
+                        self.showToast(L("加载失败，请稍后重试"))
                     }
                 },
                 receiveValue: { [weak self] songs in
@@ -389,18 +403,7 @@ final class CustomNoiseViewController: UIViewController {
             .store(in: &cancellables)
     }
 
-    /// 从数据中提取子分类名（如"林间漫步" / "篝火夜宴" / "海浪铃声"）
-    ///
-    /// - Note: 用 `subCategoryName`（`freemusicsubcategory_classification_name`），
-    ///         不是 `categoryName`（`freemusicclassification_musictypename`）。
-    ///
-    /// ## 排序规则
-    /// 使用 `localizedStandardCompare` 按**当前语言环境**排序——
-    /// 中文按拼音顺序、英文按字母顺序、数字按大小顺序。
-    ///
-    /// 原代码 `Set<String>.sorted()` 按 **Unicode 字典序**——
-    /// 中文汉字之间顺序与拼音完全无关，用户会看到"海浪铃声"排在
-    /// "篝火夜宴"前面（"海" U+6D77 < "篝" U+7BE1）。
+    /// 从数据中提取子分类名（如 `"林间漫步"` / `"篝火夜宴"` / `"海浪铃声"`）
     private func buildCategories() {
         // 用 Set 去重（`nilIfEmpty` 过滤 nil / 空串）
         let nameSet = Set(
@@ -410,7 +413,7 @@ final class CustomNoiseViewController: UIViewController {
             lhs.localizedStandardCompare(rhs) == .orderedAscending
         }
 
-        categories = ["全部"] + sortedNames
+        categories = [L("全部")] + sortedNames
 
         AppLog.app.debug(
             "自定义白噪音分类：\(self.categories.dropFirst().joined(separator: " / "), privacy: .public)"
@@ -420,6 +423,7 @@ final class CustomNoiseViewController: UIViewController {
     /// 按当前选中的子分类过滤
     private func applyFilter() {
         if currentCategoryIndex == 0 {
+            // 首项 `L("全部")`——直接返回全部，不做字符串比较
             currentSongs = allSongs
         } else {
             let name = categories[currentCategoryIndex]
@@ -470,7 +474,8 @@ final class CustomNoiseViewController: UIViewController {
     /// 底部设置按钮
     @objc private func settingsTapped() {
         AppLog.app.debug("点击自定义白噪音设置")
-        showToast("设置功能开发中")
+        // TODO: 自定义白噪音设置页（当前未实现）
+        showToast(L("设置功能开发中"))
     }
 
     /// 播放 / 暂停
@@ -487,7 +492,8 @@ final class CustomNoiseViewController: UIViewController {
         } else {
             // 未选中 → 加入（最多 3 个）
             guard selectedSongs.count < 3 else {
-                showToast("最多选择 3 个自定义白噪音")
+                // **已本地化**——上限 3 是业务约束，翻译需保持数字一致
+                showToast(L("最多选择 3 个自定义白噪音"))
                 return
             }
             selectedSongs.append(song)
@@ -511,7 +517,7 @@ final class CustomNoiseViewController: UIViewController {
     /// 播放已选中的第一个
     private func playSelected() {
         guard let first = selectedSongs.first else {
-            showToast("请先选择自定义白噪音")
+            showToast(L("请先选择自定义白噪音"))
             return
         }
         MusicPlayerManager.shared.play(song: first)
@@ -532,7 +538,10 @@ final class CustomNoiseViewController: UIViewController {
     /// 刷新播放 / 暂停按钮图标
     private func refreshPlayPauseButton() {
         let iconName = MusicPlayerManager.shared.isPlaying ? "pause.fill" : "play.fill"
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        let config = UIImage.SymbolConfiguration(
+            pointSize: Layout.playIconPointSize,
+            weight: .semibold
+        )
         playPauseButton.setImage(
             UIImage(systemName: iconName, withConfiguration: config),
             for: .normal
@@ -559,6 +568,7 @@ extension CustomNoiseViewController: UICollectionViewDataSource {
                 withReuseIdentifier: CustomNoiseCategoryCell.reuseID,
                 for: indexPath
             ) as? CustomNoiseCategoryCell else {
+                AppLog.ui.error("CustomNoiseCategoryCell 出队失败")
                 return UICollectionViewCell()
             }
             cell.configure(
@@ -573,6 +583,7 @@ extension CustomNoiseViewController: UICollectionViewDataSource {
             withReuseIdentifier: CustomNoiseCell.reuseID,
             for: indexPath
         ) as? CustomNoiseCell else {
+            AppLog.ui.error("CustomNoiseCell 出队失败")
             return UICollectionViewCell()
         }
 
@@ -595,11 +606,6 @@ extension CustomNoiseViewController: UICollectionViewDelegateFlowLayout {
         }
 
         // MARK: 网格列表（4 列等分）
-        //
-        // - Note: 用 `max(0, ...)` 防御——首帧 layout 前
-        //         `collectionView.bounds.width` 可能为 0，
-        //         此时 `itemWidth` 会是负数（`0 - inset - spacing`），
-        //         返回负尺寸会触发 UIKit 的内部异常。
         let totalWidth = collectionView.bounds.width
             - Layout.gridHorizontalInset * 2
             - Layout.gridSpacing * CGFloat(Layout.columns - 1)

@@ -8,6 +8,23 @@
 import Foundation
 import Combine
 
+/// 找回密码视图模型
+///
+/// ## 职责
+/// - 校验旧密码 / 新密码 / 验证码（`canSubmit`）
+/// - 发送找回密码验证码（`sendForgetCode`）
+/// - 提交重置密码请求（`resetPassword`）
+///
+/// ## 调用方法
+/// ```swift
+/// let vm = ForgetPasswordViewModel()
+///
+/// // 订阅重置成功
+/// vm.$resetSuccess
+///     .filter { $0 }
+///     .sink { _ in /* 弹 Toast + pop 回登录页 */ }
+///     .store(in: &cancellables)
+/// ```
 @MainActor
 final class ForgetPasswordViewModel: AuthFormViewModel {
 
@@ -19,6 +36,8 @@ final class ForgetPasswordViewModel: AuthFormViewModel {
     // MARK: - Init
 
     /// 初始化
+    ///
+    /// - Parameter repository: 认证仓库，默认 `AuthRepository()`
     override init(repository: AuthRepositoryProtocol = AuthRepository()) {
         super.init(repository: repository)
     }
@@ -28,15 +47,6 @@ final class ForgetPasswordViewModel: AuthFormViewModel {
     /// 是否可以提交
     ///
     /// - Returns: 账号 + 密码 + 验证码均合法时为 `true`
-    ///
-    /// ## 判断逻辑（三个条件同时满足）
-    /// 1. 账号非空（**trim 首尾空白后**判断——纯空格视为空）
-    /// 2. 密码长度合法（≥6 位，**宽松校验**）
-    /// 3. 验证码长度合法
-    ///
-    /// - Important: 使用 `isEmptyOrBlank` 而非 `isEmpty`——
-    ///              与基类 `AuthFormViewModel.canSubmit` 的判定口径保持一致，
-    ///              避免用户输入纯空格时"看似通过了校验，请求却失败"。
     override var canSubmit: Bool {
         guard !currentAccount.isEmptyOrBlank else { return false }
         guard AccountInputValidator.isValidPassword(password) else { return false }
@@ -47,20 +57,11 @@ final class ForgetPasswordViewModel: AuthFormViewModel {
     // MARK: - Input Actions
 
     /// 发送找回密码验证码（`scene` 固定为 `.forgetPassword`）
-    ///
-    /// - Note: 便利方法，避免调用方记 `scene` 参数。
-    ///         与 `RegisterViewModel.sendRegisterCode` 风格一致。
     func sendForgetCode() {
         sendSmsCode(scene: .forgetPassword)
     }
 
     /// 提交重置密码
-    ///
-    /// ## 关于"重置成功后是否自动登录"
-    /// **不自动登录**。原因：
-    /// - 用户当前的意图是"找回密码"，不是"登录"
-    /// - 重置成功后应返回登录页，让用户用新密码登录一次
-    /// - 这样用户能确认"新密码确实有效"，避免记忆错误
     func resetPassword() {
         let publisher = repository.forgetPassword(
             account: currentAccount,
@@ -68,14 +69,15 @@ final class ForgetPasswordViewModel: AuthFormViewModel {
             newPassword: password,
             code: code
         )
-
-        submit(publisher, operationName: "重置") { [weak self] _ in
+        
+        submit(publisher, operationName: L("重置")) { [weak self] _ in
             guard let self else {
+                // 防御性分支——基类 `submit` 已保证 VM 存活才会调 `onSuccess`
                 AppLog.auth.debug("重置成功回调时 VM 已释放，忽略")
                 return
             }
             AppLog.auth.debug("重置密码成功")
-            self.toastMessage = "密码重置成功"
+            self.toastMessage = L("密码重置成功")
             self.resetSuccess = true
         }
     }
@@ -83,15 +85,6 @@ final class ForgetPasswordViewModel: AuthFormViewModel {
     // MARK: - State Reset
 
     /// 重置状态到初始值
-    ///
-    /// ## 使用场景
-    /// - 用户重置成功返回登录页后，若复用 VM 需手动复位
-    /// - 单元测试间隔离
-    ///
-    /// - Note: **只重置本子类扩展的状态**（`resetSuccess`）。
-    ///         基类状态由基类管理。
-    ///         当前生产流程下重置成功后直接 pop，VM 会随 VC 一并释放，
-    ///         **无需**调用本方法——此方法为未来扩展场景预留。
     func resetState() {
         resetSuccess = false
     }

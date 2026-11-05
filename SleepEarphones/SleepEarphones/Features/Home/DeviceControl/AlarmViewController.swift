@@ -13,10 +13,18 @@ import Combine
 
 /// 闹钟数据模型
 struct AlarmModel: Identifiable, Equatable {
+
+    /// 本地唯一标识
+    ///
+    /// - Note: 当前用 `UUID` 生成。接入后端后应改为后端返回的 `alarmId: Int`。
     let id: UUID
+
+    /// 时间字符串（如 `"23:59"`）
     var time: String
+
+    /// 是否启用
     var isEnabled: Bool
-    
+
     init(id: UUID = UUID(), time: String, isEnabled: Bool = true) {
         self.id = id
         self.time = time
@@ -36,13 +44,16 @@ final class AlarmViewController: UIViewController {
         static let horizontalInset: CGFloat = 20
         static let rowHeight: CGFloat = 88
         static let bottomButtonHeight: CGFloat = 50
+        static let bottomButtonBottomInset: CGFloat = 20
+        static let tableViewTopInset: CGFloat = 10
+        static let tableViewBottomSpacing: CGFloat = 10
     }
 
     // MARK: - Properties
 
     /// 闹钟数据源（Combine）
     @Published private var alarms: [AlarmModel] = []
-    
+
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - UI
@@ -61,9 +72,9 @@ final class AlarmViewController: UIViewController {
 
     private lazy var bottomButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("设置", for: .normal)
+        btn.setTitle(L("设置"), for: .normal)
         btn.setTitleColor(.white, for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        btn.titleLabel?.font = AppFont.Button.primary
         btn.backgroundColor = AppColor.Brand.primary
         btn.layer.cornerRadius = AppSpacing.Corner.button
         btn.addTarget(self, action: #selector(bottomButtonTapped), for: .touchUpInside)
@@ -80,13 +91,13 @@ final class AlarmViewController: UIViewController {
         setupBindings()
         loadMockData()
     }
-    
+
     // MARK: - NavigationBar
-    
+
     private func setupNavigationBar() {
-        // 设置标题
-        self.title = "我的闹钟"
-        
+        // 设置标题（**已本地化**）
+        self.title = L("我的闹钟")
+
         // 配置透明导航栏
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
@@ -94,16 +105,16 @@ final class AlarmViewController: UIViewController {
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
-        
+
         // 返回按钮颜色
         navigationController?.navigationBar.tintColor = AppColor.Text.primary
     }
 
     // MARK: - Setup
-    
+
     private func setupUI() {
         view.backgroundColor = AppColor.Background.secondary
-        
+
         view.addSubview(tableView)
         view.addSubview(bottomButton)
     }
@@ -113,14 +124,17 @@ final class AlarmViewController: UIViewController {
         bottomButton.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
             make.height.equalTo(Layout.bottomButtonHeight)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).inset(20)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+                .offset(-Layout.bottomButtonBottomInset)
         }
 
         // 列表：顶部留出 10pt
         tableView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(10)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .offset(Layout.tableViewTopInset)
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(bottomButton.snp.top).offset(-10)
+            make.bottom.equalTo(bottomButton.snp.top)
+                .offset(-Layout.tableViewBottomSpacing)
         }
     }
 
@@ -140,12 +154,14 @@ final class AlarmViewController: UIViewController {
 
     @objc private func bottomButtonTapped() {
         AppLog.device.debug("点击闹钟设置按钮")
-        showToast("跳转添加/设置闹钟页面")
+        // TODO: 跳转 `AlarmEditViewController`（添加 / 编辑闹钟页）
+        //       当前仅为占位提示，等待后端 `changeClock` 接口就绪
+        showToast(L("跳转添加/设置闹钟页面"))
     }
-    
+
     // MARK: - Data
 
-    /// 加载模拟数据（实际业务中应从 ViewModel / Repository 获取）
+    /// 加载模拟数据
     private func loadMockData() {
         // 还原设计图中的三个 23:59
         self.alarms = [
@@ -159,22 +175,23 @@ final class AlarmViewController: UIViewController {
 // MARK: - UITableViewDataSource
 
 extension AlarmViewController: UITableViewDataSource {
-    
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return alarms.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(
             withIdentifier: AlarmCell.reuseID,
             for: indexPath
         ) as? AlarmCell else {
+            AppLog.ui.error("AlarmCell 出队失败，检查 reuseID 注册")
             return UITableViewCell()
         }
-        
+
         let alarm = alarms[indexPath.row]
         cell.configure(with: alarm)
-        
+
         // 监听 Cell 内部开关的切换事件
         cell.onSwitchChanged = { [weak self] isOn in
             guard let self = self else { return }
@@ -184,7 +201,7 @@ extension AlarmViewController: UITableViewDataSource {
                 AppLog.device.debug("闹钟 \(alarm.time) 状态切换为: \(isOn)")
             }
         }
-        
+
         return cell
     }
 }
@@ -192,25 +209,28 @@ extension AlarmViewController: UITableViewDataSource {
 // MARK: - UITableViewDelegate
 
 extension AlarmViewController: UITableViewDelegate {
-    
+
     /// 侧滑删除
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        // 1. 创建删除操作
-        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] _, _, completionHandler in
+        // 1. 创建删除操作（标题已本地化）
+        let deleteAction = UIContextualAction(
+            style: .destructive,
+            title: L("删除")
+        ) { [weak self] _, _, completionHandler in
             guard let self = self else { return }
-            
+
             // 2. 从数据源中移除（这会自动触发 $alarms 的 Combine 回调，刷新整个列表）
             self.alarms.remove(at: indexPath.row)
-            
+
             // 3. 完成系统 UI 动画
             completionHandler(true)
-            
+
             AppLog.device.debug("已删除闹钟，剩余数量: \(self.alarms.count)")
         }
-        
+
         // 4. 设置图标
         deleteAction.image = UIImage(systemName: "trash")
-        
+
         // 5. 允许执行删除的配置
         let configuration = UISwipeActionsConfiguration(actions: [deleteAction])
         configuration.performsFirstActionWithFullSwipe = true // 支持全滑删除
@@ -232,7 +252,11 @@ final class AlarmCell: UITableViewCell {
         static let cardMargin: CGFloat = 20
         static let cardPadding: CGFloat = 16
         static let iconSize: CGFloat = 56
-        static let iconCornerRadius: CGFloat = 12
+        static let iconCornerRadius: CGFloat = AppSpacing.Corner.card
+        static let cardCornerRadius: CGFloat = AppSpacing.Corner.card
+        static let cardVerticalMargin: CGFloat = 6
+        static let iconSymbolSize: CGFloat = 28
+        static let timeToIconSpacing: CGFloat = 16
     }
 
     // MARK: - Callback
@@ -246,7 +270,7 @@ final class AlarmCell: UITableViewCell {
     private let containerView: UIView = {
         let v = UIView()
         v.backgroundColor = AppColor.Background.card
-        v.layer.cornerRadius = 16
+        v.layer.cornerRadius = Layout.cardCornerRadius
         v.clipsToBounds = true
         return v
     }()
@@ -267,7 +291,10 @@ final class AlarmCell: UITableViewCell {
         iv.tintColor = .white
         iv.image = UIImage(
             systemName: "alarm",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: Layout.iconSymbolSize,
+                weight: .medium
+            )
         )
         return iv
     }()
@@ -275,7 +302,7 @@ final class AlarmCell: UITableViewCell {
     /// 时间文本
     private let timeLabel: UILabel = {
         let l = UILabel()
-        l.font = .systemFont(ofSize: 24, weight: .bold)
+        l.font = AppFont.Title.page
         l.textColor = AppColor.Text.primary
         return l
     }()
@@ -318,7 +345,7 @@ final class AlarmCell: UITableViewCell {
 
     private func setupConstraints() {
         containerView.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(6)
+            make.top.bottom.equalToSuperview().inset(Layout.cardVerticalMargin)
             make.leading.trailing.equalToSuperview().inset(Layout.cardMargin)
         }
 
@@ -330,11 +357,11 @@ final class AlarmCell: UITableViewCell {
 
         iconImageView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.width.height.equalTo(30)
+            make.width.height.equalTo(Layout.iconSymbolSize + 2)
         }
 
         timeLabel.snp.makeConstraints { make in
-            make.leading.equalTo(iconContainerView.snp.trailing).offset(16)
+            make.leading.equalTo(iconContainerView.snp.trailing).offset(Layout.timeToIconSpacing)
             make.centerY.equalToSuperview()
         }
 

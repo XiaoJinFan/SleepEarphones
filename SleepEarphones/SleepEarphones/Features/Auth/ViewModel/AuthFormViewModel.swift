@@ -25,7 +25,7 @@ import Combine
 ///     override var canSubmit: Bool { ... }
 ///
 ///     func submitSomeAction() {
-///         submit(publisher, operationName: "操作名") { result in
+///         submit(publisher, operationName: L("操作名")) { result in
 ///             // 成功回调
 ///         }
 ///     }
@@ -63,9 +63,6 @@ class AuthFormViewModel {
     @Published private(set) var countdown: Int = 0
 
     /// 错误提示（用于 Alert）
-    ///
-    /// - Note: `@Published var` 而非 `private(set)`——
-    ///         子类需要直接赋值（如 `errorMessage = "xxx"`）。
     @Published var errorMessage: String?
 
     /// 轻提示（用于 Toast）
@@ -80,10 +77,6 @@ class AuthFormViewModel {
     let countdownTimer = CountdownTimer()
 
     /// Combine 订阅容器（子类可复用）
-    ///
-    /// - Note:
-    ///   - 保持 `internal` 访问级别——子类需要向此 Set 添加订阅
-    ///   - 父类自己的订阅（如 `countdownTimer` 桥接）也存入此容器
     var cancellables = Set<AnyCancellable>()
 
     // MARK: - Private
@@ -92,10 +85,6 @@ class AuthFormViewModel {
     private var currentSmsRequest: AnyCancellable?
 
     /// 短信请求身份令牌
-    ///
-    /// - Note: 与 `submit` 里的 `submitRequestToken` 采用同样的模式，
-    ///         但两者作用的场景不同（一个管验证码、一个管提交），
-    ///         状态字段独立，暂不抽公共工具类。
     private var smsRequestToken: UInt64 = 0
 
     /// 当前进行中的提交流程（登录 / 注册 / 重置）
@@ -125,11 +114,9 @@ class AuthFormViewModel {
     /// 是否可以提交
     ///
     /// - Returns: 子类决定的可提交条件
-    ///
-    /// - Note: "子类漏覆写"是**编程错误**，比"用户看到错误提示"更应该被暴露。
-    ///         因此当前选择 `fatalError`（Release 下也崩溃）。
     var canSubmit: Bool {
-        fatalError("子类 \(type(of: self)) 必须覆写 canSubmit")
+        assertionFailure("子类 \(type(of: self)) 必须覆写 canSubmit")
+        return false
     }
 
     // MARK: - 状态计算
@@ -154,11 +141,6 @@ class AuthFormViewModel {
     /// 是否可以发送验证码
     ///
     /// - Returns: 可发送时为 `true`
-    ///
-    /// ## 判断条件（全部满足才能发送）
-    /// 1. **倒计时未在运行**——倒计时中不允许重复发送
-    /// 2. **没有正在进行的验证码请求**——请求中不允许重复点击
-    /// 3. **当前账号格式合法**——避免后端收到非法参数
     var canSendCode: Bool {
         guard !countdownTimer.isRunning, !isSendingCode else { return false }
         return AccountInputValidator.isValidAccount(currentAccount, mode: accountMode)
@@ -169,8 +151,6 @@ class AuthFormViewModel {
     /// 切换账号模式（手机 / 邮箱）
     ///
     /// - Parameter mode: 目标模式
-    ///
-    /// - Note: 切换后清空 `code` 与错误信息。
     func switchAccountMode(_ mode: LoginAccountMode) {
         guard mode != accountMode else { return }
 
@@ -184,7 +164,6 @@ class AuthFormViewModel {
     /// 发送验证码
     ///
     /// - Parameter scene: 短信业务场景（注册 / 登录 / 忘记密码等）
-    ///
     func sendSmsCode(scene: SmsScene) {
         // 第一次 guard：静默防抖
         guard !isSendingCode, !countdownTimer.isRunning else {
@@ -194,7 +173,9 @@ class AuthFormViewModel {
 
         // 第二次 guard：账号格式校验（会提示用户）
         guard canSendCode else {
-            errorMessage = accountMode == .phone ? "请输入正确的手机号" : "请输入正确的邮箱"
+            errorMessage = accountMode == .phone
+                ? L("请输入正确的手机号")
+                : L("请输入正确的邮箱")
             return
         }
 
@@ -228,7 +209,7 @@ class AuthFormViewModel {
 
                 if case .failure(let error) = completion {
                     if case .cancelled = error { return }
-                    self.errorMessage = error.errorDescription ?? "验证码发送失败"
+                    self.errorMessage = error.errorDescription ?? L("验证码发送失败")
                 }
             },
             receiveValue: { [weak self] result in
@@ -242,20 +223,13 @@ class AuthFormViewModel {
     /// 验证码发送成功后的处理
     ///
     /// - Parameter result: 接口返回的 `SmsCodeResult`
-    ///
-    /// - Note: 抽成独立方法便于子类覆写（如注册页可能需要额外埋点）。
-    ///         默认实现：显示 Toast + 启动倒计时 + DEBUG 自动填充。
     func handleSendCodeSuccess(_ result: SmsCodeResult) {
-        toastMessage = "验证码已发送"
+        toastMessage = L("验证码已发送")
 
         // 成功后才开始倒计时（失败可立即重试）
         countdownTimer.start(seconds: 60)
 
         #if DEBUG
-        // 自动填充 DEBUG 下后端返回的测试验证码
-        //
-        // - Note: `shouldAutoFillCodeInDebug` 是**子类钩子**——
-        //         默认 true；子类可覆写为 false 关闭。
         if shouldAutoFillCodeInDebug, let testCode = result.code {
             code = "\(testCode)"
             AppLog.auth.debug("🧪 测试模式：验证码已自动填充 \(testCode)")
@@ -266,6 +240,8 @@ class AuthFormViewModel {
     // MARK: - Debug 行为开关
 
     /// DEBUG 下是否自动填充测试验证码
+    ///
+    /// - Returns: 默认 `true`；子类可覆写为 `false` 关闭
     var shouldAutoFillCodeInDebug: Bool {
         true
     }
@@ -276,9 +252,9 @@ class AuthFormViewModel {
     ///
     /// - Parameters:
     ///   - publisher: 请求 Publisher
-    ///   - operationName: 操作名称（用于日志 / 错误提示，如"登录" / "注册"）
+    ///   - operationName: 操作名称（用于日志 / 错误提示，如 `L("登录")` / `L("注册")`）。
+    ///                    **调用方应传入 `L(...)` 已本地化的字符串**
     ///   - onSuccess: 成功回调（在主线程执行，VC 存活时才会调用）
-    ///   
     func submit<T>(_ publisher: AnyPublisher<T, NetworkError>, operationName: String, onSuccess: @escaping (T) -> Void) {
         // 1. 防抖（静默——不提示用户"请勿重复点击"）
         guard !isLoading else {
@@ -288,7 +264,8 @@ class AuthFormViewModel {
 
         // 2. 校验（提示用户——引导完善信息）
         guard canSubmit else {
-            errorMessage = "请完善\(operationName)信息"
+            // 用格式化参数拼接——`Localizable.strings` 需包含 `"请完善%@信息"` 的翻译
+            errorMessage = L("请完善%@信息", operationName)
             return
         }
 
@@ -324,14 +301,13 @@ class AuthFormViewModel {
                         AppLog.auth.error(
                             "\(operationName, privacy: .public)失败：\(error.logCode, privacy: .public)"
                         )
-                        self.errorMessage = error.errorDescription ?? "\(operationName)失败"
+                        // 兜底文案用格式化参数——`Localizable.strings` 需包含 `"%@失败"`
+                        self.errorMessage = error.errorDescription
+                            ?? L("%@失败", operationName)
                     }
                 },
                 receiveValue: { [weak self] value in
                     // 令牌校验：丢弃过期回调
-                    //
-                    // - Note: 此处**必须**再做一次 self 检查——
-                    //   若 VM 已释放（如 VC 提前 pop），则忽略回调。
                     guard let self, self.submitRequestToken == token else { return }
                     onSuccess(value)
                 }
@@ -341,14 +317,12 @@ class AuthFormViewModel {
     // MARK: - 状态清理
 
     /// 清除错误信息
-    ///
-    /// - Note: UI 层（如弹完 Alert 后）应调用本方法重置状态，
-    ///         避免 `$errorMessage` 的 `compactMap` 反复触发。
-    func clearError() { errorMessage = nil }
+    func clearError() {
+        errorMessage = nil
+    }
 
     /// 清除轻提示
-    ///
-    /// - Note: UI 层（如展示完 Toast 后）应调用本方法重置状态，
-    ///         避免 `$toastMessage` 的 `compactMap` 反复触发。
-    func clearToast() { toastMessage = nil }
+    func clearToast() {
+        toastMessage = nil
+    }
 }

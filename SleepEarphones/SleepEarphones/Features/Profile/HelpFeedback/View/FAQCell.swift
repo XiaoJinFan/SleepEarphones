@@ -8,7 +8,6 @@
 import UIKit
 import SnapKit
 
-/// 帮助文章列表单元格
 @MainActor
 final class FAQCell: UITableViewCell {
 
@@ -45,7 +44,7 @@ final class FAQCell: UITableViewCell {
         return view
     }()
 
-    /// 主标题
+    /// 主标题（**内容来自后端，已本地化**）
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.font = AppFont.Body.emphasized
@@ -55,9 +54,7 @@ final class FAQCell: UITableViewCell {
         return label
     }()
 
-    /// 副标题（简介）
-    ///
-    /// - Note: 无内容时自动隐藏，卡片高度也随之收缩。
+    /// 副标题（简介，**内容来自后端，已本地化**）
     private let subtitleLabel: UILabel = {
         let label = UILabel()
         label.font = AppFont.Caption.regular
@@ -108,7 +105,8 @@ final class FAQCell: UITableViewCell {
         super.prepareForReuse()
         titleLabel.text = nil
         subtitleLabel.text = nil
-        subtitleLabel.isHidden = false   // configure 会立即按数据修正
+        // 重置为可见——`configure` 会立即按数据修正
+        subtitleLabel.isHidden = false
     }
 
     // MARK: - Setup
@@ -128,17 +126,15 @@ final class FAQCell: UITableViewCell {
             make.bottom.equalToSuperview().offset(-Layout.cardVerticalMargin)
             make.leading.equalToSuperview().offset(Layout.cardHorizontalMargin)
             make.trailing.equalToSuperview().offset(-Layout.cardHorizontalMargin)
+            // 最小高度兜底——无副标题时避免卡片"太扁"
             make.height.greaterThanOrEqualTo(Layout.cardMinHeight)
         }
 
         // 标题 + 副标题栈约束
-        //
-        // - Note: 只用 `top` + `bottom` 撑开卡片高度——
-        //         **不要**再加 `centerY`，否则与 top/bottom 形成过度约束
-        //         （top + height = bottom 已隐含 centerY）
         titleStack.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(Layout.cardPadding)
-            make.trailing.lessThanOrEqualTo(arrowImageView.snp.leading).offset(-AppSpacing.sm)
+            make.trailing.lessThanOrEqualTo(arrowImageView.snp.leading)
+                .offset(-AppSpacing.sm)
             make.top.equalToSuperview().offset(Layout.cardVerticalPadding)
             make.bottom.equalToSuperview().offset(-Layout.cardVerticalPadding)
         }
@@ -156,11 +152,9 @@ final class FAQCell: UITableViewCell {
     /// 配置单元格（带副标题）
     ///
     /// - Parameters:
-    ///   - title: 主标题（`HelpFAQItem.title`）
-    ///   - subtitle: 副标题（`HelpFAQItem.synopsis`）；传 nil / 空串时隐藏副标题
-    ///
-    /// - Note: `subtitleLabel.isHidden` 与 `UIStackView` 配合——
-    ///         隐藏的 arrangedSubview 不占用 stack 空间，卡片高度自动收缩。
+    ///   - title: 主标题（`HelpFAQItem.title`，**后端已本地化**）
+    ///   - subtitle: 副标题（`HelpFAQItem.synopsis`，**后端已本地化**）；
+    ///               传 nil / 空串时隐藏副标题
     func configure(title: String, subtitle: String? = nil) {
         titleLabel.text = title
 

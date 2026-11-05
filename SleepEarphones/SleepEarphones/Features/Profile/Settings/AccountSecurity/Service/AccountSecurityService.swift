@@ -32,15 +32,6 @@ import Combine
 ///     )
 ///     .store(in: &cancellables)
 /// ```
-///
-/// ## 与 `AuthService` 的分工
-/// | 模块 | 职责 |
-/// |---|---|
-/// | `AuthService` | 登录 / 注册 / 找回密码（未登录态） |
-/// | `AccountSecurityService` | 修改密码 / 改绑手机邮箱（已登录态） |
-///
-/// 两类接口都需要 `user-token` 请求头，但业务场景不同，
-/// 因此拆成两个 service 而非合并。
 protocol AccountSecurityServiceProtocol: Sendable {
 
     /// 修改密码
@@ -116,25 +107,7 @@ protocol AccountSecurityServiceProtocol: Sendable {
 // MARK: - 服务实现
 
 /// 账号与安全网络服务实现
-///
-/// ## 依赖注入
-/// `client` 通过协议注入，默认使用 `NetworkClient()`：
-/// - **生产环境**：直接 `AccountSecurityService()` 使用默认 `NetworkClient`
-/// - **单元测试**：`AccountSecurityService(client: MockNetworkClient())`
-///
-/// ## 日志
-/// - **账号**（`account` / `newPhone` / `newEmail`）用 `privacy: .private`——
-///   属于用户隐私，不应在系统日志中明文出现
-/// - **场景 / 类型**用 `privacy: .public`——非敏感枚举
-/// - **不打印密码 / 验证码**——完全不打，打码也不行
-///
-/// ## 返回类型统一为 `Void`
-/// 所有接口都不关心后端 `data` 内容，统一：
-/// ```
-/// client.request(..., as: EmptyResponse.self)
-///     .map { _ in () }       // EmptyResponse → Void
-/// ```
-final class AccountSecurityService: AccountSecurityServiceProtocol {
+final class AccountSecurityService: AccountSecurityServiceProtocol, Sendable {
 
     // MARK: - Properties
 
@@ -308,15 +281,6 @@ final class AccountSecurityService: AccountSecurityServiceProtocol {
     ///   - scene: 业务场景
     ///   - userId: 用户 ID；Step 1 传 `nil`，Step 2 传当前登录用户 ID
     /// - Returns: 成功时返回 `Void`
-    ///
-    /// ## 两种调用场景
-    /// - **Step 1**：验证旧账号 → `userId = nil`
-    /// - **Step 2**：绑定新账号 → `userId = "3910"`
-    ///
-    /// - Note: 请求类型为 `SmsCodeResult`（而非 `EmptyResponse`），
-    ///         因为 DEBUG 下后端会返回测试验证码 `{code: 1234}`
-    ///         （`is_test = 1`），可自动填充。本方法只返回 `Void`，
-    ///         如上层需要测试验证码，可扩展一个返回 `SmsCodeResult` 的版本。
     func sendCode(account: String, accountType: AccountType, scene: SmsScene, userId: String?) -> AnyPublisher<Void, NetworkError> {
         AppLog.profile.debug(
             "发送验证码：account=\(account, privacy: .private) scene=\(scene.description, privacy: .public) userId=\(userId ?? "nil", privacy: .private)"

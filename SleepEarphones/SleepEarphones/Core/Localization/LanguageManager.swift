@@ -54,18 +54,11 @@ final class LanguageManager {
     private let appLanguageKey = "app.language"
 
     /// 存储键：Apple 系统的语言偏好
-    ///
-    /// - Important: `AppleLanguages` 是 iOS 保留键，不可改名。
-    ///              写入后**下次冷启动**时 `Bundle.main` 会使用它。
     private let appleLanguagesKey = "AppleLanguages"
 
     // MARK: - Bundle（运行时语言切换的核心）
 
     /// 当前使用的语言 Bundle
-    ///
-    /// - 启动时从 `UserDefaults` 的偏好初始化
-    /// - 切换语言时指向目标 `.lproj`
-    /// - **所有 `L()` 调用都应从这里读翻译**（而不是 `Bundle.main`）
     private(set) var currentBundle: Bundle = .main
 
     // MARK: - Current
@@ -74,10 +67,6 @@ final class LanguageManager {
     ///
     /// - Returns: 当前生效的 `AppLanguage`
     ///
-    /// - Note: 读取优先级：
-    ///   1. 应用内偏好（`app.language`，用户手动设置的）
-    ///   2. 系统语言（若系统语言在支持列表里）
-    ///   3. 默认语言（简体中文）
     var current: AppLanguage {
         // 1. 应用内偏好优先
         if let raw = UserDefaults.standard.string(forKey: appLanguageKey),
@@ -108,23 +97,34 @@ final class LanguageManager {
     ///
     /// ## 流程
     /// 1. 读取偏好（无偏好时用系统语言）
-    /// 2. 写入 `AppleLanguages`（下次启动生效）
-    /// 3. **加载对应 `.lproj` Bundle**（本次启动即可生效）
+    /// 2. **清理非法值**（旧版本可能写入过已不支持的语言）
+    /// 3. 写入 `AppleLanguages`（下次启动生效）
+    /// 4. **加载对应 `.lproj` Bundle**（本次启动即可生效）
     ///
-    /// - Important: `loadBundle(for:)` 必须执行——否则 `currentBundle`
-    ///              会保持 `.main`，`L()` 读不到用户偏好的翻译。
     func applySavedLanguage() {
         let language: AppLanguage
 
-        if let saved = UserDefaults.standard.string(forKey: appLanguageKey),
-           let lang = AppLanguage(rawValue: saved) {
-            // 已有偏好
-            language = lang
+        if let saved = UserDefaults.standard.string(forKey: appLanguageKey) {
+            if let lang = AppLanguage(rawValue: saved) {
+                // 已有合法偏好
+                language = lang
+            } else {
+                // ⚠️ 保存的是非法 rawValue——可能是旧版本支持过、
+                //    当前版本已移除的语言（如旧版支持 `es`）。
+                //    清理并回退到系统语言 / 默认值，避免每次启动都读到非法值。
+                AppLog.app.warning(
+                    "检测到非法语言偏好：\(saved, privacy: .public)，回退到系统语言"
+                )
+                language = current   // `current` 内部会走系统语言 → 默认值的降级链
+            }
         } else {
             // 首次启动：用系统语言或默认值
             language = current
-            UserDefaults.standard.set(language.rawValue, forKey: appLanguageKey)
         }
+
+        // 回写偏好（确保 `app.language` 与 `language` 一致）
+        // 注意：即使已有合法偏好也要写——幂等操作，避免"读取时降级但未回写"的不一致。
+        UserDefaults.standard.set(language.rawValue, forKey: appLanguageKey)
 
         applyToAppleLanguages(language)
         loadBundle(for: language)
@@ -136,16 +136,21 @@ final class LanguageManager {
 
     /// 切换语言（用户点击"确定"后调用）
     ///
-    /// ## 流程
-    /// 1. 写入应用偏好
-    /// 2. 写入 `AppleLanguages`（保证下次冷启动也用同一语言）
-    /// 3. **重新加载 Bundle**（运行时立即生效）
-    /// 4. 重建 UI 让所有 `L(...)` 调用重新取值
+    /// ## 流程时序（重要，顺序不可调整）
+    /// ```
+    /// 1. 写入 app.language（偏好持久化）
+    /// 2. 写入 AppleLanguages（下次冷启动生效）
+    /// 3. 加载 currentBundle（**本次运行立即生效**）
+    ///    ↓
+    ///    此时 currentBundle 已指向新语言
+    ///    ↓
+    /// 4. AppRouter.reloadRoot()（重建整个 UI）
+    ///    ↓
+    ///    reloadRoot 内的所有 L(...) 都读到新语言 ✅
+    /// ```
     ///
     /// - Parameter language: 目标语言
     ///
-    /// - Note: 重建 UI 会**丢弃整个导航栈**，用户被带回 tabBar 首页。
-    ///         这是预期行为——语言切换是全局性操作。
     func changeLanguage(to language: AppLanguage) {
         AppLog.app.debug(
             "切换语言：\(self.current.rawValue, privacy: .public) → \(language.rawValue, privacy: .public)"
@@ -158,6 +163,7 @@ final class LanguageManager {
         applyToAppleLanguages(language)
 
         // 3. ✅ 关键：重新加载 Bundle（运行时立即生效）
+        //    必须在 reloadRoot 之前——保证重建 UI 时 L(...) 读到新语言
         loadBundle(for: language)
 
         // 4. 重建 UI（所有 L(...) 会立即返回新语言）
@@ -171,13 +177,12 @@ final class LanguageManager {
     /// - Parameter key: 中文 key（也是 `Localizable.strings` 里的 key）
     /// - Returns: 翻译后的文案；找不到时返回 key 自身
     ///
-    /// - Note: 从 `currentBundle` 读取，而非 `Bundle.main`——
-    ///         这是运行时语言切换能立即生效的关键。
-    ///
-    /// - Important: **推荐全局使用 `L()` 函数**，而非直接调用本方法，
-    ///              这样可以统一处理格式化参数。
     func localized(_ key: String) -> String {
-        currentBundle.localizedString(forKey: key, value: key, table: nil)
+        currentBundle.localizedString(
+            forKey: key,
+            value: key,
+            table: nil
+        )
     }
 
     // MARK: - Private
@@ -186,32 +191,28 @@ final class LanguageManager {
     ///
     /// - Parameter language: 目标语言
     ///
-    /// - Note: 不调用已废弃的 `synchronize()`——
-    ///         iOS 12+ 起 `UserDefaults` 会自动持久化。
     private func applyToAppleLanguages(_ language: AppLanguage) {
         UserDefaults.standard.set([language.rawValue], forKey: appleLanguagesKey)
     }
 
     /// 加载指定语言的 `.lproj` Bundle
-    ///
-    /// ## 实现
-    /// 1. 从 `Bundle.main` 里找目标语言的 `.lproj` 路径
-    /// 2. 用该路径构造一个新的 `Bundle` 实例
-    /// 3. 赋值给 `currentBundle`
-    ///
-    /// ## 失败兜底
-    /// 若 `.lproj` 不存在（比如语言资源未添加），保持 `currentBundle` 不变，
-    /// 输出 error 日志便于定位。**不 crash**——App 仍可用默认语言。
-    ///
+    /// 
     /// - Parameter language: 目标语言
     private func loadBundle(for language: AppLanguage) {
         guard let path = Bundle.main.path(
             forResource: language.rawValue,
             ofType: "lproj"
         ), let bundle = Bundle(path: path) else {
+            // 检测当前 Bundle 是否已是目标语言——避免日志重复打印
+            let currentLang = currentBundle.bundlePath
             AppLog.app.error(
-                "找不到 \(language.rawValue, privacy: .public).lproj，保持当前 Bundle"
+                "找不到 \(language.rawValue, privacy: .public).lproj，保持当前 Bundle（\(currentLang, privacy: .public)）"
             )
+            #if DEBUG
+            assertionFailure(
+                "\(language.rawValue).lproj is missing — check Localizable.xcstrings / .strings files"
+            )
+            #endif
             return
         }
         currentBundle = bundle

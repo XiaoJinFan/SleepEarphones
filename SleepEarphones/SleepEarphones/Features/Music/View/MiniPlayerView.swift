@@ -8,13 +8,20 @@
 import UIKit
 import SnapKit
 
+/// 迷你播放条
 ///
-/// ## 调用方法
-/// ```swift
-/// let mini = MiniPlayerView()
-/// mini.onTap = { /* 打开播放页 */ }
-/// mini.onPlayPause = { MusicPlayerManager.shared.toggle() }
-/// mini.configure(with: song, isPlaying: true)
+/// ## 职责
+/// - 在音乐 Tab / 音乐列表页的底部展示"当前正在播放的曲目"
+/// - 支持点击整条进入播放页 / 点击播放按钮切换播放暂停
+/// - 由 `MusicViewController` / `MusicListViewController` **共同持有**（各自一份）
+///
+/// ## 布局结构
+/// ```
+/// ┌──────────────────────────────────────────┐
+/// │ ┌────┐                                   │
+/// │ │封面│  音乐名                    [▶/⏸]  │
+/// │ └────┘                                   │
+/// └──────────────────────────────────────────┘
 /// ```
 @MainActor
 final class MiniPlayerView: UIView {
@@ -24,6 +31,29 @@ final class MiniPlayerView: UIView {
     /// 迷你条高度
     static let height: CGFloat = 64
 
+    // MARK: - Layout
+
+    private enum Layout {
+        /// 容器内边距
+        static let containerInset: CGFloat = AppSpacing.md
+        /// 封面尺寸
+        static let coverSize: CGFloat = 48
+        /// 封面圆角
+        static let coverCornerRadius: CGFloat = AppSpacing.Corner.medium
+        /// 封面左内边距
+        static let coverLeadingInset: CGFloat = AppSpacing.xs
+        /// 播放按钮尺寸
+        static let playButtonSize: CGFloat = 40
+        /// 播放按钮右内边距
+        static let playButtonTrailingInset: CGFloat = AppSpacing.xs
+        /// 封面到标题的间距
+        static let coverToTitleSpacing: CGFloat = AppSpacing.sm
+        /// 标题到播放按钮的间距
+        static let titleToButtonSpacing: CGFloat = AppSpacing.sm
+        /// 播放图标 SF Symbol 字号
+        static let playIconPointSize: CGFloat = 32
+    }
+
     // MARK: - Callbacks
 
     /// 点击整条（打开播放页）
@@ -31,6 +61,14 @@ final class MiniPlayerView: UIView {
 
     /// 点击播放 / 暂停按钮
     var onPlayPause: (() -> Void)?
+
+    // MARK: - Private State
+
+    /// 上次配置的曲目 ID（用于跳过无意义的重复 `configure`）
+    private var lastConfiguredSongID: String?
+
+    /// 上次配置的封面 URL（用于判断是否需要重新加载图片）
+    private var lastConfiguredCoverURL: String?
 
     // MARK: - UI
 
@@ -51,12 +89,12 @@ final class MiniPlayerView: UIView {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
-        iv.layer.cornerRadius = 8
+        iv.layer.cornerRadius = Layout.coverCornerRadius
         iv.backgroundColor = AppColor.Background.secondary
         return iv
     }()
 
-    /// 音乐名
+    /// 音乐名（**内容来自后端，已本地化**）
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Body.emphasized
@@ -97,29 +135,29 @@ final class MiniPlayerView: UIView {
         // 容器：左右缩进 16pt
         containerView.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(UIEdgeInsets(
-                top: 0, left: AppSpacing.md,
-                bottom: 0, right: AppSpacing.md
+                top: 0, left: Layout.containerInset,
+                bottom: 0, right: Layout.containerInset
             ))
         }
 
         // 封面：左 8pt，垂直居中，48x48
         coverImageView.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(8)
+            make.leading.equalToSuperview().offset(Layout.coverLeadingInset)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(48)
+            make.width.height.equalTo(Layout.coverSize)
         }
 
         // 播放按钮：右 8pt，40x40
         playPauseButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-8)
+            make.trailing.equalToSuperview().offset(-Layout.playButtonTrailingInset)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(40)
+            make.width.height.equalTo(Layout.playButtonSize)
         }
 
         // 标题：封面右边 12pt，播放按钮左边 12pt
         titleLabel.snp.makeConstraints { make in
-            make.leading.equalTo(coverImageView.snp.trailing).offset(12)
-            make.trailing.equalTo(playPauseButton.snp.leading).offset(-12)
+            make.leading.equalTo(coverImageView.snp.trailing).offset(Layout.coverToTitleSpacing)
+            make.trailing.equalTo(playPauseButton.snp.leading).offset(-Layout.titleToButtonSpacing)
             make.centerY.equalToSuperview()
         }
 
@@ -136,14 +174,30 @@ final class MiniPlayerView: UIView {
     /// 配置内容
     ///
     /// - Parameters:
-    ///   - song: 当前播放的音乐
+    ///   - song: 当前播放的音乐（`title` / `coverURL` 已由后端本地化）
     ///   - isPlaying: 是否正在播放（决定按钮图标）
     func configure(with song: MusicSong, isPlaying: Bool) {
         titleLabel.text = song.title
-        coverImageView.setImage(song.coverURL, placeholder: AppImage.Local.emptyData)
 
+        // 封面：仅当曲目或封面 URL 变化时才重新加载
+        let coverChanged = (song.id != lastConfiguredSongID)
+            || (song.coverURL != lastConfiguredCoverURL)
+
+        if coverChanged {
+            coverImageView.setImage(
+                song.coverURL,
+                placeholder: AppImage.Local.emptyData
+            )
+            lastConfiguredSongID = song.id
+            lastConfiguredCoverURL = song.coverURL
+        }
+
+        // 播放 / 暂停图标（SF Symbol，无国际化）
         let iconName = isPlaying ? "pause.circle.fill" : "play.circle.fill"
-        let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .regular)
+        let config = UIImage.SymbolConfiguration(
+            pointSize: Layout.playIconPointSize,
+            weight: .regular
+        )
         playPauseButton.setImage(
             UIImage(systemName: iconName, withConfiguration: config),
             for: .normal

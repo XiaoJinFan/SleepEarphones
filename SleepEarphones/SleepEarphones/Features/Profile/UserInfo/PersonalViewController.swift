@@ -10,20 +10,7 @@ import SnapKit
 import PhotosUI
 import Combine
 
-/// 我的资料页
-///
-/// ## 交互
-/// - 点头像 → 弹出相册选择器
-/// - 点昵称 → 弹出 Alert 输入新昵称
-/// - 点保存 → 把当前 UI 上的头像 / 昵称写入 ViewModel + 持久化
-///
-/// ## 保存逻辑（**重点，易误读**）
-/// `selectedAvatarImage` 跟踪"本次会话是否选了新头像"：
-/// - **选了新头像** → `save(avatar: 新图, ...)` → 上传 + 更新远程
-/// - **没选** → `save(avatar: nil, ...)` → **不改头像**（保持服务端原值）
-///
-/// ## tabBar 处理
-/// `hidesBottomBarWhenPushed = true`——push 时自动隐藏，pop 时自动恢复。
+
 @MainActor
 final class PersonalViewController: UIViewController {
 
@@ -31,6 +18,22 @@ final class PersonalViewController: UIViewController {
 
     /// 昵称最大长度
     private static let maxNicknameLength = 20
+
+    /// 保存成功后的延时 pop（秒）
+    private static let successPopDelay: UInt64 = 600_000_000   // 0.6s
+
+    // MARK: - Layout 常量
+
+    private enum Layout {
+        static let avatarContainerHeight: CGFloat = 80
+        static let avatarImageSize: CGFloat = 60
+        static let nicknameContainerHeight: CGFloat = 60
+        static let containerSpacing: CGFloat = AppSpacing.xxl
+        static let labelInset: CGFloat = AppSpacing.sm
+        static let saveButtonHeight: CGFloat = 46
+        static let saveButtonBottomInset: CGFloat = AppSpacing.xxl
+        static let nicknameInputMaxLength: Int = 20
+    }
 
     // MARK: - UI 组件
 
@@ -46,7 +49,8 @@ final class PersonalViewController: UIViewController {
 
     private let avatarLabel: UILabel = {
         let label = UILabel()
-        label.text = "头像"
+        // **标签已本地化**
+        label.text = L("头像")
         label.font = AppFont.Body.regular
         label.textColor = AppColor.Text.primary
         return label
@@ -79,7 +83,8 @@ final class PersonalViewController: UIViewController {
 
     private let nicknameLabel: UILabel = {
         let label = UILabel()
-        label.text = "昵称"
+        // **标签已本地化**
+        label.text = L("昵称")
         label.font = AppFont.Body.regular
         label.textColor = AppColor.Text.primary
         return label
@@ -103,7 +108,8 @@ final class PersonalViewController: UIViewController {
 
     private let saveButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("保存", for: .normal)
+        // **按钮标题已本地化**
+        button.setTitle(L("保存"), for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = AppFont.Button.primary
         button.backgroundColor = AppColor.Brand.primary
@@ -112,28 +118,12 @@ final class PersonalViewController: UIViewController {
         return button
     }()
 
-    // MARK: - Layout 常量
-
-    private enum Layout {
-        static let avatarContainerHeight: CGFloat = 80
-        static let avatarImageSize: CGFloat = 60
-        static let nicknameContainerHeight: CGFloat = 60
-        static let containerSpacing: CGFloat = AppSpacing.xxl
-        static let labelInset: CGFloat = AppSpacing.sm
-        static let saveButtonHeight: CGFloat = 46
-        static let saveButtonBottomInset: CGFloat = AppSpacing.xxl
-    }
-
     // MARK: - ViewModel
 
     private let viewModel: UserProfileViewModel
     private var cancellables = Set<AnyCancellable>()
 
     /// 本次会话用户新选择的头像
-    ///
-    /// ## 语义
-    /// - `nil`：**未选择**新头像——保存时保持 VM 里的原头像
-    /// - 非 nil：用户从相册选了新头像——保存时用新图
     private var selectedAvatarImage: UIImage?
 
     // MARK: - Init
@@ -174,7 +164,8 @@ final class PersonalViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = AppColor.Background.secondary
-        title = "我的资料"
+        // **导航标题已本地化**
+        title = L("我的资料")
 
         view.addSubview(avatarContainerView)
         avatarContainerView.addSubview(avatarLabel)
@@ -193,7 +184,8 @@ final class PersonalViewController: UIViewController {
         // 头像容器
         avatarContainerView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.horizontal)
+            make.leading.trailing.equalToSuperview()
+                .inset(AppSpacing.horizontal)
             make.height.equalTo(Layout.avatarContainerHeight)
         }
 
@@ -214,7 +206,8 @@ final class PersonalViewController: UIViewController {
 
         // 昵称容器
         nicknameContainerView.snp.makeConstraints { make in
-            make.top.equalTo(avatarContainerView.snp.bottom).offset(Layout.containerSpacing)
+            make.top.equalTo(avatarContainerView.snp.bottom)
+                .offset(Layout.containerSpacing)
             make.leading.trailing.equalTo(avatarContainerView)
             make.height.equalTo(Layout.nicknameContainerHeight)
         }
@@ -227,7 +220,8 @@ final class PersonalViewController: UIViewController {
         nicknameValueLabel.snp.makeConstraints { make in
             make.trailing.equalToSuperview().inset(Layout.labelInset)
             make.centerY.equalToSuperview()
-            make.leading.greaterThanOrEqualTo(nicknameLabel.snp.trailing).offset(AppSpacing.lg)
+            make.leading.greaterThanOrEqualTo(nicknameLabel.snp.trailing)
+                .offset(AppSpacing.lg)
         }
 
         nicknameButton.snp.makeConstraints { make in
@@ -236,7 +230,8 @@ final class PersonalViewController: UIViewController {
 
         // 保存按钮
         saveButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.horizontal)
+            make.leading.trailing.equalToSuperview()
+                .inset(AppSpacing.horizontal)
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
                 .inset(Layout.saveButtonBottomInset)
             make.height.equalTo(Layout.saveButtonHeight)
@@ -284,7 +279,11 @@ final class PersonalViewController: UIViewController {
                 guard let self else { return }
                 self.saveButton.isEnabled = !isSaving
                 self.saveButton.alpha = isSaving ? 0.6 : 1.0
-                self.saveButton.setTitle(isSaving ? "保存中…" : "保存", for: .normal)
+                // **按钮文案已本地化**
+                self.saveButton.setTitle(
+                    isSaving ? L("保存中…") : L("保存"),
+                    for: .normal
+                )
             }
             .store(in: &cancellables)
     }
@@ -310,21 +309,16 @@ final class PersonalViewController: UIViewController {
     }
 
     /// 点击昵称 → 弹出编辑框
-    ///
-    /// ## 行为
-    /// 1. 弹出 Alert，预填当前昵称
-    /// 2. 用户输入 → 点"确认" → **同步更新 UI**（保存到 VM 待点"保存"按钮）
-    /// 3. 点"取消" → 无副作用
-    ///
     @objc private func nicknameButtonTapped() {
         let alert = UIAlertController(
-            title: "修改昵称",
-            message: "最多 \(Self.maxNicknameLength) 个字符",
+            // **标题 / 副标题 / 按钮均通过 `L(...)` 本地化**
+            title: L("修改昵称"),
+            message: L("最多 %lld 个字符", Self.maxNicknameLength),
             preferredStyle: .alert
         )
         alert.addTextField { [weak self] textField in
             textField.text = self?.nicknameValueLabel.text
-            textField.placeholder = "请输入新昵称"
+            textField.placeholder = L("请输入新昵称")
             textField.clearButtonMode = .whileEditing
             // 限制输入长度——用 `.editingChanged` 动态截断
             textField.addTarget(
@@ -333,15 +327,30 @@ final class PersonalViewController: UIViewController {
                 for: .editingChanged
             )
         }
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "确认", style: .default) { [weak self, weak alert] _ in
+        alert.addAction(UIAlertAction(title: L("取消"), style: .cancel))
+        alert.addAction(UIAlertAction(title: L("确认"), style: .default) { [weak self, weak alert] _ in
             guard let self,
-                  let newName = alert?.textFields?.first?.text?
-                    .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !newName.isEmpty else {
-                // 空昵称不处理（保持原值）
+                  let textField = alert?.textFields?.first else {
                 return
             }
+
+            let newName = textField.text?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            // 空昵称：轻震动 + 保持弹窗（不关闭）
+            guard !newName.isEmpty else {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.warning)
+                textField.becomeFirstResponder()
+                textField.selectAll(nil)
+                // 重新弹出弹窗——因为上面的 dismiss 是 UIKit 自动执行的
+                // 这里通过再次 present 让用户可继续输入
+                DispatchQueue.main.async { [weak self] in
+                    self?.present(alert!, animated: true)
+                }
+                return
+            }
+
             // 更新 UI（等待点"保存"才写入 VM + 持久化）
             self.nicknameValueLabel.text = newName
         })
@@ -351,7 +360,6 @@ final class PersonalViewController: UIViewController {
     /// 昵称输入框长度限制（`editingChanged` 事件处理）
     ///
     /// - Parameter textField: 触发事件的输入框
-    ///
     @objc private func nicknameFieldDidChange(_ textField: UITextField) {
         guard let text = textField.text else { return }
         guard text.count > Self.maxNicknameLength else { return }
@@ -360,14 +368,6 @@ final class PersonalViewController: UIViewController {
     }
 
     /// 点击保存
-    ///
-    /// ## 头像处理
-    /// - 用户选了新头像 → 传 `selectedAvatarImage`
-    /// - 用户没选 → 传 `nil`（**不改头像**）
-    ///
-    /// ## 昵称处理
-    /// 读取 `nicknameValueLabel.text`（即用户当前看到的昵称）——
-    /// 与"用户所见即所得"一致。
     @objc private func saveButtonTapped() {
         view.endEditing(true)
 
@@ -375,11 +375,11 @@ final class PersonalViewController: UIViewController {
         let nickname = (nicknameValueLabel.text ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !nickname.isEmpty else {
-            showToast("请输入昵称")
+            showToast(L("请输入昵称"))
             return
         }
         guard nickname.count <= Self.maxNicknameLength else {
-            showToast("昵称最长 \(Self.maxNicknameLength) 个字符")
+            showToast(L("昵称最长 %lld 个字符", Self.maxNicknameLength))
             return
         }
 
@@ -396,14 +396,11 @@ final class PersonalViewController: UIViewController {
                 self.selectedAvatarImage = nil
 
                 // 成功：Toast + 延时 pop
-                self.showToast("保存成功")
+                self.showToast(L("保存成功"))
                 AppLog.profile.debug("保存用户资料成功")
-                try? await Task.sleep(nanoseconds: 600_000_000)   // 0.6s
+                try? await Task.sleep(nanoseconds: Self.successPopDelay)
 
                 //   pop 前做**栈顶检查**——
-                //   若用户在 0.6s 延时期间手动返回，此时 `self` 已不在栈顶，
-                //   直接 `popViewController` 会**误弹上一层 VC**。
-                //   与 `ChangeAccountViewController` 保持一致的安全检查。
                 guard self.navigationController?.viewControllers.last === self else {
                     AppLog.profile.debug("保存成功延时 pop 时 VC 已不在栈顶，跳过")
                     return
@@ -417,7 +414,8 @@ final class PersonalViewController: UIViewController {
                 )
                 self.showAlert(
                     error.localizedDescription,
-                    title: "云端同步失败"
+                    // **Alert 标题已本地化**
+                    title: L("云端同步失败")
                 )
             }
         }

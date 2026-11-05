@@ -9,8 +9,19 @@ import UIKit
 import Combine
 
 /// 找回密码页
+///
+/// ## 职责
+/// - 手机号 / 邮箱找回密码（`segmentControl` 切换）
+/// - 验证码发送 + 新密码设置
+/// - 隐私协议勾选（未勾选时拦截提交）
+///
 @MainActor
 final class ForgetPassWordController: UIViewController {
+
+    // MARK: - Constants
+
+    /// 重置成功后的延时 pop（秒）
+    private static let popDelaySeconds: TimeInterval = 1.2
 
     // MARK: - IBOutlet
 
@@ -87,14 +98,29 @@ final class ForgetPassWordController: UIViewController {
 
     // MARK: - Setup
 
+    /// 配置 UI
     private func setupUI() {
-        title = "找回密码"
+        title = L("找回密码")
 
-        // 用扩展统一配置键盘
+        // MARK: Segment 标题（覆盖 storyboard 中的 "手机号" / "邮箱号"）
+        segmentControl.setTitle(LoginAccountMode.phone.title, forSegmentAt: 0)
+        segmentControl.setTitle(LoginAccountMode.email.title, forSegmentAt: 1)
+
+        // MARK: 输入框占位符（覆盖 storyboard 中的硬编码）
+        phoneTextField.placeholder = LoginAccountMode.phone.placeholder
+        emailTextField.placeholder = LoginAccountMode.email.placeholder
+        codeTextField.placeholder = L("请输入验证码")
+        passwordTextField.placeholder = L("请输入密码(6~12位字母+数字)")
+
+        // MARK: 按钮标题（覆盖 storyboard 中的 "找回密码" / "获取验证码"）
+        forgetPwdBtn.setTitle(L("找回密码"), for: .normal)
+        getCodeBtn.setTitle(L("获取验证码"), for: .normal)
+
+        // MARK: 键盘配置（用扩展统一）
         applyAuthKeyboard(to: phoneTextField, mode: .phone)
         applyAuthKeyboard(to: emailTextField, mode: .email)
         codeTextField.keyboardType = .numberPad
-        
+
         forgetPwdBtn.layer.cornerRadius = AppSpacing.Corner.card
 
         // 密码默认隐藏
@@ -127,7 +153,7 @@ final class ForgetPassWordController: UIViewController {
                 self?.syncUIWithViewModel(animated: true)
             }
             .store(in: &cancellables)
-        
+
         // 验证码按钮
         viewModel.$isSendingCode
             .combineLatest(viewModel.$countdown)
@@ -135,7 +161,7 @@ final class ForgetPassWordController: UIViewController {
                 self?.refreshAuthGetCodeButton(isSending: isSending, countdown: sec)
             }
             .store(in: &cancellables)
-        
+
         // 提交中：禁用重置按钮
         viewModel.$isLoading
             .sink { [weak self] isLoading in
@@ -144,7 +170,7 @@ final class ForgetPassWordController: UIViewController {
                 self.forgetPwdBtn.alpha = isLoading ? 0.6 : 1.0
             }
             .store(in: &cancellables)
-        
+
         // 错误提示
         viewModel.$errorMessage
             .compactMap { $0 }
@@ -162,13 +188,13 @@ final class ForgetPassWordController: UIViewController {
                 self?.viewModel.clearToast()
             }
             .store(in: &cancellables)
-        
+
         // 重置成功 → 延时返回登录页
         viewModel.$resetSuccess
             .filter { $0 }
             .sink { [weak self] _ in
-                AppLog.auth.debug("重置密码成功，1.2s 后返回登录页")
-                self?.popAfterDelay(seconds: 1.2)
+                AppLog.auth.debug("重置密码成功，\(Self.popDelaySeconds)s 后返回登录页")
+                self?.popAfterDelay(seconds: Self.popDelaySeconds)
             }
             .store(in: &cancellables)
     }
@@ -228,7 +254,7 @@ final class ForgetPassWordController: UIViewController {
         view.endEditing(true)
 
         guard isPrivacyAgreed else {
-            showToast("请先阅读并同意《用户注册协议》与《隐私政策》")
+            showToast(L("请先阅读并同意《用户注册协议》与《隐私政策》"))
             return
         }
         viewModel.resetPassword()
@@ -243,7 +269,6 @@ final class ForgetPassWordController: UIViewController {
     /// 延时后 pop 回上一页
     ///
     /// - Parameter seconds: 延时秒数（用于让 Toast 展示完后才 pop）
-    ///
     private func popAfterDelay(seconds: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
             guard let self else { return }

@@ -33,12 +33,6 @@ import Alamofire
 /// | 账号 | `account` | `mobile` / `email` | `mobile` / `user_email` | `mobile` / `email` | `account` |
 /// | 账号类型 | `account_type` | — | — | — | `account_type` |
 /// | 场景类型 | — | `type` | `type` | `type` | `type` |
-///
-/// - Important: **邮箱字段名依接口而异**：
-///   - 发送验证码 → `user_email`
-///   - 验证码登录 / 注册 → `email`
-///   这是后端历史遗留，已用 Postman 验证。
-///   若后端未来统一字段名，修改 `accountField(_:type:context:)` 即可。
 enum AuthAPI: APIRequest {
 
     // MARK: - Constants
@@ -54,10 +48,6 @@ enum AuthAPI: APIRequest {
     /// ## 开关
     /// - DEBUG 构建：`1`（测试模式）
     /// - Release 构建：`nil`（不发该字段）
-    ///
-    /// - Warning: Release 构建**绝不能**带此字段——
-    ///            否则线上用户会收到测试验证码而非真实短信。
-    ///            本字段用 `#if DEBUG` 编译期隔离，保证 Release 不会误带。
     private static let smsTestFlag: Int? = {
         #if DEBUG
         return 1
@@ -74,9 +64,7 @@ enum AuthAPI: APIRequest {
     ///   - account: 账号（手机号 / 邮箱 / 用户名）
     ///   - accountType: 账号类型
     ///   - password: 密码（明文，HTTPS 传输）
-    case passwordLogin(account: String,
-                       accountType: AccountType,
-                       password: String)
+    case passwordLogin(account: String, accountType: AccountType, password: String)
 
     /// 验证码登录
     ///
@@ -84,9 +72,7 @@ enum AuthAPI: APIRequest {
     ///   - account: 手机号 / 邮箱
     ///   - accountType: 账号类型
     ///   - code: 验证码
-    case codeLogin(account: String,
-                   accountType: AccountType,
-                   code: String)
+    case codeLogin(account: String, accountType: AccountType, code: String)
 
     /// 发送验证码
     ///
@@ -94,9 +80,7 @@ enum AuthAPI: APIRequest {
     ///   - account: 接收验证码的手机号 / 邮箱
     ///   - accountType: 账号类型
     ///   - scene: 业务场景
-    case sendSmsCode(account: String,
-                     accountType: AccountType,
-                     scene: SmsScene)
+    case sendSmsCode(account: String, accountType: AccountType, scene: SmsScene)
 
     /// 忘记密码 / 重置密码
     ///
@@ -105,10 +89,7 @@ enum AuthAPI: APIRequest {
     ///   - accountType: 账号类型
     ///   - newPassword: 新密码
     ///   - code: 验证码（可为 nil）
-    case forgetPassword(account: String,
-                        accountType: AccountType,
-                        newPassword: String,
-                        code: String?)
+    case forgetPassword(account: String, accountType: AccountType, newPassword: String, code: String?)
 
     /// 会员注册
     ///
@@ -117,10 +98,7 @@ enum AuthAPI: APIRequest {
     ///   - accountType: 账号类型
     ///   - password: 密码
     ///   - code: 验证码（可为 nil）
-    case register(account: String,
-                  accountType: AccountType,
-                  password: String,
-                  code: String?)
+    case register(account: String, accountType: AccountType, password: String, code: String?)
 
     // MARK: - APIRequest
 
@@ -192,7 +170,8 @@ enum AuthAPI: APIRequest {
                 "password":     newPassword,
                 "type":         SmsScene.forgetPassword.rawValue
             ]
-            if let code, !code.isEmpty {
+            
+            if let code = code?.nilIfBlank {
                 p["code"] = code
             }
             return p
@@ -206,7 +185,7 @@ enum AuthAPI: APIRequest {
             p["password"] = password
             p["type"] = SmsScene.register.rawValue
             p.merge(accountField(account, type: type, context: .register)) { _, new in new }
-            if let code, !code.isEmpty {
+            if let code = code?.nilIfBlank {
                 p["code"] = code
             }
             return p
@@ -221,9 +200,6 @@ enum AuthAPI: APIRequest {
     /// - **发送验证码**（`user/get_code`）→ `user_email`
     /// - **验证码登录**（`user/user_login_bycode`）→ `email`
     /// - **会员注册**（`user/registerUser`）→ `email`
-    ///
-    /// - Note: 手机号字段在这三个接口里统一是 `mobile`——
-    ///         因此 `context` 只对 `.email` 类型有意义。
     private enum AccountFieldContext {
         /// 发送验证码接口（`user/get_code`）
         case sendSmsCode
@@ -243,9 +219,6 @@ enum AuthAPI: APIRequest {
     ///   - `true`：登录 / 注册等需要设备识别的接口
     ///   - `false`：发送验证码 / 重置密码等不需要的接口
     /// - Returns: 基础参数字典
-    ///
-    /// - Note: 若 `DeviceInfo.idfv` 为 nil（极少见），不附带 `client_id`——
-    ///         后端应容忍该字段缺失。
     private func makeBaseParameters(includeClientID: Bool) -> [String: Any] {
         var p: [String: Any] = [
             "user_source": DeviceInfo.osName
@@ -263,17 +236,6 @@ enum AuthAPI: APIRequest {
     ///   - type: 账号类型
     ///   - context: 调用上下文（区分邮箱字段命名）
     /// - Returns: 账号字段字典
-    ///
-    /// ## 字段命名规则
-    /// | 账号类型 | `sendSmsCode` | `codeLogin` / `register` |
-    /// |---|---|---|
-    /// | 手机号 | `mobile` | `mobile` |
-    /// | 邮箱 | `user_email` | `email` |
-    ///
-    /// - Important: `.account` 类型**不支持**此方法——
-    ///              它仅用于密码登录接口，且密码登录不用本方法组装账号字段。
-    ///              若误传 `.account`，会 `preconditionFailure` 明确崩溃，
-    ///              避免把用户名错误地塞进 `mobile` 字段。
     private func accountField(_ account: String, type: AccountType, context: AccountFieldContext) -> [String: Any] {
         switch type {
         case .mobile:
@@ -288,8 +250,6 @@ enum AuthAPI: APIRequest {
             }
 
         case .account:
-            // ⚠️ 编程错误：`.account` 类型仅密码登录支持，
-            //    而密码登录不走本方法。此处崩溃以便暴露调用方 bug。
             preconditionFailure(
                 "accountField 不支持 .account 类型（仅密码登录使用，且不走本方法）"
             )

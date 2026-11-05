@@ -17,7 +17,7 @@ final class HelpFAQDetailViewController: UIViewController {
 
     private enum Layout {
         /// 进度条高度：hairline（0.5pt），视觉更精致
-        static let progressHeight: CGFloat = 0.5
+        static let progressHeight: CGFloat = AppSpacing.Border.hairline
     }
 
     // MARK: - Properties
@@ -26,11 +26,6 @@ final class HelpFAQDetailViewController: UIViewController {
     private let item: HelpFAQItem
 
     /// KVO 观察者
-    ///
-    /// - Note: 无需在 `deinit` 里手动 `invalidate`——
-    ///         `NSKeyValueObservation` 会在 observe 的对象释放时自动失效；
-    ///         而且 Swift 6 下 `@MainActor` 类的 `deinit` 是 `nonisolated`，
-    ///         直接访问本属性会触发并发警告。
     private var progressObservation: NSKeyValueObservation?
 
     /// 是否已经提示过加载错误（避免重复弹窗）
@@ -64,11 +59,11 @@ final class HelpFAQDetailViewController: UIViewController {
 
     /// 初始化
     ///
-    /// - Parameter item: 帮助文章（含 HTML content）
+    /// - Parameter item: 帮助文章（含 HTML content；`title` 已由后端本地化）
     init(item: HelpFAQItem) {
         self.item = item
         super.init(nibName: nil, bundle: nil)
-        // 导航栏标题使用文章标题
+        // 导航栏标题使用文章标题（**后端已按 Accept-Language 本地化**）
         self.title = item.title
         // push 时自动隐藏 tabBar，pop 时自动恢复
         self.hidesBottomBarWhenPushed = true
@@ -149,6 +144,11 @@ final class HelpFAQDetailViewController: UIViewController {
             "渲染帮助详情：aid=\(self.item.id, privacy: .private) title=\(self.item.title, privacy: .private)"
         )
 
+        // **重置进度条**——支持"重试"场景
+        progressView.progress = 0
+        progressView.isHidden = false
+        progressView.alpha = 1
+
         // 用统一模板包装 HTML 片段（字体 / 行高 / 深色模式 / 表格样式等）
         let html = AgreementHTMLTemplate.wrap(item.content, title: item.title)
         webView.loadHTMLString(html, baseURL: nil)
@@ -159,10 +159,6 @@ final class HelpFAQDetailViewController: UIViewController {
     /// 处理加载失败（带防重入）
     ///
     /// - Parameter error: WebKit 抛出的错误
-    ///
-    /// - Note: **只在首次失败时弹 Alert**——
-    ///         若同一页面被多次失败回调触发（如重定向链中的某次失败），
-    ///         只弹一次，避免用户连续关闭多个弹窗。
     private func handleLoadFailure(_ error: Error) {
         // 主动取消（用户返回上一页）不算错误
         if (error as NSError).code == NSURLErrorCancelled { return }
@@ -173,15 +169,16 @@ final class HelpFAQDetailViewController: UIViewController {
         hasShownErrorAlert = true
 
         let alert = UIAlertController(
-            title: "加载失败",
+            // **弹窗标题 / 按钮标题已本地化**
+            title: L("加载失败"),
             message: error.localizedDescription,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "重试", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("重试"), style: .default) { [weak self] _ in
             self?.hasShownErrorAlert = false
             self?.loadHTML()
         })
-        alert.addAction(UIAlertAction(title: "返回", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("返回"), style: .cancel) { [weak self] _ in
             self?.navigationController?.popViewController(animated: true)
         })
         present(alert, animated: true)

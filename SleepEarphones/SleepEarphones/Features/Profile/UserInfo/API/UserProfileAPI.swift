@@ -51,14 +51,9 @@ enum UserProfileAPI: APIRequest {
     /// - Parameters:
     ///   - nickname: 新昵称；`nil` 或空串表示不修改
     ///   - avatarURL: 头像 URL；`nil` 或空串表示不修改
-    ///
-    /// - Note: 本项目只改昵称 + 头像，其余选填参数
-    ///         （gender / birthday / background / autograph）不传。
     case editProfile(nickname: String?, avatarURL: String?)
 
     /// 拉取当前登录用户的详细信息
-    ///
-    /// - Note: 无参数——服务端通过 `user-token` 请求头识别当前用户。
     case fetchUserInfo
 
     /// 上传头像文件（multipart/form-data）
@@ -68,12 +63,7 @@ enum UserProfileAPI: APIRequest {
     ///   - fileName: 文件名（如 `"avatar.jpg"`）
     ///   - fieldName: 后端约定的表单字段名（默认 `"file"`）
     ///   - mimeType: MIME 类型（默认 `"image/jpeg"`）
-    case uploadAvatar(
-        imageData: Data,
-        fileName: String,
-        fieldName: String,
-        mimeType: String
-    )
+    case uploadAvatar(imageData: Data, fileName: String, fieldName: String, mimeType: String)
 
     // MARK: - APIRequest
 
@@ -114,12 +104,6 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 请求头：附加 `user-token`
-    ///
-    /// - Note:
-    ///   - `AuthStore.shared.token` 内部线程安全（Keychain / UserDefaults 均线程安全），
-    ///     `asURLRequest()` 在任意线程调用都安全。
-    ///   - 无 token 时返回 `nil`——后端会返回业务码 `-201`，
-    ///     由 `NetworkClient` 映射为 `.tokenExpired`。
     var headers: HTTPHeaders? {
         guard let token = AuthStore.shared.token, !token.isEmpty else {
             return nil
@@ -130,11 +114,6 @@ enum UserProfileAPI: APIRequest {
     // MARK: - asURLRequest
 
     /// 覆盖默认实现，为 `uploadAvatar` 手动构造 multipart body
-    ///
-    /// - Note: 为什么不用 Alamofire 的 `session.upload(multipartFormData:)`？
-    ///         本项目所有请求统一走 `session.request(api)`——
-    ///         在 `asURLRequest()` 里手动拼 `multipart/form-data` body，
-    ///         就能保持**架构一致**，无需给 `NetworkClient` 额外加 `upload` 方法。
     func asURLRequest() throws -> URLRequest {
         switch self {
         case .editProfile, .fetchUserInfo:
@@ -153,23 +132,6 @@ enum UserProfileAPI: APIRequest {
     // MARK: - Private Request Builders
 
     /// 标准 JSON 请求（等价于 `APIRequest` 扩展的默认实现）
-    ///
-    /// ## ⚠️ 关于"复制默认实现"的风险说明（重要）
-    /// 因为本类型**覆盖**了 `asURLRequest()`，无法直接调用协议扩展的默认实现，
-    /// 所以把默认逻辑在此处**复制**了一份。
-    ///
-    /// **风险**：若未来 `APIRequest` 的默认实现被修改
-    /// （如加入 UA 处理 / 统一 header / 超时策略），本处**不会**自动跟随——
-    /// 会造成**两个接口行为不一致**的隐蔽 bug。
-    ///
-    /// ## 维护清单（修改默认实现时的检查点）
-    /// 若修改 `APIRequest.asURLRequest()` 的默认实现，**必须**同步本方法——
-    /// 检查以下内容是否一致：
-    /// - [ ] URL 构造（`URLBuilder.build`）
-    /// - [ ] HTTP 方法设置
-    /// - [ ] 超时时间
-    /// - [ ] Header 合并策略
-    /// - [ ] 参数编码方式
     private func buildStandardRequest() throws -> URLRequest {
         guard let url = URLBuilder.build(base: baseURL, path: path) else {
             throw NetworkError.invalidURL
@@ -184,12 +146,7 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 构造 `multipart/form-data` 请求
-    private func buildMultipartRequest(
-        imageData: Data,
-        fileName: String,
-        fieldName: String,
-        mimeType: String
-    ) throws -> URLRequest {
+    private func buildMultipartRequest(imageData: Data, fileName: String, fieldName: String, mimeType: String) throws -> URLRequest {
         guard let url = URLBuilder.build(base: baseURL, path: path) else {
             throw NetworkError.invalidURL
         }
@@ -211,25 +168,24 @@ enum UserProfileAPI: APIRequest {
         )
 
         // ✅ 构造完整 body（3 段拼接）
-        request.httpBody = try makeMultipartBody(
+        let body = try makeMultipartBody(
             imageData: imageData,
             fileName: fileName,
             fieldName: fieldName,
             mimeType: mimeType,
             boundary: boundary
         )
+        request.httpBody = body
+        request.setValue(
+            "\(body.count)",
+            forHTTPHeaderField: "Content-Length"
+        )
 
         return request
     }
 
     /// 构造 multipart body
-    private func makeMultipartBody(
-        imageData: Data,
-        fileName: String,
-        fieldName: String,
-        mimeType: String,
-        boundary: String
-    ) throws -> Data {
+    private func makeMultipartBody(imageData: Data, fileName: String, fieldName: String, mimeType: String, boundary: String ) throws -> Data {
         // 1. 转义用户可控字段（防 header injection）
         let safeFieldName = Self.escapeMultipartValue(fieldName)
         let safeFileName  = Self.escapeMultipartValue(fileName)
@@ -266,6 +222,12 @@ enum UserProfileAPI: APIRequest {
     }
 
     /// 转义 multipart 字段值（防 header injection）
+    ///
+    /// ## 转义顺序（重要，不可调整）
+    /// **必须先转 `\`**——否则后续 `\"` 中的 `\` 会被二次转义成 `\\"`，
+    /// 破坏 `Content-Disposition` 的引号配对。
+    ///
+    /// 正确顺序：`\` → `"` → 移除 `\r` / `\n`
     private static func escapeMultipartValue(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\\", with: "\\\\")   // 反斜杠转义（**先**）
@@ -323,7 +285,7 @@ struct UserDetailInfo: Decodable, Sendable {
     /// 后端生成的内部账号名（如 `"1786096102_38737"`）
     let account: String?
 
-    /// 昵称（如 `"sam"`）
+    /// 昵称（如 `"sam"`，**后端已本地化**）
     let nickname: String?
 
     /// 头像 URL（**完整 URL**，无需再拼 CDN）
@@ -332,10 +294,10 @@ struct UserDetailInfo: Decodable, Sendable {
     /// 手机号（带 `*` 号，如 `"183****1021"`）
     let mobile: String?
 
-    /// 真实姓名
+    /// 真实姓名（**后端已本地化**）
     let realName: String?
 
-    /// 邮箱
+    /// 邮箱（**字符标识，不翻译**）
     let email: String?
 
     /// 性别（`0` = 未知，`1` = 男，`2` = 女）
@@ -344,14 +306,7 @@ struct UserDetailInfo: Decodable, Sendable {
     /// 生日（字符串 `"2026-08-07"`）
     let birthday: String?
 
-    /// ✅ 真实手机号（**未脱敏**，如 `"18384891021"`）
-    ///
-    /// ## 用途
-    /// "账号与安全"页发送验证码时使用——
-    /// `mobile` 是脱敏号（`183****1021`），无法用于发短信。
-    ///
-    /// ## 后端字段
-    /// `user/get_user_info` 返回的 `_mobile`（注意前缀下划线）。
+    /// ✅ 真实手机号（**未脱敏**，如 `"13978651021"`）
     let realMobile: String?
 
     // MARK: - 扩展字段（备用）
@@ -359,7 +314,7 @@ struct UserDetailInfo: Decodable, Sendable {
     /// 是否已注销（`0` = 否，`1` = 是）
     let isCancel: Int?
 
-    /// 会员等级名称（如 `"普通会员"`）
+    /// 会员等级名称（如 `"普通会员"`，**后端已本地化**）
     let userLevelName: String?
 
     // MARK: - CodingKeys
@@ -409,7 +364,7 @@ struct UserDetailInfo: Decodable, Sendable {
             self.realMobile = nil
         }
 
-        // 数值字段：兼容 Int / String（后端 PHP 可能把 0 序列化为 "0"）
+        // 数值字段：兼容 Int / String / Bool（后端 PHP 序列化差异）
         self.id       = Self.safeInt(from: c, forKey: .id,       name: "id")
         self.gender   = Self.safeInt(from: c, forKey: .gender,   name: "gender")
         self.isCancel = Self.safeInt(from: c, forKey: .isCancel, name: "is_cancel")
@@ -418,11 +373,7 @@ struct UserDetailInfo: Decodable, Sendable {
     // MARK: - 解码辅助
 
     /// 安全解码 `String`：失败 / 缺失 / 类型不符时返回 `nil` + 打日志
-    private static func safeString(
-        from container: KeyedDecodingContainer<CodingKeys>,
-        forKey key: CodingKeys,
-        name: String
-    ) -> String? {
+    private static func safeString(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys, name: String) -> String? {
         do {
             return try container.decodeIfPresent(String.self, forKey: key)
         } catch {
@@ -433,18 +384,21 @@ struct UserDetailInfo: Decodable, Sendable {
         }
     }
 
-    /// 安全解码 `Int`：兼容 `Int` / `String`（`"0"` → `0`）
+    /// 安全解码 `Int`：兼容 `Int` / `String`（`"0"` → `0`）/ `Bool`（`true` → `1`）
     ///
-    /// ## 为什么需要兼容 String？
-    /// 后端 PHP 在某些版本 / 环境下会把整数序列化为字符串
-    /// （例如 `"gender": "0"` 而非 `"gender": 0`）。
-    /// 自动合成的 `decodeIfPresent(Int.self, ...)` 遇到字符串会抛 `typeMismatch`——
-    /// 本方法先尝试 `Int`，失败再尝试 `String` 并 `Int(...)` 转换。
-    private static func safeInt(
-        from container: KeyedDecodingContainer<CodingKeys>,
-        forKey key: CodingKeys,
-        name: String
-    ) -> Int? {
+    /// ## 为什么需要兼容 String / Bool？
+    /// 后端 PHP 在某些版本 / 环境下会：
+    /// - 把整数序列化为字符串（`"gender": "0"`）
+    /// - 把布尔序列化为 `true` / `false`（`"is_cancel": false`）
+    ///
+    /// 自动合成的 `decodeIfPresent(Int.self, ...)` 遇到这些会抛 `typeMismatch`——
+    /// 本方法按 `Int → String → Bool` 顺序尝试，任一成功即返回。
+    ///
+    /// ## 转换优先级
+    /// 1. **`Int`**：最常见
+    /// 2. **`String`**：`Int(str)` 转换
+    /// 3. **`Bool`**：`true → 1` / `false → 0`
+    private static func safeInt(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys, name: String) -> Int? {
         // 1. Int（最常见）
         if let intVal = try? container.decodeIfPresent(Int.self, forKey: key) {
             return intVal
@@ -459,18 +413,24 @@ struct UserDetailInfo: Decodable, Sendable {
             )
             return nil
         }
-        // 3. 字段缺失 / null / 其他类型 —— 静默返回 nil
+        // 3. Bool（PHP 后端可能序列化为布尔）
+        if let boolVal = try? container.decodeIfPresent(Bool.self, forKey: key) {
+            return boolVal ? 1 : 0
+        }
+        // 4. 字段缺失 / null / 其他类型 —— 静默返回 nil
         return nil
     }
 
     // MARK: - 展示辅助
 
-    /// 用于展示的名称（昵称 → 真实姓名 → 脱敏手机号 → 默认）
+    /// 用于展示的名称（昵称 → 真实姓名 → 脱敏手机号 → **本地化的默认值**）
+    ///
+    /// - Returns: 优先级链中第一个非空值；全部为空时返回 `LN("用户")`
     var displayName: String {
         if let nickname, !nickname.isEmpty { return nickname }
         if let realName, !realName.isEmpty { return realName }
         if let mobile, !mobile.isEmpty { return mobile }
-        return "用户"
+        return LN("用户")
     }
 
     /// 是否有头像
@@ -523,11 +483,6 @@ struct UploadResult: Decodable, Sendable {
     // MARK: - 解码键
 
     /// 标准结构：`{ data: { file, fileId } }`
-    ///
-    /// - Note: 根层的 `success` 字段虽然存在于响应里，但业务不使用——
-    ///         只用于后端日志排查，**不参与解码**，
-    ///         故 `RootKeys` **只定义实际解码的 `data`**，
-    ///         避免"定义了却不用"的死字段（P2 优化点）。
     private enum RootKeys: String, CodingKey {
         case data
     }
@@ -546,15 +501,6 @@ struct UploadResult: Decodable, Sendable {
     // MARK: - 自定义解码
 
     /// 宽容解码：先尝试标准嵌套结构，再尝试兼容结构
-    ///
-    /// ## 解码优先级
-    /// 1. **标准**：`{ data: { file, fileId } }` —— 当前后端实际结构
-    /// 2. **String**：`data` 直接是 URL 字符串
-    /// 3. **对象**：`{ url: "..." }` —— 兼容可能的结构变化
-    /// 4. **兜底**：全部失败时 `fileURL = nil`
-    ///
-    /// - Note: 各分支的 `fileID` 只有场景 1 会赋值，
-    ///         场景 2 / 3 无此字段（nil 是合理语义）。
     init(from decoder: Decoder) throws {
         // 场景 1：标准嵌套结构 `{ data: { file: "...", fileId: 123 } }`
         if let root = try? decoder.container(keyedBy: RootKeys.self),
@@ -603,9 +549,7 @@ struct UploadResult: Decodable, Sendable {
     ///
     /// - Parameter container: 内层文件对象容器
     /// - Returns: 解析出的 Int；缺失或无法转换时返回 `nil`
-    private static func decodeFileID(
-        from container: KeyedDecodingContainer<FileKeys>
-    ) -> Int? {
+    private static func decodeFileID(from container: KeyedDecodingContainer<FileKeys>) -> Int? {
         // 优先 Int
         if let intID = try? container.decodeIfPresent(Int.self, forKey: .fileId) {
             return intID

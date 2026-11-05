@@ -15,14 +15,14 @@ import SnapKit
 /// ## 调用方法
 /// ```swift
 /// // 1. 可点击项（尾随闭包）
-/// SettingsItem(title: "账号与安全") { openAccountSecurity() }
+/// SettingsItem(title: L("账号与安全")) { openAccountSecurity() }
 ///
 /// // 2. 展示值 + 无箭头（如"当前版本"）
-/// SettingsItem(title: "当前版本", value: "V1.0.0", showsArrow: false, action: nil)
+/// SettingsItem(title: L("当前版本"), value: "V1.0.0", showsArrow: false, action: nil)
 ///
 /// // 3. 完整参数
 /// SettingsItem(
-///     title: "语言设置",
+///     title: L("语言设置"),
 ///     value: nil,
 ///     showsArrow: true,
 ///     action: { openLanguage() }
@@ -30,10 +30,10 @@ import SnapKit
 /// ```
 struct SettingsItem {
 
-    /// 标题（左侧）
+    /// 标题（左侧，**调用方负责本地化**）
     let title: String
 
-    /// 右侧文字（如 "V1.0.1"）；传 nil 时不显示
+    /// 右侧文字（如 `"V1.0.1"`）；传 nil 时不显示
     let value: String?
 
     /// 是否显示右箭头
@@ -49,9 +49,6 @@ struct SettingsItem {
     ///   - value: 右侧文字（默认 nil）
     ///   - showsArrow: 是否显示箭头（默认 true）
     ///   - action: 点击回调（默认 nil，不可点击）
-    ///
-    /// - Note: `action` 虽然类型是可选闭包，但 Swift 支持尾随闭包语法：
-    ///         `SettingsItem(title: "x") { ... }` 会自动包装为 `.some(closure)`。
     init(title: String, value: String? = nil, showsArrow: Bool = true, action: (() -> Void)? = nil) {
         self.title = title
         self.value = value
@@ -63,21 +60,6 @@ struct SettingsItem {
 // MARK: - 卡片视图
 
 /// 设置卡片（多行组成一张圆角卡片）
-///
-/// ## 调用方法
-/// ```swift
-/// // 1. 构建卡片
-/// let card = SettingsCardView(items: [
-///     SettingsItem(title: "账号与安全") { openAccountSecurity() },
-///     SettingsItem(title: "当前版本", value: "V1.0.0", showsArrow: false, action: nil)
-/// ])
-///
-/// // 2. 加入父视图
-/// view.addSubview(card)
-/// card.snp.makeConstraints { make in
-///     make.edges.equalToSuperview()
-/// }
-/// ```
 @MainActor
 final class SettingsCardView: UIView {
 
@@ -91,7 +73,7 @@ final class SettingsCardView: UIView {
         /// 分隔线左右缩进
         static let separatorInset: CGFloat = AppSpacing.lg
         /// 分隔线高度
-        static let separatorHeight: CGFloat = 0.5
+        static let separatorHeight: CGFloat = AppSpacing.Border.hairline
     }
 
     // MARK: - UI
@@ -109,7 +91,7 @@ final class SettingsCardView: UIView {
 
     /// 用设置项数组构造卡片
     ///
-    /// - Parameter items: 设置项列表
+    /// - Parameter items: 设置项列表（`title` / `value` 已由调用方本地化）
     init(items: [SettingsItem]) {
         super.init(frame: .zero)
         setupUI()
@@ -138,8 +120,6 @@ final class SettingsCardView: UIView {
     /// 逐行构建 UI
     ///
     /// - Parameter items: 设置项列表
-    ///
-    /// - Note: 首行不加分隔线，其余每行前插入一条。
     private func buildRows(_ items: [SettingsItem]) {
         for (index, item) in items.enumerated() {
             if index > 0 {
@@ -152,11 +132,6 @@ final class SettingsCardView: UIView {
     /// 构造分隔线
     ///
     /// - Returns: 分隔线视图（外层容器用于撑高度，内层 line 做左右缩进）
-    ///
-    /// - Note:
-    ///   - 用外层 `container` 做高度撑杆（0.5pt），内层 `line` 做左右缩进。
-    ///   - 直接对 `container` 调用 `snp.makeConstraints` 添加的是**自引用约束**
-    ///     （height 不依赖父视图），因此在加入 stack 之前添加是安全的。
     private func makeSeparator() -> UIView {
         let container = UIView()
         let line = UIView()
@@ -179,9 +154,6 @@ final class SettingsCardView: UIView {
     ///
     /// - Parameter item: 设置项
     /// - Returns: 单行视图
-    ///
-    /// - Note: `row.snp.makeConstraints` 同样是自引用约束（只绑 height），
-    ///         在加入 stack 前添加安全。
     private func makeRow(_ item: SettingsItem) -> UIView {
         let row = SettingsRowView(item: item)
         row.snp.makeConstraints { make in
@@ -194,6 +166,7 @@ final class SettingsCardView: UIView {
 // MARK: - 单行视图
 
 /// 单行设置项视图（卡片内部使用）
+@MainActor
 private final class SettingsRowView: UIView {
 
     // MARK: - Constants
@@ -205,6 +178,8 @@ private final class SettingsRowView: UIView {
         static let arrowSize: CGFloat = 16
         /// 值与箭头之间的间距
         static let valueArrowGap: CGFloat = AppSpacing.xs
+        /// 标题与值之间的最小间距
+        static let titleToValueGap: CGFloat = AppSpacing.sm
     }
 
     // MARK: - UI
@@ -214,6 +189,7 @@ private final class SettingsRowView: UIView {
         l.font = AppFont.Body.regular
         l.textColor = AppColor.Text.primary
         l.numberOfLines = 1
+        // 标题过长时尾部截断（而非压缩到 0 宽度）
         l.lineBreakMode = .byTruncatingTail
         return l
     }()
@@ -224,6 +200,7 @@ private final class SettingsRowView: UIView {
         l.textColor = AppColor.Text.secondary
         l.textAlignment = .right
         l.numberOfLines = 1
+        // 值过长时尾部截断
         l.lineBreakMode = .byTruncatingTail
         return l
     }()
@@ -285,26 +262,25 @@ private final class SettingsRowView: UIView {
 
         // 右侧文字（箭头左侧）
         valueLabel.snp.makeConstraints { make in
-            make.trailing.equalTo(arrowImageView.snp.leading).offset(-Layout.valueArrowGap)
+            make.trailing.equalTo(arrowImageView.snp.leading)
+                .offset(-Layout.valueArrowGap)
             make.centerY.equalToSuperview()
-            make.leading.greaterThanOrEqualTo(titleLabel.snp.trailing).offset(AppSpacing.sm)
+            make.leading.greaterThanOrEqualTo(titleLabel.snp.trailing)
+                .offset(Layout.titleToValueGap)
         }
 
         // 无箭头时，右侧文字贴右边缘
-        //
-        // - Note: `isHidden` 只控制可见性，约束仍生效，故需 `remakeConstraints`。
         if arrowImageView.isHidden {
             valueLabel.snp.remakeConstraints { make in
                 make.trailing.equalToSuperview().offset(-Layout.horizontalPadding)
                 make.centerY.equalToSuperview()
-                make.leading.greaterThanOrEqualTo(titleLabel.snp.trailing).offset(AppSpacing.sm)
+                make.leading.greaterThanOrEqualTo(titleLabel.snp.trailing)
+                    .offset(Layout.titleToValueGap)
             }
         }
     }
 
     /// 添加点击手势
-    ///
-    /// - Note: 只对有 `action` 的行添加，避免"当前版本"行有点击反馈。
     private func setupGesture() {
         guard action != nil else { return }
 
@@ -321,10 +297,6 @@ private final class SettingsRowView: UIView {
     // MARK: - Highlight（按下反馈）
 
     /// 按下时背景变深
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         guard action != nil else { return }
@@ -332,10 +304,6 @@ private final class SettingsRowView: UIView {
     }
 
     /// 抬起时恢复背景
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
         guard action != nil else { return }
@@ -343,10 +311,6 @@ private final class SettingsRowView: UIView {
     }
 
     /// 取消时恢复背景
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
         guard action != nil else { return }

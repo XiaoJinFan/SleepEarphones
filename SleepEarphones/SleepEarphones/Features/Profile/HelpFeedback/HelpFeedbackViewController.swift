@@ -10,6 +10,18 @@ import SnapKit
 import Combine
 
 /// 帮助与反馈页
+/// 
+/// ## 数据流
+/// ```
+/// HelpFeedbackViewController
+///   ↓ viewDidLoad → viewModel.loadFAQs()
+/// HelpFeedbackViewModel
+///   ↓ fetchFAQs(categoryId:)
+/// HelpRepository → HelpService → NetworkClient
+///   ↓ 成功后 $items 更新
+/// HelpFeedbackViewController
+///   ↓ $items 订阅 → tableView.reloadData()
+/// ```
 @MainActor
 final class HelpFeedbackViewController: UIViewController {
 
@@ -56,7 +68,7 @@ final class HelpFeedbackViewController: UIViewController {
         let v = EmptyStateView()
         v.configure(
             image: AppImage.Local.emptyData,
-            text: "暂无帮助内容"
+            text: L("暂无帮助内容")
         )
         v.isHidden = true
         return v
@@ -65,8 +77,6 @@ final class HelpFeedbackViewController: UIViewController {
     // MARK: - Init
 
     /// 初始化
-    ///
-    /// - Note: 用 `init()` 无参构造，无需 storyboard。
     init() {
         super.init(nibName: nil, bundle: nil)
         // push 时自动隐藏 tabBar，pop 时自动恢复
@@ -92,7 +102,8 @@ final class HelpFeedbackViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "帮助与反馈"
+        // **导航标题已本地化**
+        title = L("帮助与反馈")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -114,7 +125,8 @@ final class HelpFeedbackViewController: UIViewController {
 
         // 空态：顶部留一点边距，其余铺满
         emptyView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(AppSpacing.xs)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .inset(AppSpacing.xs)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
             make.bottom.equalToSuperview()
         }
@@ -122,6 +134,14 @@ final class HelpFeedbackViewController: UIViewController {
 
     // MARK: - Binding
 
+    /// 绑定 ViewModel
+    ///
+    /// ## 三个订阅的分工
+    /// | 订阅 | 触发动作 |
+    /// |---|---|
+    /// | `$items` | 刷新表格 + 更新空态 |
+    /// | `$isLoading` | 控制菊花 + 更新空态 |
+    /// | `$errorMessage` | 弹 Alert（`compactMap` 过滤 nil） |
     private func bindViewModel() {
         // 列表变化：刷新表格 + 更新空态
         viewModel.$items
@@ -147,7 +167,7 @@ final class HelpFeedbackViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 错误信息：弹 Alert
+        // 错误信息：弹 Alert（**标题 `"提示"` 已本地化**）
         viewModel.$errorMessage
             .receive(on: DispatchQueue.main)
             .compactMap { $0 }
@@ -166,11 +186,12 @@ final class HelpFeedbackViewController: UIViewController {
 
     /// 弹出错误提示，关闭后清除 ViewModel 中的错误状态
     ///
-    /// - Parameter message: 错误信息
+    /// - Parameter message: 错误信息（**已本地化**）
     private func presentError(_ message: String) {
         showAlert(
             message,
-            title: "提示",
+            // **Alert 标题已本地化**
+            title: L("提示"),
             onConfirm: { [weak self] in
                 self?.viewModel.clearError()
             }
@@ -183,24 +204,11 @@ final class HelpFeedbackViewController: UIViewController {
 extension HelpFeedbackViewController: UITableViewDataSource {
 
     /// 行数
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - section: 分组索引
-    /// - Returns: 帮助文章数量
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         viewModel.items.count
     }
 
     /// 单元格
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - indexPath: 行索引
-    /// - Returns: 配置好的 `FAQCell`
-    ///
-    /// - Note: 用 `guard` 解包替代 `as!` 强制转换——
-    ///         若 cell 注册 / Storyboard 配置错误，直接返回空白 cell 而非崩溃。
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         guard let cell = tableView.dequeueReusableCell(
@@ -212,6 +220,7 @@ extension HelpFeedbackViewController: UITableViewDataSource {
         }
 
         let item = viewModel.items[indexPath.row]
+        // **文章标题 / 简介来自后端，已本地化**
         cell.configure(title: item.title, subtitle: item.synopsis)
         return cell
     }
@@ -222,10 +231,6 @@ extension HelpFeedbackViewController: UITableViewDataSource {
 extension HelpFeedbackViewController: UITableViewDelegate {
 
     /// 点击行 → 进入详情页
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - indexPath: 行索引
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let item = viewModel.items[indexPath.row]
         AppLog.profile.debug(
@@ -234,7 +239,8 @@ extension HelpFeedbackViewController: UITableViewDelegate {
 
         // 无内容时不跳转（避免空白详情页）
         guard item.hasContent else {
-            showToast("该文章暂无内容")
+            // **Toast 已本地化**
+            showToast(L("该文章暂无内容"))
             return
         }
 

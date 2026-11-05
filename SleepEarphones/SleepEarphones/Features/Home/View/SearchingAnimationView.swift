@@ -9,21 +9,6 @@ import UIKit
 import SnapKit
 
 /// 搜索中的扩散动画视图
-///
-/// ## 组成
-/// - 外围浅蓝装饰圆（固定尺寸）
-/// - 中心蓝底 + 蓝牙图标
-/// - 3 个扩散圆环（`CALayer` 实现，通过 `CAAnimationGroup` 循环扩散）
-///
-/// ## 生命周期
-/// - `start()`：启动扩散动画（**幂等**——重复调用不叠加）
-/// - `stop()`：停止并清除所有动画
-/// - `didMoveToWindow`：view 从 window 移除再添加时（如 push / pop）自动恢复动画
-///
-/// ## 为什么用 `CALayer` 而非 `UIView`
-/// - 3 个圆环同步 `transform.scale` + `opacity` 动画——
-///   用 `CALayer` 直接操作 GPU 合成层，性能远高于 `UIView.animate`
-/// - 圆环不参与 Auto Layout / 响应链，`UIView` 的能力完全浪费
 @MainActor
 final class SearchingAnimationView: UIView {
 
@@ -38,6 +23,14 @@ final class SearchingAnimationView: UIView {
         static let ringCount = 3
         /// 单个动画周期（秒）
         static let animationDuration: CFTimeInterval = 3.0
+        /// 圆环初始不透明度
+        static let ringInitialOpacity: Float = 0.15
+        /// 动画过程中的不透明度起点
+        static let ringAnimatingOpacity: Float = 0.6
+        /// 蓝牙图标尺寸
+        static let bluetoothIconSize: CGFloat = 36
+        /// 蓝牙图标 SF Symbol 字号
+        static let bluetoothIconPointSize: CGFloat = 32
     }
 
     // MARK: - UI
@@ -56,27 +49,26 @@ final class SearchingAnimationView: UIView {
         let iv = UIImageView()
         iv.image = UIImage(
             systemName: "wave.3.right",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 32, weight: .medium)
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: Layout.bluetoothIconPointSize,
+                weight: .medium
+            )
         )
         iv.tintColor = .white
         iv.contentMode = .scaleAspectFit
         return iv
     }()
 
+    /// 外围浅蓝装饰圆
+    private let outerCircle = UIView()
+
     /// 3 个扩散圆环（`CALayer` 直接操作——不用 UIView，性能更好）
     private var ringLayers: [CALayer] = []
 
     /// 用户是否希望动画运行（由 `start()` / `stop()` 驱动）
-    ///
-    /// - Note: 与 `layer.animation(forKey:)` 的状态**解耦**——
-    ///         即使动画因 view 移除被系统丢弃，本标志仍为 `true`，
-    ///         便于 `didMoveToWindow` 恢复动画。
     private var isAnimating = false
 
     /// 上次 layout 时的尺寸（用于跳过无变化的重复写入）
-    ///
-    /// - Note: `layoutSubviews` 会被频繁调用（键盘弹出、旋转、父 view 布局变化等），
-    ///         但本视图内部布局只依赖 `bounds`——尺寸不变时无需重复写入 layer 属性。
     private var lastLayoutSize: CGSize = .zero
 
     // MARK: - Init
@@ -85,6 +77,7 @@ final class SearchingAnimationView: UIView {
         super.init(frame: frame)
         setupUI()
         setupRings()
+        registerTraitChangeObservation()
     }
 
     required init?(coder: NSCoder) {
@@ -95,7 +88,6 @@ final class SearchingAnimationView: UIView {
 
     private func setupUI() {
         // 浅蓝背景圆（装饰用——围绕在核心圆外围）
-        let outerCircle = UIView()
         outerCircle.backgroundColor = AppColor.Brand.primary.withAlphaComponent(0.08)
         outerCircle.layer.cornerRadius = Layout.maxRingDiameter / 2
         outerCircle.isUserInteractionEnabled = false
@@ -116,7 +108,7 @@ final class SearchingAnimationView: UIView {
 
         bluetoothIconView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.width.height.equalTo(36)
+            make.width.height.equalTo(Layout.bluetoothIconSize)
         }
     }
 
@@ -125,11 +117,48 @@ final class SearchingAnimationView: UIView {
         for _ in 0..<Layout.ringCount {
             let ring = CALayer()
             ring.backgroundColor = AppColor.Brand.primary
-                .withAlphaComponent(0.15)
+                .withAlphaComponent(CGFloat(Layout.ringInitialOpacity))
                 .cgColor
             ring.opacity = 0
             layer.addSublayer(ring)
             ringLayers.append(ring)
+        }
+    }
+
+    // MARK: - Trait 变化监听
+
+    /// 注册 trait 变化监听
+    private func registerTraitChangeObservation() {
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: SearchingAnimationView, _) in
+                view.refreshRingColors()
+                view.outerCircle.backgroundColor = AppColor.Brand.primary.withAlphaComponent(0.08)
+                view.coreView.backgroundColor = AppColor.Brand.primary
+            }
+        }
+    }
+
+    /// 旧版兼容（iOS 17 以下）
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        // iOS 17+ 由 registerForTraitChanges 处理，避免重复
+        if #available(iOS 17.0, *) { return }
+
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            refreshRingColors()
+            outerCircle.backgroundColor = AppColor.Brand.primary.withAlphaComponent(0.08)
+            coreView.backgroundColor = AppColor.Brand.primary
+        }
+    }
+
+    /// 按当前 trait 刷新所有 ring 的颜色
+    private func refreshRingColors() {
+        let color = AppColor.Brand.primary
+            .withAlphaComponent(CGFloat(Layout.ringInitialOpacity))
+            .cgColor
+        for ring in ringLayers {
+            ring.backgroundColor = color
         }
     }
 
@@ -155,14 +184,6 @@ final class SearchingAnimationView: UIView {
     // MARK: - Window Lifecycle
 
     /// view 从 window 移除再添加时（如 push / pop）重新应用动画
-    ///
-    /// ## 背景
-    /// `CALayer` 的动画**依附于 render tree**——view 从 window 移除后，
-    /// 系统会丢弃其 render tree 上的所有动画。若用户未调用 `stop()`，
-    /// 重新添加回 window 时应恢复动画。
-    ///
-    /// - Note: `addPulseAnimation` 使用固定 `key = "pulse"`——
-    ///         重复调用会**替换**旧动画，不会叠加，天然幂等。
     override func didMoveToWindow() {
         super.didMoveToWindow()
 
@@ -212,7 +233,7 @@ final class SearchingAnimationView: UIView {
 
         // 透明度：从 0.6 → 0
         let opacity = CABasicAnimation(keyPath: "opacity")
-        opacity.fromValue = 0.6
+        opacity.fromValue = Layout.ringAnimatingOpacity
         opacity.toValue = 0
 
         // 组合动画

@@ -9,18 +9,17 @@ import UIKit
 import Combine
 import Kingfisher
 
-/// 用户资料视图模型
 @MainActor
 final class UserProfileViewModel {
 
     // MARK: - Constants
 
-    /// 默认昵称（所有来源都无值时使用）
-    private static let defaultNickname = "五彩斑斓的黑"
+    /// 默认昵称（**已本地化**）
+    private static var defaultNickname: String {
+        L("五彩斑斓的黑")
+    }
 
     /// 头像 JPEG 压缩质量（上传时使用）
-    ///
-    /// - Note: 0.8 是体积与画质的平衡点——视觉几乎无差异，体积约为原图的 1/5。
     private static let avatarUploadQuality: CGFloat = 0.8
 
     // MARK: - Published 属性（UI 订阅）
@@ -49,10 +48,7 @@ final class UserProfileViewModel {
     /// - Parameters:
     ///   - repository: 本地存储仓库
     ///   - service: 网络服务
-    init(
-        repository: UserProfileRepositoryProtocol = UserProfileRepository(),
-        service: UserProfileServiceProtocol = UserProfileService()
-    ) {
+    init(repository: UserProfileRepositoryProtocol = UserProfileRepository(), service: UserProfileServiceProtocol = UserProfileService()) {
         self.repository = repository
         self.service = service
         loadNickname()
@@ -66,7 +62,7 @@ final class UserProfileViewModel {
     /// ## 优先级
     /// 1. 本地设置（用户在"我的资料"页改过的）
     /// 2. `AuthStore` 缓存的（登录时写入）
-    /// 3. 默认值（`defaultNickname`）
+    /// 3. 默认值（`defaultNickname`——**已本地化**）
     private func loadNickname() {
         if let local = repository.loadNickname(), !local.isEmpty {
             AppLog.profile.debug("昵称来源：本地设置 → \(local, privacy: .private)")
@@ -79,21 +75,11 @@ final class UserProfileViewModel {
             return
         }
         AppLog.profile.debug("昵称来源：默认值")
+        // **`defaultNickname` 是计算属性——每次访问都取当前语言**
         nickname = Self.defaultNickname
     }
 
     /// 加载头像（优先级：本地设置 → 登录信息（远程下载）→ nil）
-    ///
-    /// ## 关于"为什么不保存 task 引用"
-    /// 原代码用 `nonisolated(unsafe) var avatarLoadTask` + `deinit` 里 `cancel()`
-    /// 来实现"VM 释放时取消下载"，但：
-    /// 1. **`[weak self]` 已足够**——Task 内 `guard let self` 会在 VM 释放后立即返回
-    /// 2. **`nonisolated(unsafe)` 是误导**——`Task` 本身是 `Sendable`，
-    ///    VM 是单例之外的普通对象，不存在"跨 actor 访问"问题；
-    ///    该标注只是为了让 `deinit`（`nonisolated`）能访问属性而绕过编译器
-    /// 3. **底层 Kingfisher 有超时/缓存机制**——不会因"未主动 cancel"而资源泄漏
-    ///
-    /// 因此简化：不保存 task 引用，依赖 `[weak self]` 的自然回收。
     private func loadAvatarAsync() {
         Task { [weak self] in
             guard let self else { return }
@@ -215,9 +201,6 @@ final class UserProfileViewModel {
         defer { isSaving = false }
 
         // 2. 内存更新
-        //
-        // - Note: 若 avatar == nil 表示"不改头像"，
-        //         此时保留 self.avatarImage 的原值。
         if let avatar {
             self.avatarImage = avatar
         }
@@ -327,7 +310,6 @@ extension Publisher where Failure == NetworkError {
     ///
     /// - Returns: 第一个 value
     /// - Throws: `NetworkError`——网络失败或 Publisher 提前完成但无 value
-    ///
     func firstValue() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
             let state = ResumeState()
@@ -365,6 +347,7 @@ extension Publisher where Failure == NetworkError {
 
 // MARK: - ResumeState
 
+/// 线程安全的 resume 状态管理
 private final class ResumeState: @unchecked Sendable {
 
     private let lock = NSLock()

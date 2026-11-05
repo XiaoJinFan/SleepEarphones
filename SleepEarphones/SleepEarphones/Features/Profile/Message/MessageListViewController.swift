@@ -9,7 +9,6 @@ import UIKit
 import SnapKit
 import Combine
 
-/// 消息中心列表页
 @MainActor
 final class MessageListViewController: UIViewController {
 
@@ -60,7 +59,7 @@ final class MessageListViewController: UIViewController {
         let v = EmptyStateView()
         v.configure(
             image: AppImage.Local.emptyData,
-            text: "暂无消息"
+            text: L("暂无消息")
         )
         v.isHidden = true
         return v
@@ -69,8 +68,6 @@ final class MessageListViewController: UIViewController {
     // MARK: - Init
 
     /// 初始化
-    ///
-    /// - Note: push 时自动隐藏 tabBar，pop 时自动恢复。
     init() {
         super.init(nibName: nil, bundle: nil)
         self.hidesBottomBarWhenPushed = true
@@ -96,7 +93,8 @@ final class MessageListViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = AppColor.Background.secondary
-        title = "我的消息"
+        // **导航标题已本地化**
+        title = L("我的消息")
         navigationItem.backButtonDisplayMode = .minimal
 
         view.addSubview(tableView)
@@ -107,7 +105,7 @@ final class MessageListViewController: UIViewController {
     private func setupConstraints() {
         // 列表：左右缩进 20pt，上下贴边
         tableView.snp.makeConstraints { make in
-            make.left.right.equalToSuperview().inset(20)
+            make.left.right.equalToSuperview().inset(AppSpacing.lg)
             make.top.bottom.equalToSuperview()
         }
 
@@ -118,7 +116,8 @@ final class MessageListViewController: UIViewController {
 
         // 空态：顶部留一点边距，其余铺满
         emptyView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(AppSpacing.xs)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .inset(AppSpacing.xs)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
             make.bottom.equalToSuperview()
         }
@@ -126,6 +125,14 @@ final class MessageListViewController: UIViewController {
 
     // MARK: - Binding
 
+    /// 绑定 ViewModel
+    ///
+    /// ## 三个订阅的分工
+    /// | 订阅 | 触发动作 |
+    /// |---|---|
+    /// | `$messages` | 刷新表格 + 更新空态 |
+    /// | `$isLoading` | 控制菊花 + 更新空态 |
+    /// | `$errorMessage` | 弹 Alert（`compactMap` 过滤 nil） |
     private func bindViewModel() {
         // 列表变化：刷新表格 + 更新空态
         viewModel.$messages
@@ -170,11 +177,12 @@ final class MessageListViewController: UIViewController {
 
     /// 弹出错误提示，关闭后清除 ViewModel 中的错误状态
     ///
-    /// - Parameter message: 错误信息
+    /// - Parameter message: 错误信息（**已本地化**）
     private func presentError(_ message: String) {
         showAlert(
             message,
-            title: "提示",
+            // **Alert 标题已本地化**
+            title: L("提示"),
             onConfirm: { [weak self] in
                 self?.viewModel.clearError()
             }
@@ -187,25 +195,11 @@ final class MessageListViewController: UIViewController {
 extension MessageListViewController: UITableViewDataSource {
 
     /// 行数
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - section: 分组索引
-    /// - Returns: 消息数量
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         viewModel.messages.count
     }
 
     /// 单元格
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - indexPath: 行索引
-    /// - Returns: 配置好的 Cell
-    ///
-    /// ## Cell 选择策略
-    /// - 有图 → `MessageImageCell`（大卡片，200pt）
-    /// - 无图 → `MessageCell`（小卡片，80pt）
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let message = viewModel.messages[indexPath.row]
 
@@ -238,10 +232,6 @@ extension MessageListViewController: UITableViewDataSource {
 extension MessageListViewController: UITableViewDelegate {
 
     /// 点击行 → 进入详情页
-    ///
-    /// - Parameters:
-    ///   - tableView: 目标表格
-    ///   - indexPath: 行索引
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let message = viewModel.messages[indexPath.row]
         AppLog.profile.debug(
@@ -250,7 +240,8 @@ extension MessageListViewController: UITableViewDelegate {
 
         // 无内容时不跳转（避免空白详情页）
         guard message.hasContent else {
-            showToast("该消息暂无内容")
+            // **Toast 已本地化**
+            showToast(L("该消息暂无内容"))
             return
         }
 

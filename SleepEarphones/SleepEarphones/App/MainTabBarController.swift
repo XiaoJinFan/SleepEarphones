@@ -11,7 +11,8 @@ import UIKit
 final class MainTabBarController: UITabBarController {
 
     // MARK: - Tab 定义
-    
+
+    /// Tab 元信息（顺序即 TabBar 从左到右的顺序）
     private enum Tab: CaseIterable {
         case home
         case sleep
@@ -19,6 +20,9 @@ final class MainTabBarController: UITabBarController {
         case mine
 
         /// Storyboard 中的 ViewController 标识符
+        ///
+        /// - Important: 必须与 `Main.storyboard` 中每个 VC 的
+        ///              `Storyboard ID` 完全一致，否则实例化会失败。
         var storyboardID: String {
             switch self {
             case .home:  return "HomeViewController"
@@ -28,13 +32,17 @@ final class MainTabBarController: UITabBarController {
             }
         }
 
-        /// Tab 标题
+        /// Tab 标题（**已本地化**）
+        ///
+        /// - Note: 每次访问都重新调用 `L(...)`——由于 TabBar 只在
+        ///         `viewDidLoad` 时装配一次，实际只在初始化时求值。
+        ///         语言切换场景走 `reloadRoot` 重建，无需动态刷新。
         var title: String {
             switch self {
-            case .home:  return "首页"
-            case .sleep: return "记录"
-            case .music: return "音乐"
-            case .mine:  return "我的"
+            case .home:  return LN("首页")
+            case .sleep: return LN("记录")
+            case .music: return LN("音乐")
+            case .mine:  return LN("我的")
             }
         }
 
@@ -75,9 +83,12 @@ final class MainTabBarController: UITabBarController {
             return makeNavigationController(root: vc, tab: tab)
         }
 
+        // 默认选中首页
         selectedIndex = 0
 
-        AppLog.app.debug("MainTabBarController 已装配 \(Tab.allCases.count) 个 Tab")
+        AppLog.app.debug(
+            "MainTabBarController 已装配 \(Tab.allCases.count) 个 Tab"
+        )
     }
 
     /// 从 Storyboard 实例化指定 Tab 的根控制器

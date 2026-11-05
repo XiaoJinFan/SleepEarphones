@@ -15,12 +15,13 @@ import WebKit
 /// // 1. Push 进栈（推荐）
 /// WebViewController.push(from: self,
 ///                        urlString: "https://...",
-///                        title: "用户协议")
+///                        title: L("用户协议"))
 ///
 /// // 2. 直接初始化后 present
 /// let vc = WebViewController(urlString: "https://...")
 /// present(vc, animated: true)
 /// ```
+///
 @MainActor
 final class WebViewController: UIViewController {
 
@@ -40,11 +41,6 @@ final class WebViewController: UIViewController {
     private let customTitle: String?
 
     /// KVO 观察者
-    ///
-    /// - Note: 无需在 `deinit` 里手动 `invalidate`——
-    ///         `NSKeyValueObservation` 会在 observe 的对象释放时自动失效；
-    ///         而且 Swift 6 下 `@MainActor` 类的 `deinit` 是 `nonisolated`，
-    ///         直接访问本属性会触发并发警告。
     private var progressObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
 
@@ -52,9 +48,6 @@ final class WebViewController: UIViewController {
     private var hasShownErrorAlert = false
 
     /// URL 非法时记录标志，延迟到 `viewDidAppear` 弹窗
-    ///
-    /// - Note: `viewDidLoad` 时 view 还未上屏，`present(alert)` 会失败并
-    ///         输出 "attempt to present ... whose view is not in the window hierarchy"。
     private var shouldShowInvalidURLAlert = false
 
     // MARK: - UI
@@ -91,7 +84,8 @@ final class WebViewController: UIViewController {
     ///
     /// - Parameters:
     ///   - urlString: 要加载的网页地址（非法地址会在 `viewDidAppear` 中提示）
-    ///   - title: 自定义标题（可选）；传 nil 则跟随网页自身标题
+    ///   - title: 自定义标题（可选）；传 nil 则跟随网页自身标题。
+    ///            调用方应传入 `L(...)` 已本地化的字符串
     init(urlString: String, title: String? = nil) {
         self.urlString = urlString
         self.customTitle = title
@@ -119,7 +113,7 @@ final class WebViewController: UIViewController {
         super.viewDidAppear(animated)
         if shouldShowInvalidURLAlert {
             shouldShowInvalidURLAlert = false
-            showAlert("无效的网页地址")
+            showAlert(L("无效的网页地址"))
         }
     }
 
@@ -127,7 +121,7 @@ final class WebViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = AppColor.Background.primary
-        title = customTitle ?? "加载中…"
+        title = customTitle ?? L("加载中…")
 
         view.addSubview(webView)
         view.addSubview(progressView)
@@ -174,10 +168,10 @@ final class WebViewController: UIViewController {
     }
 
     /// 加载 URL
-    ///
-    /// - Note: URL 非法时不立即 present——记标志，等 `viewDidAppear` 再弹窗。
     private func loadURL() {
-        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: urlString),
+              let scheme = url.scheme,
+              !scheme.isEmpty else {
             AppLog.ui.error("WebViewController URL 非法：\(self.urlString, privacy: .public)")
             shouldShowInvalidURLAlert = true
             return
@@ -186,9 +180,6 @@ final class WebViewController: UIViewController {
     }
 
     /// 监听进度与标题
-    ///
-    /// - Note: `WKWebView` 的 KVO 回调**不保证在主线程**，
-    ///         故内部统一 `DispatchQueue.main.async` 切主。
     private func observeWebView() {
         // 进度
         progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
@@ -234,24 +225,23 @@ final class WebViewController: UIViewController {
 
     /// 展示加载错误
     ///
-    /// - Parameter message: 错误描述
+    /// - Parameter message: 错误描述（来自系统 `error.localizedDescription`，
+    ///                      系统已本地化，**不再二次翻译**）
     ///
-    /// - Note: 同一个页面只提示一次，避免多次失败回调重复弹窗。
-    ///         若从导航栈进入则 pop，否则 dismiss。
     private func presentLoadError(_ message: String) {
         guard !hasShownErrorAlert else { return }
         hasShownErrorAlert = true
 
         let alert = UIAlertController(
-            title: "加载失败",
+            title: L("加载失败"),
             message: message,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "重试", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("重试"), style: .default) { [weak self] _ in
             self?.hasShownErrorAlert = false
             self?.loadURL()
         })
-        alert.addAction(UIAlertAction(title: "返回", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: L("返回"), style: .cancel) { [weak self] _ in
             self?.dismissOrPop()
         })
         present(alert, animated: true)
@@ -287,9 +277,6 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     /// 加载失败（页面尚未渲染时失败，如 DNS / SSL / 离线）
-    ///
-    /// - Note: 若不实现此回调，SSL 错误、DNS 失败、离线等场景
-    ///         不会提示用户，页面白屏且进度条不消失。
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         progressView.isHidden = true
         AppLog.ui.error("WebView didFailProvisional: \(error.localizedDescription, privacy: .public)")
@@ -298,9 +285,6 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     /// 内容进程被系统回收
-    ///
-    /// - Note: 内存压力过大时，WebKit 内容进程可能被系统回收，页面会白屏。
-    ///         此时重新加载当前 URL 即可。
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         AppLog.ui.warning("WebView 内容进程被回收，重新加载")
         webView.reload()
@@ -326,13 +310,13 @@ extension WebViewController {
     /// ```swift
     /// WebViewController.push(from: self,
     ///                        urlString: "https://...",
-    ///                        title: "用户协议")
+    ///                        title: L("用户协议"))
     /// ```
     ///
     /// - Parameters:
     ///   - vc: 调用方 VC
     ///   - urlString: 网页地址
-    ///   - title: 自定义标题（可选）
+    ///   - title: 自定义标题（可选，调用方应传入 `L(...)` 已本地化的字符串）
     static func push(from vc: UIViewController, urlString: String, title: String? = nil) {
         let webVC = WebViewController(urlString: urlString, title: title)
 

@@ -9,6 +9,25 @@ import UIKit
 import SnapKit
 
 /// 语言设置页
+///
+/// ## 职责
+/// - 展示 App 支持的所有语言（`AppLanguage.allCases`）
+/// - 单选 + 底部"确定"按钮提交
+/// - 提交后调用 `LanguageManager.changeLanguage(to:)` → 重建整个 UI
+///
+/// ## 交互流程
+/// ```
+/// 进入本页 → 初始选中 LanguageManager.current
+///   ↓ 用户点击其他语言
+/// 仅更新本地 selectedLanguage + 勾选样式（**不提交**）
+///   ↓ 用户点击"确定"
+///   ├─ 语言未变化 → 直接 pop
+///   └─ 语言变化 → LanguageManager.changeLanguage(to:)
+///                    ↓
+///                  AppRouter.reloadRoot() —— 整棵 UI 树重建
+///                    ↓
+///                  本页被销毁（无需手动 pop）
+/// ```
 @MainActor
 final class LanguageSettingsViewController: UIViewController {
 
@@ -24,21 +43,20 @@ final class LanguageSettingsViewController: UIViewController {
         /// 分隔线左右缩进
         static let separatorInset: CGFloat = AppSpacing.lg
         /// 分隔线高度
-        static let separatorHeight: CGFloat = 0.5
+        static let separatorHeight: CGFloat = AppSpacing.Border.hairline
         /// 底部按钮高度
         static let confirmButtonHeight: CGFloat = 46
         /// 底部按钮水平边距
         static let confirmButtonHorizontalInset: CGFloat = AppSpacing.horizontal
         /// 底部按钮距 safeArea 底部距离
         static let confirmButtonBottomOffset: CGFloat = AppSpacing.xxl
+        /// 按钮与 ScrollView 的间距
+        static let scrollBottomToButtonSpacing: CGFloat = AppSpacing.md
     }
 
     // MARK: - Properties
 
-    /// 当前选中的语言（本地状态，点击"确定"才提交）
-    ///
-    /// - Note: 与 `LanguageManager.shared.current` 区分——
-    ///         本属性随用户点击变化，`LanguageManager.current` 是生效值。
+    /// 当前选中的语言（**本地状态，点击"确定"才提交**）
     private var selectedLanguage: AppLanguage
 
     /// 所有支持的语言
@@ -77,7 +95,8 @@ final class LanguageSettingsViewController: UIViewController {
 
     private lazy var confirmButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("确定", for: .normal)
+        // **按钮标题已本地化**
+        b.setTitle(L("确定"), for: .normal)
         b.setTitleColor(.white, for: .normal)
         b.titleLabel?.font = AppFont.Button.primary
         b.backgroundColor = AppColor.Brand.primary
@@ -90,8 +109,6 @@ final class LanguageSettingsViewController: UIViewController {
     // MARK: - Init
 
     /// 初始化
-    ///
-    /// - Note: 初始选中项从 `LanguageManager.shared.current` 读取。
     init() {
         self.selectedLanguage = LanguageManager.shared.current
         super.init(nibName: nil, bundle: nil)
@@ -114,7 +131,8 @@ final class LanguageSettingsViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "语言设置"
+        // **导航标题已本地化**
+        title = L("语言设置")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -128,7 +146,8 @@ final class LanguageSettingsViewController: UIViewController {
     private func setupConstraints() {
         // MARK: Confirm Button（先约束被引用者，便于阅读）
         confirmButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.confirmButtonHorizontalInset)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.confirmButtonHorizontalInset)
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
                 .offset(-Layout.confirmButtonBottomOffset)
             make.height.equalTo(Layout.confirmButtonHeight)
@@ -137,17 +156,18 @@ final class LanguageSettingsViewController: UIViewController {
         // MARK: ScrollView
         scrollView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(confirmButton.snp.top).offset(-AppSpacing.md)
+            make.bottom.equalTo(confirmButton.snp.top)
+                .offset(-Layout.scrollBottomToButtonSpacing)
         }
 
         // MARK: CardView
-        //
-        // - `contentLayoutGuide`：由内容撑开上下
-        // - `frameLayoutGuide`：约束水平方向等于可视区（防止横向滚动）
         cardView.snp.makeConstraints { make in
-            make.top.equalTo(scrollView.contentLayoutGuide).offset(Layout.cardVerticalInset)
-            make.bottom.equalTo(scrollView.contentLayoutGuide).offset(-Layout.cardVerticalInset)
-            make.leading.trailing.equalTo(scrollView.frameLayoutGuide).inset(Layout.horizontalInset)
+            make.top.equalTo(scrollView.contentLayoutGuide)
+                .offset(Layout.cardVerticalInset)
+            make.bottom.equalTo(scrollView.contentLayoutGuide)
+                .offset(-Layout.cardVerticalInset)
+            make.leading.trailing.equalTo(scrollView.frameLayoutGuide)
+                .inset(Layout.horizontalInset)
         }
 
         // MARK: RowStack
@@ -157,10 +177,6 @@ final class LanguageSettingsViewController: UIViewController {
     }
 
     /// 构造语言列表
-    ///
-    /// - Note: **不要**给 arrangedSubview 加 `height` 约束——
-    ///         `UIStackView` 会自动管理，手动加会冲突。
-    ///         `LanguageRowView` 自己通过内部约束维护高度。
     private func buildRows() {
         for (index, language) in languages.enumerated() {
             // 非首行插入分隔线
@@ -202,7 +218,7 @@ final class LanguageSettingsViewController: UIViewController {
 
     // MARK: - Selection
 
-    /// 选中指定语言（仅更新本地状态 + UI，未提交）
+    /// 选中指定语言（仅更新本地状态 + UI，**未提交**）
     ///
     /// - Parameter language: 目标语言
     private func selectLanguage(_ language: AppLanguage) {
@@ -221,17 +237,15 @@ final class LanguageSettingsViewController: UIViewController {
     // MARK: - Actions
 
     /// 点击「确定」
-    ///
-    /// ## 分支
-    /// - 语言未变化：直接 pop 回上一页（无副作用）
-    /// - 语言变化：调用 `LanguageManager.changeLanguage(to:)`
-    ///   → 内部 `AppRouter.shared.reloadRoot()` 会重建整个根控制器
-    ///   → 本页连同导航栈一并销毁，**无需**再手动 pop
     @objc private func confirmTapped() {
         guard selectedLanguage != LanguageManager.shared.current else {
+            // 语言未变化：直接返回
             navigationController?.popViewController(animated: true)
             return
         }
+
+        // 语言变化：`changeLanguage` 内部会 `reloadRoot` 重建 UI
+        // （本页会被销毁，无需手动 pop）
         LanguageManager.shared.changeLanguage(to: selectedLanguage)
     }
 }
@@ -239,6 +253,7 @@ final class LanguageSettingsViewController: UIViewController {
 // MARK: - 语言行视图
 
 /// 单行语言视图（卡片内部使用）
+@MainActor
 private final class LanguageRowView: UIView {
 
     // MARK: - Constants
@@ -301,6 +316,7 @@ private final class LanguageRowView: UIView {
     private func setupUI() {
         backgroundColor = AppColor.Background.card
 
+        // **`displayName` 是母语原生写法，不参与国际化**
         titleLabel.text = language.displayName
         addSubview(titleLabel)
         addSubview(checkmarkImageView)
@@ -311,7 +327,8 @@ private final class LanguageRowView: UIView {
             make.leading.equalToSuperview().offset(Layout.horizontalPadding)
             make.top.equalToSuperview().offset(Layout.verticalPadding)
             make.bottom.equalToSuperview().offset(-Layout.verticalPadding)
-            make.trailing.lessThanOrEqualTo(checkmarkImageView.snp.leading).offset(-AppSpacing.sm)
+            make.trailing.lessThanOrEqualTo(checkmarkImageView.snp.leading)
+                .offset(-AppSpacing.sm)
         }
 
         checkmarkImageView.snp.makeConstraints { make in
@@ -341,36 +358,20 @@ private final class LanguageRowView: UIView {
     }
 
     // MARK: - Highlight（按下反馈）
-    //
-    // - Note: 手势识别成功后 UIKit 会先发 `touchesCancelled`（而不是 `touchesEnded`），
-    //         因此高亮在 `touchesCancelled` 里被重置。用户感知为
-    //         "按下一瞬间变灰 → 立即恢复"，属预期行为。
-
+    
     /// 按下时背景变深
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         backgroundColor = AppColor.Background.secondary
     }
 
     /// 抬起时恢复背景
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
         backgroundColor = AppColor.Background.card
     }
 
     /// 取消时恢复背景
-    ///
-    /// - Parameters:
-    ///   - touches: 触摸集合
-    ///   - event: 事件对象
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
         backgroundColor = AppColor.Background.card

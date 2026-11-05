@@ -78,7 +78,6 @@ final class AuthStore: @unchecked Sendable {
     ///
     /// - Parameter userDefaults: 便于单元测试注入 `UserDefaults(suiteName:)`
     ///
-    /// - Important: init 时先检测"首次启动"，**必须在读取任何 token 之前完成**。
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
 
@@ -133,9 +132,6 @@ final class AuthStore: @unchecked Sendable {
     ///
     /// - Returns: token 字符串；未登录时返回 `nil`
     ///
-    /// - Note: 首次读取时会尝试从 `UserDefaults` 迁移旧 token
-    ///         （兼容历史版本把 token 存 UserDefaults 的场景）。
-    ///         迁移只发生一次（迁移后旧值被清空）。
     var token: String? {
         // 1. 优先从 Keychain 读
         if let keychainToken = KeychainStore.get(Keys.token),
@@ -144,16 +140,16 @@ final class AuthStore: @unchecked Sendable {
         }
 
         // 2. Keychain 无值：尝试迁移 UserDefaults 旧值
-        if let legacyToken = userDefaults.string(forKey: LegacyKeys.token),
-           !legacyToken.isEmpty {
-            AppLog.storage.info("迁移 token：UserDefaults → Keychain")
-            KeychainStore.set(legacyToken, forKey: Keys.token)
-            userDefaults.removeObject(forKey: LegacyKeys.token)
-            return legacyToken
+        guard userDefaults.object(forKey: LegacyKeys.token) != nil,
+              let legacyToken = userDefaults.string(forKey: LegacyKeys.token),
+              !legacyToken.isEmpty else {
+            return nil
         }
 
-        // 3. 都没有：未登录
-        return nil
+        AppLog.storage.info("迁移 token：UserDefaults → Keychain")
+        KeychainStore.set(legacyToken, forKey: Keys.token)
+        userDefaults.removeObject(forKey: LegacyKeys.token)
+        return legacyToken
     }
 
     /// 是否已登录
@@ -166,7 +162,7 @@ final class AuthStore: @unchecked Sendable {
 
     /// 当前用户 ID
     ///
-    /// - Returns: 未登录时返回 `0`
+    /// - Returns: 未登录时返回 `0`（后端约定的"未登录"值）
     var userId: Int { userDefaults.integer(forKey: Keys.userId) }
 
     /// 租户 ID（来源：`APIConfiguration`，与登录结果无关）
@@ -197,6 +193,7 @@ final class AuthStore: @unchecked Sendable {
     var cachedLoginType: LoginAccountMode {
         get {
             let raw = userDefaults.integer(forKey: Keys.loginType)
+            // `integer(forKey:)` 在 key 不存在时返回 0 → `.phone`（合理默认）
             return LoginAccountMode(rawValue: raw) ?? .phone
         }
         set {
@@ -210,14 +207,13 @@ final class AuthStore: @unchecked Sendable {
     ///
     /// - Parameter result: 登录 / 注册接口返回的 `LoginResult`
     ///
-    /// - Note: 只写入后端实际返回的字段，缺失的字段**不覆盖**已有值。
     func save(_ result: LoginResult) {
         // Token 单独存 Keychain
         if let token = result.userToken, !token.isEmpty {
             KeychainStore.set(token, forKey: Keys.token)
         }
 
-        // 非敏感字段存 UserDefaults
+        // 非敏感字段存 UserDefaults（只写入非空值）
         if let userId = result.userId {
             userDefaults.set(userId, forKey: Keys.userId)
         }
@@ -238,14 +234,6 @@ final class AuthStore: @unchecked Sendable {
     }
 
     /// 清除登录状态
-    ///
-    /// - Note:
-    ///   - Keychain 中的 token 通过 `remove` 删除（而非 `removeAll`，
-    ///     避免误删其他模块将来可能存入 Keychain 的数据）
-    ///   - UserDefaults 中的旧 token 也一并清理，避免残留
-    ///
-    /// - Important: **不**清空 `hasLaunchedKey`——
-    ///              登出 ≠ 卸载重装，不应触发 Keychain 清空逻辑
     func clear() {
         KeychainStore.remove(Keys.token)
         userDefaults.removeObject(forKey: LegacyKeys.token)
@@ -273,7 +261,7 @@ final class AuthStore: @unchecked Sendable {
     /// 用户在"我的资料"页修改昵称 / 头像并**服务端保存成功后**，
     /// 需要同步更新 `AuthStore` 里的缓存——
     /// 否则换设备登录时会加载到旧的头像 URL。
-    /// 
+    ///
     func updateProfile(nickname: String?, avatarURL: String?) {
         if let nickname, !nickname.isEmpty {
             userDefaults.set(nickname, forKey: Keys.nickname)
@@ -294,6 +282,7 @@ final class AuthStore: @unchecked Sendable {
     /// `UserProfileViewModel.refresh()` 从 `user/get_user_info` 拉到数据后，
     /// 把 `_mobile` / `email` 写入本地——
     /// **"账号与安全"页发送验证码时使用**。
+    /// 
     func updateRealAccount(realMobile: String?, realEmail: String?) {
         if let realMobile, !realMobile.isEmpty {
             userDefaults.set(realMobile, forKey: Keys.realMobile)

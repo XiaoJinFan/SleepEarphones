@@ -8,22 +8,6 @@
 import UIKit
 import Combine
 
-/// 「我的」Tab 主页
-///
-/// ## 职责
-/// - 展示用户头像 / 昵称（订阅 `UserProfileViewModel`）
-/// - 展示设备数量（订阅 `MyDeviceViewModel`）
-/// - 展示缓存大小（调 `CacheManager`）
-/// - 承载各功能入口的导航（消息 / 设备 / 帮助 / 设置等）
-///
-/// ## 关于两个 ViewModel 的共享
-/// - `deviceViewModel`：与 `MyDeviceViewController` **共享同一实例**——
-///   避免"我的"页与"我的设备"页各自请求列表
-/// - `viewModel`（用户资料）：与 `PersonalViewController` **共享同一实例**——
-///   避免资料页保存后，返回"我的"页显示的还是旧头像 / 昵称
-///
-/// 共享方式：本页创建，通过 `init(viewModel:)` 注入给子页。
-///
 @MainActor
 final class MyViewController: UIViewController {
 
@@ -37,49 +21,49 @@ final class MyViewController: UIViewController {
 
     /// 我的设备容器
     @IBOutlet weak var deviceContainer: UIView!
+    
+    /// 我的设备容器--标题
+    @IBOutlet weak var deviceLab: UILabel!
 
-    /// 设备数量文案
+    /// 设备数量文案（**纯数字，不参与国际化**）
     @IBOutlet weak var devicesNum: UILabel!
 
     /// 设备图片
     @IBOutlet weak var devicePicture: UIImageView!
 
-    /// 当前缓存大小
+    /// 当前缓存大小（**内容已本地化**——由 `CacheManager.formattedSize` 生成）
     @IBOutlet weak var curCacheSize: UILabel!
 
     /// 帮助与反馈容器
     @IBOutlet weak var helpFeedContainer: UIView!
-
+    
+    /// 帮助与反馈容器--标题
+    @IBOutlet weak var helpFeedLab: UILabel!
+    
+    /// 联系我们容器--标题
+    @IBOutlet weak var connectUSLab: UILabel!
+    
+    /// 关于我们容器--标题
+    @IBOutlet weak var aboutUSLab: UILabel!
+    
     /// 清除缓存容器
     @IBOutlet weak var clearCacheContainer: UIView!
-
+    
+    /// 清除缓存容器--标题
+    @IBOutlet weak var clearCacheLab: UILabel!
+    
     /// 系统设置容器
     @IBOutlet weak var moreSettingContainer: UIView!
 
+    /// 系统设置容器--标题
+    @IBOutlet weak var moreSettingLab: UILabel!
+    
     // MARK: - Properties
 
     /// 设备列表 ViewModel
-    ///
-    /// 1. **`@MainActor` 隔离**：`MyDeviceViewModel` / `UserProfileViewModel`
-    ///    都是 `@MainActor` 类。属性初始化表达式（`let x = SomeMainActorClass()`）
-    ///    在**非主线程**求值时会有 actor 隔离问题。
-    ///    用 `lazy` 后，首次访问发生在 `viewDidLoad`（UIKit 保证主线程）——
-    ///    天然满足 `@MainActor` 约束。
-    ///
-    /// 2. **避免 Storyboard 加载阶段的多余创建**：
-    ///    `MainTabBarController` 会一次性实例化所有 Tab 的 root VC——
-    ///    4 个 Tab 的 VM 若都"立即创建"，App 启动时会有不必要的初始化开销。
-    ///    用 `lazy` 后，只有用户**真正进入**该 Tab 时才创建。
-    ///
-    /// 3. **共享性**：与 `MyDeviceViewController` 共享同一实例——
-    ///    必须在本页持有，通过 `init(viewModel:)` 注入给子页。
     private lazy var deviceViewModel = MyDeviceViewModel()
 
     /// 用户资料 ViewModel
-    ///
-    /// - Note: 与 `PersonalViewController` 共享同一实例——
-    ///         资料页保存后，"我的"页 `bindViewModel` 订阅的 `@Published`
-    ///         会立即收到新值，自动刷新 UI。
     private lazy var viewModel = UserProfileViewModel(repository: UserProfileRepository())
 
     /// Combine 订阅容器
@@ -103,14 +87,6 @@ final class MyViewController: UIViewController {
         bindViewModel()
 
         // 首屏触发一次设备列表请求
-        //
-        // - Note: 与 `MyDeviceViewController.viewDidLoad` 的请求**不冲突**——
-        //         若用户先进入"我的"页，设备列表已加载；
-        //         后续进入"我的设备"页时，`MyDeviceViewController` 会**再次**调用
-        //         `loadDevices()`——这是**有意为之**：
-        //         确保进入设备列表页时数据是**当下最新**的。
-        //
-        //         两次请求的 `requestToken` 机制会自动丢弃过期回调。
         deviceViewModel.loadDevices()
     }
 
@@ -118,9 +94,6 @@ final class MyViewController: UIViewController {
         super.viewWillAppear(animated)
 
         // 主动恢复 tabBar（防止从 push 页 pop 回来时偶发未恢复）
-        //
-        // - Note: 与 Home / Music / Sleep 三页一致——
-        //         本项目统一约定，不要单独删除某一处的实现。
         tabBarController?.tabBar.isHidden = false
 
         // 每次回到本页刷新缓存大小：
@@ -140,11 +113,6 @@ final class MyViewController: UIViewController {
         super.viewDidLayoutSubviews()
 
         // 头像正圆：圆角 = 宽度的一半
-        //
-        // - Note: `viewDidLayoutSubviews` 会被多次调用（键盘弹出、旋转、
-        //         cell 复用等），加缓存避免重复写入 `cornerRadius`——
-        //         虽然写入本身开销很小，但赋值会触发 layer 属性变更与
-        //         可能的离屏渲染判定，能省则省。
         let width = personalAvatar.bounds.width
         guard width != lastAvatarWidth else { return }
         lastAvatarWidth = width
@@ -154,10 +122,15 @@ final class MyViewController: UIViewController {
     // MARK: - Setup
 
     /// 圆角、边框等外观设置
-    ///
-    /// - Note: 头像的圆角**不在**此处设置（需等布局完成），
-    ///         见 `viewDidLayoutSubviews`。
     private func setupUI() {
+        
+        deviceLab.text = L("我的设备")
+        helpFeedLab.text = L("帮助与反馈")
+        connectUSLab.text = L("联系我们")
+        aboutUSLab.text = L("关于我们")
+        clearCacheLab.text = L("清除缓存")
+        moreSettingLab.text = L("系统设置")
+        
         personalAvatar.clipsToBounds = true
         personalAvatar.contentMode = .scaleAspectFill
 
@@ -166,9 +139,6 @@ final class MyViewController: UIViewController {
         moreSettingContainer.layer.cornerRadius = AppSpacing.Corner.card
 
         // 帮助与反馈 + 清除缓存合并为一个分组：上下分别圆角
-        //
-        // - Note: 视觉上这两个 container 拼成一张"卡片"，
-        //         因此只给上/下圆角，中间保持直角。
         helpFeedContainer.layer.cornerRadius = AppSpacing.Corner.card
         helpFeedContainer.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
 
@@ -202,7 +172,7 @@ final class MyViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 昵称
+        // 昵称（**内容来自用户输入 / 后端，不参与国际化**）
         viewModel.$nickname
             .receive(on: DispatchQueue.main)
             .sink { [weak self] name in
@@ -210,7 +180,7 @@ final class MyViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 设备数量
+        // 设备数量（**纯数字，不参与国际化**）
         deviceViewModel.$totalCount
             .receive(on: DispatchQueue.main)
             .sink { [weak self] count in
@@ -232,7 +202,7 @@ final class MyViewController: UIViewController {
     @IBAction func clickPersonalInfoBtnEvent(_ sender: Any) {
         // 共享 viewModel——资料页保存后本页订阅会立即刷新
         let personVC = PersonalViewController(viewModel: viewModel)
-        personVC.title = "我的资料"
+        personVC.title = L("我的资料")
         navigationController?.pushViewController(personVC, animated: true)
 
         AppLog.profile.debug("跳转我的资料页")
@@ -242,7 +212,7 @@ final class MyViewController: UIViewController {
     @IBAction func clickMyDeviceBtnEvent(_ sender: Any) {
         // 共享 deviceViewModel，避免重复请求
         let vc = MyDeviceViewController(viewModel: deviceViewModel)
-        vc.title = "我的设备"
+        vc.title = L("我的设备")
         navigationController?.pushViewController(vc, animated: true)
 
         AppLog.profile.debug("跳转我的设备页")
@@ -274,12 +244,6 @@ final class MyViewController: UIViewController {
     // MARK: - Cache
 
     /// 刷新"当前缓存大小"文案
-    ///
-    /// - Note:
-    ///   - `CacheManager.calculateCacheSize()` 内部在后台队列执行，
-    ///     主线程 `await` 不会阻塞 UI。
-    ///   - `Task {}` 会继承 `MyViewController` 的 `@MainActor` 隔离，
-    ///     因此闭包内可直接写 `curCacheSize.text`，**无需**再标注 `@MainActor`。
     private func refreshCacheSize() {
         Task { [weak self] in
             let bytes = await CacheManager.calculateCacheSize()
@@ -291,9 +255,11 @@ final class MyViewController: UIViewController {
     @IBAction func clickClearCacheBtnEvent(_ sender: Any) {
         // 清缓存是"半危险"操作：内容不可恢复但影响不大。
         // 使用红色按钮让用户稍加注意，但避免过度的破坏感。
+        //
+        // **弹窗标题 / 正文已本地化**
         showConfirm(
-            title: "清除缓存",
-            message: "确定要清除全部缓存吗？",
+            title: L("清除缓存"),
+            message: L("确定要清除全部缓存吗？"),
             destructive: true
         ) { [weak self] in
             self?.performClearCache()
@@ -301,15 +267,12 @@ final class MyViewController: UIViewController {
     }
 
     /// 执行清除并更新 UI
-    ///
-    /// - Note: `CacheManager.clearCache()` 返回时磁盘操作**已完成**，
-    ///         因此 `refreshCacheSize()` 不会读到旧值，
-    ///         无需 sleep 或二次刷新。
     private func performClearCache() {
         Task { [weak self] in
             await CacheManager.clearCache()
             self?.refreshCacheSize()
-            self?.showToast("清除成功")
+            // **Toast 已本地化**
+            self?.showToast(L("清除成功"))
         }
     }
 

@@ -16,8 +16,14 @@ import Alamofire
 /// - `1` = 用户端-平台公告（`MessageAPI` 使用）
 /// - `2` = 用户端-帮助中心（本模块使用）
 ///
-/// - Important: 本接口与 `MessageAPI` **共用同一后端接口**（同一 `path`），
-///              仅靠 `operationarticlecate_id` 区分返回内容。
+/// ## 与 `MessageAPI` 的关系
+/// | 维度 | `HelpAPI` | `MessageAPI` |
+/// |---|---|---|
+/// | `path` | `6729cd8c2190d` | `6729cd8c2190d`（**相同**） |
+/// | `operationarticlecate_id` | `"2"` | `"1"` |
+/// | 返回类型 | `[HelpFAQItem]` | `[MessageModel]` |
+///
+/// - Important: 两者**共用同一后端接口**，仅靠 `operationarticlecate_id` 区分。
 ///              若未来后端拆分接口，只需改各自的 `path`。
 ///
 /// ## 返回结构
@@ -80,8 +86,6 @@ enum HelpAPI: APIRequest {
     /// 请求参数
     ///
     /// - Returns: `["operationarticlecate_id": "N"]`
-    ///
-    /// - Note: ⚠️ 后端期望 String 类型（Postman 实测 body 是 `"2"` 而非 `2`）。
     var parameters: [String: Any]? {
         switch self {
         case .list(let categoryId):

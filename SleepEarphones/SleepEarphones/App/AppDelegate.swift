@@ -18,12 +18,6 @@ import IQKeyboardManagerSwift
 /// 4. **网络监测**——纯后台逻辑，无时序依赖
 /// 5. **HTML 模板预热**——提前生成 CSS，避免首次打开协议页卡顿
 ///
-/// ## 关于 `@MainActor`
-/// `UIApplicationDelegate` 的方法在 iOS 13+ 实际只在主线程调用，
-/// 但 Swift 6 的严格并发检查需要显式标注才能调用 `@MainActor` 的 API
-/// （如 `LanguageManager.shared.applySavedLanguage()` /
-/// `ToastPresenter.configureGlobalStyle()` / `AgreementHTMLTemplate.warmUp()`）。
-/// 因此本类标注 `@MainActor`，与 `SceneDelegate` 保持一致。
 @main
 @MainActor
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -31,11 +25,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Properties
 
     /// 网络可达性监听器
-    ///
-    /// - Note:
-    ///   - `private(set)`：外部只读，避免误改
-    ///   - 在 `didFinishLaunchingWithOptions` 中初始化，
-    ///     在 `applicationWillTerminate` 中释放
     private(set) var reachabilityManager: NetworkReachabilityManager?
 
     // MARK: - Application Lifecycle
@@ -73,7 +62,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
-        // 清理被丢弃的场景特定资源（当前无资源需清理）
+        // 当前无场景级资源需要清理。
+        //
+        // - Note: 若未来引入"分屏 / 多窗口"支持，需在此释放被丢弃场景
+        //         持有的资源（如独立的 AVPlayer 实例、独立的 BLE 连接）。
+        //         iPhone 上系统不会触发本方法，仅在 iPad 多任务场景下可能调用。
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

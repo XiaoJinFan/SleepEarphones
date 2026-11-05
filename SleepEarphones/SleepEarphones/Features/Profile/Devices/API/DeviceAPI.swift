@@ -10,18 +10,19 @@ import Alamofire
 
 /// 设备相关接口
 ///
-/// ## 字段命名
+/// ## 字段命名（后端约定，与常规不同）
 /// - 用户 ID：`user_id`（与后端约定）
-/// - 分页：`page` / `list_rows`（不是 `pageSize`）
+/// - 分页：`page` / **`list_rows`**（不是 `pageSize`）
 /// - 排序：`sort_field` / `sort_type`
 ///
-/// ## 认证（重要）
-/// - **删除设备**（`auto/Freedevices/delete_devices`）：
-///   后端网关要求必填 `user-token` Header，缺失会返回业务码 `-201`。
-/// - **设备列表**（`auto/Freedevices/check_devices`）：
-///   当前后端接受 `user_id` 参数识别用户，未强制要求 token——
-///   为最小改动保持原样。若未来后端统一鉴权，把 `listByUser` 也改为
-///   走 `authHeaders` 即可（见 `headers` 注释）。
+/// ## 认证（重要：两个接口不同）
+/// | 接口 | 认证方式 |
+/// |---|---|
+/// | **设备列表**（`auto/Freedevices/check_devices`） | `user_id` 参数识别用户，**未强制要求 token** |
+/// | **删除设备**（`auto/Freedevices/delete_devices`） | **强制要求** `user-token` header（缺失会返回 `-201`） |
+///
+/// - Important: 这个差异是**后端当前接口契约**决定的，不是设计缺陷——
+///              若未来后端统一鉴权，只需修改 `headers` 的实现。
 enum DeviceAPI: APIRequest {
 
     // MARK: - Cases
@@ -37,9 +38,6 @@ enum DeviceAPI: APIRequest {
     /// 删除设备
     ///
     /// - Parameter aid: 设备 ID（对应 `DeviceModel.id`）
-    ///
-    /// - Important: 后端要求必填 Header `user-token`——
-    ///              由 `headers` 属性统一注入。
     case deleteDevice(aid: String)
 
     // MARK: - APIRequest
@@ -50,6 +48,7 @@ enum DeviceAPI: APIRequest {
             // 历史遗留：接口名是 "checkDevice" 但语义是"设备列表"
             // 后端未提供单独的 list 接口，此处沿用
             return APIEndpoint.checkDevice.rawValue
+
         case .deleteDevice:
             return APIEndpoint.deleteDevice.rawValue
         }
@@ -58,9 +57,12 @@ enum DeviceAPI: APIRequest {
     var method: HTTPMethod {
         switch self {
         case .listByUser:
+            // 查询语义 → GET
             return .get
+
         case .deleteDevice:
             // 后端物理地址 `auto/Freedevices/delete_devices` 使用 POST
+            // （虽为删除语义，但后端设计为 POST）
             return .post
         }
     }
@@ -71,23 +73,23 @@ enum DeviceAPI: APIRequest {
             return [
                 "user_id":    userId,
                 "page":       page,
-                "list_rows":  pageSize,        // ⚠️ 后端字段是 list_rows，不是 pageSize
+                // ⚠️ 后端字段是 `list_rows` 而非 `pageSize`——
+                //    这是后端历史遗留，**不要**改为 `pageSize`
+                "list_rows":  pageSize,
                 "sort_field": Self.defaultSortField,
                 "sort_type":  Self.defaultSortType
             ]
+
         case .deleteDevice(let aid):
             return ["aid": aid]
         }
     }
 
     /// 请求头（按 case 分派）
-    /// 
-    /// - **删除设备**：后端网关强制要求 `user-token`（见接口截图"必填"标记）
-    /// - **设备列表**：后端当前用 `user_id` 参数识别用户，未强制 token
-    ///
     var headers: HTTPHeaders? {
         switch self {
         case .listByUser:
+            // 当前后端接受 `user_id` 参数识别用户，不强制 token
             return nil
 
         case .deleteDevice:
@@ -104,12 +106,8 @@ enum DeviceAPI: APIRequest {
     // MARK: - Constants
 
     /// 默认排序字段
-    ///
-    /// - Note: `aid` 是设备主键，按主键倒序 = 最新添加的在前
     private static let defaultSortField = "aid"
 
     /// 默认排序方向
-    ///
-    /// - Note: `desc` = 倒序（最新在前）
     private static let defaultSortType = "desc"
 }

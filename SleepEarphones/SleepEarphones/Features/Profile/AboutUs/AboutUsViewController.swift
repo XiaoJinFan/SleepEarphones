@@ -8,7 +8,6 @@
 import UIKit
 import SnapKit
 
-/// 关于我们页
 @MainActor
 final class AboutUsViewController: UIViewController {
 
@@ -21,6 +20,12 @@ final class AboutUsViewController: UIViewController {
 
         /// Logo 垂直居中偏移（向上偏 130pt）
         static let logoCenterYOffset: CGFloat = -130
+
+        /// 版本号与 Logo 的间距
+        static let versionTopSpacing: CGFloat = AppSpacing.xl
+
+        /// 版权信息距安全区底部的间距
+        static let copyrightBottomInset: CGFloat = AppSpacing.lg
     }
 
     // MARK: - UI
@@ -36,7 +41,7 @@ final class AboutUsViewController: UIViewController {
     /// 版本号（可点击进入证照信息）
     private let versionLabel: UILabel = {
         let l = UILabel()
-        // 版本号在 viewDidLoad 中动态设置
+        // 版本号在 viewDidLoad 中动态设置（**通过 L(...) 本地化**）
         l.font = AppFont.Body.secondary
         l.textColor = AppColor.Text.primary
         l.textAlignment = .center
@@ -45,12 +50,11 @@ final class AboutUsViewController: UIViewController {
     }()
 
     /// 版权信息
-    ///
-    /// - Note: 年份动态取当前日历年，避免跨年后过期。
     private let copyrightLabel: UILabel = {
         let l = UILabel()
         let year = Calendar.current.component(.year, from: Date())
-        l.text = "copyright©\(year) 睡眠耳机"
+        // **整句文案通过 `L(...)` 本地化**——包括"睡眠耳机"品牌名
+        l.text = L("copyright©%lld 睡眠耳机", year)
         l.font = AppFont.Caption.regular
         l.textColor = AppColor.Text.secondary
         l.textAlignment = .center
@@ -84,12 +88,13 @@ final class AboutUsViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "关于我们"
+        // **导航标题已本地化**
+        title = L("关于我们")
         view.backgroundColor = AppColor.Background.primary
         navigationItem.backButtonDisplayMode = .minimal
 
         // 动态设置版本号（不硬编码）
-        versionLabel.text = "当前版本 \(DeviceInfo.appVersion)"
+        versionLabel.text = L("当前版本 %@", DeviceInfo.appVersion)
 
         view.addSubview(logoImageView)
         view.addSubview(versionLabel)
@@ -106,12 +111,14 @@ final class AboutUsViewController: UIViewController {
 
         versionLabel.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(logoImageView.snp.bottom).offset(AppSpacing.xl)
+            make.top.equalTo(logoImageView.snp.bottom)
+                .offset(Layout.versionTopSpacing)
         }
 
         copyrightLabel.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-AppSpacing.lg)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+                .offset(-Layout.copyrightBottomInset)
         }
     }
 

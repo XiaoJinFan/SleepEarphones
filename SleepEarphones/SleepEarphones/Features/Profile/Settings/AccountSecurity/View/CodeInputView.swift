@@ -8,12 +8,22 @@
 import UIKit
 import SnapKit
 
-/// 验证码输入框（4 位 / 6 位可配置）
+/// 验证码输入框（4 位 / 6 位可配置，方框样式）
 ///
 /// ## 交互
 /// - 点击任意位置 → 唤起系统键盘（隐藏的 `UITextField`）
 /// - 输入时数字回填到方框
 /// - 支持删除（回退键）
+/// - 支持系统短信验证码自动填充（`.oneTimeCode`）
+/// - 支持粘贴（从其他 App 复制验证码后粘贴）
+///
+/// ## 布局结构
+/// ```
+/// ┌────┐ ┌────┐ ┌────┐ ┌────┐
+/// │ 1  │ │ 2  │ │ 3  │ │ 4  │
+/// └────┘ └────┘ └────┘ └────┘
+///   ↑ 当前待输入方框高亮（边框加粗 + 品牌色）
+/// ```
 ///
 /// ## 调用方法
 /// ```swift
@@ -99,9 +109,9 @@ final class CodeInputView: UIView {
         /// 方框圆角
         static let boxCornerRadius: CGFloat = 6
         /// 未聚焦边框宽度
-        static let boxBorderWidth: CGFloat = 1
+        static let boxBorderWidth: CGFloat = AppSpacing.Border.standard
         /// 聚焦时边框宽度
-        static let boxBorderWidthFocused: CGFloat = 2
+        static let boxBorderWidthFocused: CGFloat = AppSpacing.Border.thick
     }
 
     // MARK: - Init
@@ -115,6 +125,7 @@ final class CodeInputView: UIView {
         setupUI()
         setupActions()
         setupNotifications()
+        registerTraitChangeObservation()
     }
 
     required init?(coder: NSCoder) {
@@ -129,14 +140,6 @@ final class CodeInputView: UIView {
     // MARK: - Intrinsic Content Size
 
     /// 默认尺寸（外部无约束时使用）
-    ///
-    /// - 宽度 = `length × 50 + (length - 1) × 12`
-    ///   - 4 位：236
-    ///   - 6 位：360
-    /// - 高度 = 50
-    ///
-    /// - Note: 外部若已设 `height` / `width` 约束，这两者兼容；
-    ///         若外部只约束了位置，本属性提供 fallback。
     override var intrinsicContentSize: CGSize {
         CGSize(
             width: CGFloat(length) * Layout.boxSize
@@ -186,10 +189,6 @@ final class CodeInputView: UIView {
         stack.spacing = Layout.boxSpacing
 
         // ✅ 关键：从 `.center` 改为 `.fill`
-        //
-        // - `.center` → 每个 box 的高度取**自身 intrinsic size**，
-        //   而空 `UIView` 的 intrinsic size = 0 → **方框完全不可见**
-        // - `.fill` → 每个 box 填满 stack 的高度 → 正确显示
         stack.alignment = .fill
         stack.distribution = .fillEqually
         addSubview(stack)
@@ -220,7 +219,9 @@ final class CodeInputView: UIView {
         box.backgroundColor = AppColor.Background.card
         box.layer.cornerRadius = Layout.boxCornerRadius
         box.layer.borderWidth = Layout.boxBorderWidth
-        box.layer.borderColor = AppColor.separator.cgColor
+        box.layer.borderColor = AppColor.separator
+            .resolvedColor(with: traitCollection)
+            .cgColor
 
         let label = UILabel()
         label.font = AppFont.Title.page
@@ -253,6 +254,29 @@ final class CodeInputView: UIView {
             name: UITextField.textDidEndEditingNotification,
             object: hiddenField
         )
+    }
+
+    // MARK: - Trait 变化监听
+
+    /// 注册 trait 变化监听（iOS 17+）
+    private func registerTraitChangeObservation() {
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: CodeInputView, _) in
+                view.refreshBoxes()
+            }
+        }
+    }
+
+    /// 旧版兼容（iOS 17 以下）
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        // iOS 17+ 由 registerForTraitChanges 处理，避免重复
+        if #available(iOS 17.0, *) { return }
+
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            refreshBoxes()
+        }
     }
 
     // MARK: - Actions
@@ -300,9 +324,6 @@ final class CodeInputView: UIView {
     // MARK: - UI Refresh
 
     /// 刷新所有方框的显示与高亮状态
-    ///
-    /// - 已输入的方框显示对应数字
-    /// - 当前待输入的方框高亮（边框加粗 + 主色）
     @objc private func refreshBoxes() {
         // 1. 更新每个方框里的数字
         for (index, label) in labels.enumerated() {
@@ -321,9 +342,10 @@ final class CodeInputView: UIView {
             box.layer.borderWidth = isFocused
                 ? Layout.boxBorderWidthFocused
                 : Layout.boxBorderWidth
+            // **`resolvedColor(with:)` 保证深色模式下用对应色值**
             box.layer.borderColor = isFocused
-                ? AppColor.Brand.primary.cgColor
-                : AppColor.separator.cgColor
+                ? AppColor.Brand.primary.resolvedColor(with: traitCollection).cgColor
+                : AppColor.separator.resolvedColor(with: traitCollection).cgColor
         }
     }
 
@@ -340,11 +362,6 @@ final class CodeInputView: UIView {
     }
 
     /// 外部调用 `resignFirstResponder()` 时，转发到 `hiddenField`
-    ///
-    /// ## 返回值语义
-    /// - 优先返回 `hiddenField` 的转发结果（它才是真正持有键盘的）
-    /// - 无论 `hiddenField` 是否是 first responder，都调用 `super.resignFirstResponder()`
-    ///   保持响应链清理的完整性
     override func resignFirstResponder() -> Bool {
         let hiddenResigned = hiddenField.resignFirstResponder()
         super.resignFirstResponder()

@@ -9,7 +9,6 @@ import UIKit
 
 // MARK: - 仓库协议
 
-/// 用户资料仓库协议
 protocol UserProfileRepositoryProtocol: Sendable {
 
     /// 异步加载头像
@@ -30,13 +29,9 @@ protocol UserProfileRepositoryProtocol: Sendable {
     func save(avatar: UIImage?, nickname: String)
 
     /// 仅更新头像（**不影响昵称**）
-    ///
-    /// - Parameter avatar: 新头像
     func updateAvatar(_ avatar: UIImage)
 
     /// 仅更新昵称（**不影响头像**）
-    ///
-    /// - Parameter nickname: 新昵称
     func updateNickname(_ nickname: String)
 }
 
@@ -58,13 +53,11 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     // MARK: - Constants
 
     /// 头像 JPEG 压缩质量
-    ///
-    /// - 0.8 是体积与画质的平衡点：视觉几乎无差异，体积约为原图的 1/5
     private let avatarCompressionQuality: CGFloat = 0.8
 
     // MARK: - Properties
 
-    /// 用户偏好存储，添加nonisolated(unsafe) 是为了消除警告
+    /// 用户偏好存储
     nonisolated(unsafe) private let userDefaults: UserDefaults
 
     /// 串行队列：用于「压缩 / 文件读写」等后台 IO
@@ -73,9 +66,9 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
         qos: .utility
     )
 
-    /// 头像文件 URL（延迟计算，缓存）
+    /// 头像文件 URL
     ///
-    /// - Returns: `{Application Support}/SleepEarphones/avatar.jpg`
+    /// - Returns: `{Application Support}/{BundleID}/avatar.jpg`
     private let avatarFileURL: URL
 
     // MARK: - Init
@@ -90,10 +83,12 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first ?? FileManager.default.urls(
-            for: .documentDirectory,
-            in: .userDomainMask
-        )[0]
+        ).first
+            ?? FileManager.default.urls(
+                for: .documentDirectory,
+                in: .userDomainMask
+            ).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
 
         let appDir = appSupport.appendingPathComponent(
             Bundle.main.bundleIdentifier ?? "SleepEarphones",
@@ -113,6 +108,8 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
     // MARK: - Load
 
     /// 异步加载头像
+    ///
+    /// - Returns: 头像图片；不存在 / 解码失败时返回 `nil`
     func loadAvatar() async -> UIImage? {
         await withCheckedContinuation { continuation in
             ioQueue.async { [weak self] in
@@ -127,6 +124,7 @@ final class UserProfileRepository: UserProfileRepositoryProtocol {
 
                 // 2. 读取文件
                 guard let data = try? Data(contentsOf: self.avatarFileURL) else {
+                    // 文件不存在——正常情况（用户从未设置过头像）
                     continuation.resume(returning: nil)
                     return
                 }

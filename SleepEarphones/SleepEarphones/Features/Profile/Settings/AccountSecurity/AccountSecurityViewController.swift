@@ -9,13 +9,6 @@ import UIKit
 import SnapKit
 
 /// 账号与安全页
-///
-/// ## 展示规则（依登录方式）
-/// | 登录方式 | 菜单项 |
-/// |---|---|
-/// | 手机号登录 | 修改密码 / **修改绑定手机号** / **绑定邮箱** |
-/// | 邮箱登录   | 修改密码 / **修改绑定邮箱** / **绑定手机号** |
-///
 @MainActor
 final class AccountSecurityViewController: UIViewController {
 
@@ -61,7 +54,8 @@ final class AccountSecurityViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "账号与安全"
+        // **导航标题已本地化**
+        title = L("账号与安全")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -91,38 +85,32 @@ final class AccountSecurityViewController: UIViewController {
     // MARK: - Sections
 
     /// 根据登录方式构建菜单
-    ///
-    /// ## 判断逻辑
-    /// 从 `AuthStore.shared.cachedLoginType` 读取——
-    /// 该字段在**登录成功时**由 `LoginViewModel` 写入，
-    /// 是登录方式的权威来源。
-    ///
-    /// - Note: 若未来服务端能返回"注册方式"字段，替换成更精确的判断即可。
     private func buildSections() {
         let isPhoneLogin = (AuthStore.shared.cachedLoginType == .phone)
 
         var items: [SettingsItem] = []
 
         // 1. 修改密码（所有用户都有）
-        items.append(SettingsItem(title: "修改密码") { [weak self] in
+        // **菜单项已本地化**
+        items.append(SettingsItem(title: L("修改密码")) { [weak self] in
             self?.openChangePassword()
         })
 
         // 2. 根据登录方式决定顺序
         if isPhoneLogin {
             // 手机号登录：先手机（修改），后邮箱（绑定）
-            items.append(SettingsItem(title: "修改绑定手机号") { [weak self] in
+            items.append(SettingsItem(title: L("修改绑定手机号")) { [weak self] in
                 self?.openChangePhone()
             })
-            items.append(SettingsItem(title: "绑定邮箱") { [weak self] in
+            items.append(SettingsItem(title: L("绑定邮箱")) { [weak self] in
                 self?.openBindEmail()
             })
         } else {
             // 邮箱登录：先邮箱（修改），后手机（绑定）
-            items.append(SettingsItem(title: "修改绑定邮箱") { [weak self] in
+            items.append(SettingsItem(title: L("修改绑定邮箱")) { [weak self] in
                 self?.openChangeEmail()
             })
-            items.append(SettingsItem(title: "绑定手机号") { [weak self] in
+            items.append(SettingsItem(title: L("绑定手机号")) { [weak self] in
                 self?.openBindPhone()
             })
         }

@@ -8,6 +8,34 @@
 import UIKit
 import SnapKit
 
+// MARK: - 设备卡片 Cell
+
+/// 首页设备卡片
+///
+/// ## 布局结构
+/// ```
+/// ┌──────────────────────────────────────────────────┐
+/// │ ┌────────┐  ┌──────────────────────────────────┐ │
+/// │ │        │  │ 设备名称           ● 已连接        │ │  ← titleRowStack
+/// │ │ 设备图 │  ├──────────────────────────────────┤ │
+/// │ │        │  │ [左耳] [右耳] [充电盒]              │ │  ← batteryStackView
+/// │ │        │  ├──────────────────────────────────┤ │
+/// │ │        │  │ 查看睡眠报告 >                      │ │  ← reportButton（有报告时显示）
+/// │ └────────┘  └──────────────────────────────────┘ │
+/// └──────────────────────────────────────────────────┘
+/// ```
+///
+/// ## 三态连接判断
+/// | 状态 | BLE 匹配 | 音频路由 | 展示文案 | 状态点颜色 |
+/// |---|---|---|---|---|
+/// | 已连接 | ✅ | ✅ | `"已连接"` | `Semantic.success` |
+/// | 已配对 | ✅ | ❌ | `"已配对"` | `Semantic.warning` |
+/// | 未连接 | ❌ | ❌ | `"未连接"` | `Text.tertiary` |
+///
+/// ## 关于国际化
+/// - `"已连接"` / `"已配对"` / `"未连接"` / `"查看睡眠报告"` 通过 `L(...)` 读取
+/// - 设备名称（`device.name`）来自后端，**已本地化**
+/// - 电量字符串 `"100%"` 中 `%` 是数字格式，**不参与国际化**
 @MainActor
 final class HomeDeviceCardCell: UICollectionViewCell {
 
@@ -31,6 +59,7 @@ final class HomeDeviceCardCell: UICollectionViewCell {
 
     // MARK: - Callback
 
+    /// 点击"查看睡眠报告"回调
     var onReportTapped: (() -> Void)?
 
     // MARK: - UI
@@ -103,24 +132,33 @@ final class HomeDeviceCardCell: UICollectionViewCell {
     private let rightBatteryView = HomeBatteryCapsuleView(type: .right)
     private let boxBatteryView   = HomeBatteryCapsuleView(type: .box)
 
+    /// "查看睡眠报告"按钮
+    ///
+    /// - Important: 必须用 `UIButton.Configuration` 而非 `setTitle(_:for:)`——
+    ///   `Configuration` 配置后，`setTitle` 会被覆盖。修改标题须改
+    ///   `config.attributedTitle`。
     private let reportButton: UIButton = {
         var config = UIButton.Configuration.plain()
 
-        var titleAttr = AttributedString("查看睡眠报告")
+        // 标题通过 `L(...)` 本地化
+        var titleAttr = AttributedString(L("查看睡眠报告"))
         titleAttr.font = AppFont.Body.secondary
         titleAttr.foregroundColor = AppColor.Text.secondary
         config.attributedTitle = titleAttr
 
         config.image = UIImage(systemName: "chevron.right")
         config.imagePlacement = .trailing
-        config.imagePadding = 8
+        config.imagePadding = AppSpacing.xs
         config.baseForegroundColor = AppColor.Text.tertiary
 
         config.background.backgroundColor = AppColor.Background.secondary
         config.background.cornerRadius = AppSpacing.Corner.medium
 
         config.contentInsets = NSDirectionalEdgeInsets(
-            top: 0, leading: AppSpacing.md, bottom: 0, trailing: AppSpacing.md
+            top: 0,
+            leading: AppSpacing.md,
+            bottom: 0,
+            trailing: AppSpacing.md
         )
 
         let b = UIButton(configuration: config)
@@ -157,9 +195,15 @@ final class HomeDeviceCardCell: UICollectionViewCell {
         deviceImageView.cancelRemoteImageLoad()
         deviceImageView.image = AppImage.Local.devicePlaceholder
         nameLabel.text = nil
+
+        // ⚠️ 显式重置为中性色，而非 `nil`——
+        //    `nil` 会让 Label / View 使用系统默认色，在刷新间隔内
+        //    可能因 trait 变化短暂显示"错误颜色"。虽然 `configure` 会
+        //    立即覆盖，但显式重置能避免这一帧的视觉抖动。
         statusLabel.text = nil
-        statusLabel.textColor = nil
-        statusDot.backgroundColor = nil
+        statusLabel.textColor = AppColor.Text.tertiary
+        statusDot.backgroundColor = AppColor.Text.tertiary
+
         onReportTapped = nil
     }
 
@@ -223,24 +267,28 @@ final class HomeDeviceCardCell: UICollectionViewCell {
     ///   - isConnected: 是否完全就绪（BLE 已连接 **且** 音频已路由）
     ///   - isPaired: BLE 是否已连接（音频可能未路由）
     ///
+    /// ## 三态判断
+    /// - `isConnected == true`：**已连接**（绿色）
+    /// - `isConnected == false && isPaired == true`：**已配对**（橙色）
+    /// - 其他：**未连接**（灰色）
     func configure(with device: DeviceModel, isConnected: Bool, isPaired: Bool) {
         nameLabel.text = device.name
 
-        // MARK: 三态状态显示
+        // MARK: 三态状态显示（文案已本地化）
         let themeColor: UIColor
         let statusText: String
 
         if isConnected {
             // 完全就绪：BLE + 音频都匹配
             themeColor = AppColor.Semantic.success
-            statusText = "已连接"
+            statusText = L("已连接")
         } else if isPaired {
             // BLE 已连但音频未切——用橙色区分
             themeColor = AppColor.Semantic.warning
-            statusText = "已配对"
+            statusText = L("已配对")
         } else {
             themeColor = AppColor.Text.tertiary
-            statusText = "未连接"
+            statusText = L("未连接")
         }
 
         statusDot.backgroundColor = themeColor
@@ -252,7 +300,6 @@ final class HomeDeviceCardCell: UICollectionViewCell {
         let rightInt = Int(device.rightBattery) ?? -1
         let boxInt = Int(device.batteryLevel) ?? -1
 
-        
         leftBatteryView.update(battery: leftInt, isConnected: isPaired)
         rightBatteryView.update(battery: rightInt, isConnected: isPaired)
         boxBatteryView.update(battery: boxInt, isConnected: isPaired)
@@ -272,29 +319,59 @@ final class HomeDeviceCardCell: UICollectionViewCell {
 
 // MARK: - 电池胶囊 View
 
+/// 电池胶囊视图（左耳 / 右耳 / 充电盒）
 @MainActor
 final class HomeBatteryCapsuleView: UIView {
 
+    // MARK: - CapsuleType
+
+    /// 胶囊类型
     enum CapsuleType {
         case left, right, box
+
+        /// SF Symbols 图标名（**不参与国际化**）
         var iconName: String {
             switch self {
             case .left, .right: return "ear"
-            case .box: return "battery.100"
+            case .box:          return "battery.100"
             }
         }
     }
 
+    // MARK: - Constants
+
+    private enum Layout {
+        /// 胶囊圆角（28 高的一半）
+        static let capsuleCornerRadius: CGFloat = 14
+        /// 图标尺寸
+        static let iconSize: CGFloat = 14
+        /// 图标左边距
+        static let iconLeadingInset: CGFloat = AppSpacing.xs
+        /// 图标与文字间距
+        static let iconToTextSpacing: CGFloat = AppSpacing.xxs
+        /// 文字右边距
+        static let textTrailingInset: CGFloat = 6
+        /// 边框宽度
+        static let borderWidth: CGFloat = AppSpacing.Border.standard
+        /// 边框透明度（与文字色叠加后降低视觉重量）
+        static let borderAlpha: CGFloat = 0.5
+    }
+
+    // MARK: - Properties
+
     private let type: CapsuleType
     private let iconImageView = UIImageView()
     private let titleLabel = UILabel()
+
+    /// 上次应用的颜色（用于 trait 切换时重新计算 `CGColor`）
     private var lastAppliedColor: UIColor?
+
+    // MARK: - Init
 
     init(type: CapsuleType) {
         self.type = type
         super.init(frame: .zero)
         setupUI()
-        // 注册 trait 变化监听
         registerTraitChangeObservation()
     }
 
@@ -302,9 +379,11 @@ final class HomeBatteryCapsuleView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Setup
+
     private func setupUI() {
-        layer.cornerRadius = 14
-        layer.borderWidth = 1
+        layer.cornerRadius = Layout.capsuleCornerRadius
+        layer.borderWidth = Layout.borderWidth
         layer.masksToBounds = true
 
         iconImageView.contentMode = .scaleAspectFit
@@ -317,21 +396,21 @@ final class HomeBatteryCapsuleView: UIView {
         addSubview(titleLabel)
 
         iconImageView.snp.makeConstraints { make in
-            make.left.equalToSuperview().offset(8)
+            make.left.equalToSuperview().offset(Layout.iconLeadingInset)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(14)
+            make.width.height.equalTo(Layout.iconSize)
         }
 
         titleLabel.snp.makeConstraints { make in
-            make.left.equalTo(iconImageView.snp.right).offset(4)
-            make.right.equalToSuperview().offset(-6)
+            make.left.equalTo(iconImageView.snp.right).offset(Layout.iconToTextSpacing)
+            make.right.equalToSuperview().offset(-Layout.textTrailingInset)
             make.centerY.equalToSuperview()
         }
     }
 
     // MARK: - Trait 变化监听
 
-    /// 注册 trait 变化监听
+    /// 注册 trait 变化监听（iOS 17+）
     private func registerTraitChangeObservation() {
         if #available(iOS 17.0, *) {
             registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: HomeBatteryCapsuleView, _) in
@@ -342,12 +421,11 @@ final class HomeBatteryCapsuleView: UIView {
 
     /// 用 `lastAppliedColor` 重新应用边框色
     private func reapplyBorderColorIfNeeded() {
-        if let color = lastAppliedColor {
-            applyBorderColor(color)
-        }
+        guard let color = lastAppliedColor else { return }
+        applyBorderColor(color)
     }
 
-    // MARK: - 旧版兼容（iOS 17 以下）
+    /// 旧版兼容（iOS 17 以下）
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
 
@@ -361,17 +439,31 @@ final class HomeBatteryCapsuleView: UIView {
 
     // MARK: - Update
 
+    /// 更新电量与连接状态
+    ///
+    /// - Parameters:
+    ///   - battery: 电量（0~100）；`-1` 表示未知（显示 `"--"`）
+    ///   - isConnected: 是否已连接（决定文字 / 图标的颜色）
     func update(battery: Int, isConnected: Bool) {
+        // 未知电量用 `--`（数字占位，不参与国际化）
         titleLabel.text = battery < 0 ? "--" : "\(battery)%"
 
-        let color = isConnected ? AppColor.Semantic.success : AppColor.Text.tertiary
+        let color = isConnected
+            ? AppColor.Semantic.success
+            : AppColor.Text.tertiary
         self.lastAppliedColor = color
         titleLabel.textColor = color
         iconImageView.tintColor = color
         applyBorderColor(color)
     }
 
+    /// 应用边框色（带透明度，降低视觉重量）
+    ///
+    /// - Parameter color: 动态色
     private func applyBorderColor(_ color: UIColor) {
-        layer.borderColor = color.resolvedColor(with: traitCollection).withAlphaComponent(0.5).cgColor
+        layer.borderColor = color
+            .resolvedColor(with: traitCollection)
+            .withAlphaComponent(Layout.borderAlpha)
+            .cgColor
     }
 }

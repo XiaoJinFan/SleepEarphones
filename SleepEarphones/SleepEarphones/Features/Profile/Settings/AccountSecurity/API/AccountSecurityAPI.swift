@@ -37,32 +37,16 @@ import Alamofire
 /// // 4. 由 NetworkClient 统一发起
 /// client.request(api, as: EmptyResponse.self)
 /// ```
-///
-/// ## 认证
-/// 所有接口都需要 `user-token` 请求头（见 `headers`）。
 enum AccountSecurityAPI: APIRequest {
 
     // MARK: - Constants
 
     /// 修改绑定操作的后端类型常量
-    ///
-    /// - Note: 数值 `4` 与 `SmsScene.changePhone.rawValue` **当前**相等，
-    ///         若两者出现分歧，以本常量为准（改绑接口专用）。
     private static let modifyBindingType = 4
 
     // MARK: - Debug 测试标志
 
     /// 测试模式标志（仅 DEBUG 构建携带）
-    ///
-    /// ## 作用
-    /// 后端 `user/get_code` 接口在 `is_test = 1` 时：
-    /// - **不真实发送**短信 / 邮件
-    /// - 在响应 `data.code` 里返回验证码
-    /// - 客户端可自动填充，实现秒级调试
-    ///
-    /// ## Release 安全保证
-    /// 用 `#if DEBUG` 编译期隔离——
-    /// Release 构建**绝不会**携带此字段，防止线上用户收到测试验证码。
     private static let testModeFlag: Int? = {
         #if DEBUG
         return 1
@@ -123,13 +107,10 @@ enum AccountSecurityAPI: APIRequest {
     ///   - account: 接收验证码的手机号 / 邮箱
     ///   - accountType: 账号类型
     ///   - scene: 业务场景
-    ///   - userId: 用户 ID（**可选**）——Postman 实测 Step 2 会带上
-    case sendCode(
-        account: String,
-        accountType: AccountType,
-        scene: SmsScene,
-        userId: String?
-    )
+    ///   - userId: 用户 ID（**可选**）
+    ///     - **Step 1**（验证旧账号）：传 `nil`——后端通过 `user-token` 识别用户
+    ///     - **Step 2**（绑定新账号）：传当前登录用户 ID——后端据此关联"改绑记录"
+    case sendCode(account: String, accountType: AccountType, scene: SmsScene, userId: String?)
 
     // MARK: - APIRequest
 
@@ -179,10 +160,6 @@ enum AccountSecurityAPI: APIRequest {
         //
         // Postman 实测请求：
         //   `{"code": "1234", "mobile": "18384891021", "type": 4}`
-        //
-        // - Note: **不带 `old_code`**——
-        //         旧手机验证在 Step 1 已通过，后端按 type=4 关联当前登录用户处理。
-        //         新手机收到的验证码通过 `code` 字段提交。
         case .changePhone(let newPhone, let newCode),
              .bindPhone(let newPhone, let newCode):
             return mobileParameters(newMobile: newPhone, code: newCode)
@@ -211,9 +188,6 @@ enum AccountSecurityAPI: APIRequest {
         // Postman 实测请求：
         //   Step 1（旧账号）：`{"is_test": 1, "mobile": "...", "type": 4}`
         //   Step 2（新账号）：`{"is_test": 1, "mobile": "...", "type": 4, "user_id": 3910}`
-        //
-        // - Note: `user_id` **可选**——Step 2 带上，Step 1 不带。
-        //         `is_test = 1` 只在 DEBUG 下携带。
         case .sendCode(let account, let accountType, let scene, let userId):
             var p: [String: Any] = [
                 "type": scene.rawValue
@@ -223,7 +197,7 @@ enum AccountSecurityAPI: APIRequest {
             p.merge(accountField(account, type: accountType)) { _, new in new }
 
             // 可选 userId——仅 Step 2（绑定新账号）时携带
-            if let userId, !userId.isEmpty {
+            if let userId = userId?.nilIfBlank {
                 p["user_id"] = userId
             }
 
@@ -239,12 +213,6 @@ enum AccountSecurityAPI: APIRequest {
     /// 请求头：附加 `user-token`
     ///
     /// - Returns: 含 `user-token` 的请求头；无 token 时返回 `nil`
-    ///
-    /// - Note:
-    ///   - `AuthStore.shared.token` 内部线程安全（Keychain / UserDefaults 均线程安全），
-    ///     `asURLRequest()` 在任意线程调用都安全
-    ///   - 无 token 时返回 `nil`——后端会返回业务码 `-201`（缺少 UserToken），
-    ///     由 `NetworkClient` 映射为 `.tokenExpired`
     var headers: HTTPHeaders? {
         guard let token = AuthStore.shared.token, !token.isEmpty else {
             AppLog.profile.debug(
@@ -263,9 +231,6 @@ enum AccountSecurityAPI: APIRequest {
     ///   - newMobile: 新手机号
     ///   - code: 新手机收到的验证码
     /// - Returns: 后端所需参数字典
-    ///
-    /// - Note: `changePhone` 与 `bindPhone` **共用**——
-    ///         后端按 type=4 + 当前登录用户识别"修改"还是"绑定"。
     private func mobileParameters(newMobile: String, code: String) -> [String: Any] {
         [
             "mobile": newMobile,
@@ -280,8 +245,6 @@ enum AccountSecurityAPI: APIRequest {
     ///   - newEmail: 新邮箱
     ///   - code: 新邮箱收到的验证码
     /// - Returns: 后端所需参数字典
-    ///
-    /// - Note: 与 `mobileParameters` 对称——只把 `mobile` 换成 `email`。
     private func emailParameters(newEmail: String, code: String) -> [String: Any] {
         [
             "email": newEmail,
@@ -296,23 +259,20 @@ enum AccountSecurityAPI: APIRequest {
     ///   - account: 账号字符串
     ///   - type: 账号类型
     /// - Returns: 单键字典
-    ///
-    /// ## 字段名映射（后端历史遗留）
-    /// | 账号类型 | 字段名 |
-    /// |---|---|
-    /// | `.mobile` / `.account` | `mobile` |
-    /// | `.email` | `user_email` |
     private func accountField(_ account: String, type: AccountType) -> [String: Any] {
         switch type {
-        case .mobile, .account:
-            // `.account`（用户名）在改绑接口中**不应出现**——
-            // 但为容错起见，与 `.mobile` 走同一分支。
-            // 若出现异常调用（如误传 `.account`），会以 mobile 字段发送，
-            // 后端会因参数不匹配返回错误 → 便于暴露调用方 bug。
+        case .mobile:
             return ["mobile": account]
 
         case .email:
             return ["user_email": account]
+
+        case .account:
+            // ⚠️ 编程错误：`.account` 类型仅密码登录支持，
+            //    改绑接口永远不应使用。此处崩溃以便暴露调用方 bug。
+            preconditionFailure(
+                "accountField 不支持 .account 类型（仅密码登录使用，改绑接口不应出现）"
+            )
         }
     }
 }

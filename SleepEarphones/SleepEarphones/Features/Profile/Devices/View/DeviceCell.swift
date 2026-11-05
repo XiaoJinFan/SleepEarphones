@@ -9,8 +9,7 @@ import UIKit
 import SnapKit
 import Kingfisher
 
-/// 设备列表单元格
-/// 
+
 @MainActor
 final class DeviceCell: UITableViewCell {
 
@@ -35,10 +34,13 @@ final class DeviceCell: UITableViewCell {
         static let cardMinVerticalPadding: CGFloat = AppSpacing.md
 
         /// 信息栈额外上下内边距
-        static let infoStackExtraInset: CGFloat = 4
+        static let infoStackExtraInset: CGFloat = AppSpacing.xxs
 
         /// 状态点直径
         static let dotDiameter: CGFloat = 8
+
+        /// 状态点与文字间距
+        static let dotToTextSpacing: CGFloat = 6
     }
 
     // MARK: - UI
@@ -60,28 +62,26 @@ final class DeviceCell: UITableViewCell {
         return iv
     }()
 
-    /// 设备名称
+    /// 设备名称（**内容来自后端，已本地化**）
     private let nameLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Title.card
         l.textColor = AppColor.Text.primary
         l.numberOfLines = 1
         l.lineBreakMode = .byTruncatingTail
+        // 名称可被压缩（状态文字优先保留）
         l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return l
     }()
 
     /// 状态点（小圆点）
-    ///
-    /// - Note: 圆角在 `layoutSubviews` 里按实际宽度计算——
-    ///         避免固定圆角值与约束尺寸不一致导致"圆点变圆角方块"。
     private let dotView: UIView = {
         let v = UIView()
         v.clipsToBounds = true
         return v
     }()
 
-    /// 状态文字（"已连接" / "未连接" / "故障"）
+    /// 状态文字（`"已连接"` / `"未连接"` / `"故障"`，**已本地化**）
     private let statusLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Caption.emphasized
@@ -92,14 +92,14 @@ final class DeviceCell: UITableViewCell {
     private lazy var statusStack: UIStackView = {
         let s = UIStackView(arrangedSubviews: [dotView, statusLabel])
         s.axis = .horizontal
-        s.spacing = 6
+        s.spacing = Layout.dotToTextSpacing
         s.alignment = .center
         s.setContentHuggingPriority(.required, for: .horizontal)
         s.setContentCompressionResistancePriority(.required, for: .horizontal)
         return s
     }()
 
-    /// 副标题（MAC 或序列号）
+    /// 副标题（MAC / 最后连接时间）
     private let subtitleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Caption.regular
@@ -188,14 +188,17 @@ final class DeviceCell: UITableViewCell {
             make.leading.equalToSuperview().offset(Layout.cardPadding)
             make.centerY.equalToSuperview()
             make.width.height.equalTo(Layout.imageSize)
-            make.top.greaterThanOrEqualToSuperview().offset(Layout.cardMinVerticalPadding)
-            make.bottom.lessThanOrEqualToSuperview().offset(-Layout.cardMinVerticalPadding)
+            make.top.greaterThanOrEqualToSuperview()
+                .offset(Layout.cardMinVerticalPadding)
+            make.bottom.lessThanOrEqualToSuperview()
+                .offset(-Layout.cardMinVerticalPadding)
         }
 
         // 信息栈约束
         let infoInset = Layout.cardMinVerticalPadding + Layout.infoStackExtraInset
         infoStack.snp.makeConstraints { make in
-            make.leading.equalTo(deviceImageView.snp.trailing).offset(Layout.cardPadding)
+            make.leading.equalTo(deviceImageView.snp.trailing)
+                .offset(Layout.cardPadding)
             make.trailing.equalToSuperview().offset(-Layout.cardPadding)
             make.centerY.equalToSuperview()
             make.top.greaterThanOrEqualToSuperview().offset(infoInset)
@@ -212,7 +215,8 @@ final class DeviceCell: UITableViewCell {
 
     /// 配置单元格
     ///
-    /// - Parameter device: 设备模型
+    /// - Parameter device: 设备模型（`name` / `status.title` / `subtitle`
+    ///                      均已在模型层本地化）
     func configure(with device: DeviceModel) {
         nameLabel.text = device.name
 

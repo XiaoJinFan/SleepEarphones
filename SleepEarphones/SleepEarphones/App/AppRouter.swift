@@ -7,6 +7,8 @@
 
 import UIKit
 
+/// 应用级路由中心
+///
 /// ## 调用方法
 /// ```swift
 /// // 1. SceneDelegate 启动时
@@ -22,6 +24,9 @@ import UIKit
 /// // 4. 语言切换 / 主题切换等需要刷新整个 UI 时
 /// AppRouter.shared.reloadRoot()
 /// ```
+///
+/// - Important: 本类**只负责根控制器切换**，不负责深链 / 业务路由分发。
+///   深链入口统一在 `SceneDelegate` 分发到各 Feature 的 Coordinator。
 @MainActor
 final class AppRouter {
 
@@ -30,15 +35,19 @@ final class AppRouter {
     static let shared = AppRouter()
     private init() {}
 
-    // MARK: - Constants
+    // MARK: - Storyboard 常量
 
     /// Storyboard 名称与 VC 标识符集中管理
+    ///
+    /// - Note: 新增 Storyboard 页面时，请在此处登记，
+    ///         避免 `"Main"` 等字符串散落在各 VC 中（当前 `LoginViewController`
+    ///         内部也持有 `StoryboardIDs`，未来可迁移到此处统一）。
     private enum Storyboard {
         /// 登录 Storyboard 文件名（无扩展名）
         static let loginName = "LoginViewController"
-        /// LoginViewController 在 storyboard 内的 storyboardIdentifier
+        /// `LoginViewController` 在 storyboard 内的 identifier
         static let loginID = "LoginViewController"
-        /// 主 Storyboard 名称（初始 VC 必须是 MainTabBarController）
+        /// 主 Storyboard 名称（初始 VC 必须是 `MainTabBarController`）
         static let mainName = "Main"
     }
 
@@ -50,6 +59,8 @@ final class AppRouter {
     // MARK: - Public
 
     /// 绑定 window
+    ///
+    /// - Parameter window: `SceneDelegate` 创建的 key window
     func bind(window: UIWindow) {
         self.window = window
     }
@@ -86,11 +97,12 @@ final class AppRouter {
             AppLog.app.error(
                 "\(Storyboard.loginID, privacy: .public) 未配置 storyboardIdentifier 或类型不匹配"
             )
-            assertionFailure("LoginViewController 未配置 storyboardIdentifier")
+            assertionFailure(
+                "LoginViewController storyboardIdentifier mismatch — check LoginViewController.storyboard"
+            )
             return
         }
 
-        // 用 NavigationController 包裹，确保登录页可以 push 到注册 / 找回密码
         let nav = UINavigationController(rootViewController: loginVC)
         nav.setNavigationBarHidden(true, animated: false)
 
@@ -109,7 +121,9 @@ final class AppRouter {
         let sb = UIStoryboard(name: Storyboard.mainName, bundle: nil)
         guard let mainVC = sb.instantiateInitialViewController() as? MainTabBarController else {
             AppLog.app.error("Main.storyboard 的初始控制器必须是 MainTabBarController")
-            assertionFailure("Main.storyboard 的初始控制器必须是 MainTabBarController")
+            assertionFailure(
+                "Main.storyboard's initial controller must be MainTabBarController"
+            )
             return
         }
 
@@ -147,6 +161,11 @@ final class AppRouter {
     // MARK: - Private
 
     /// 替换根控制器
+    ///
+    /// - Parameters:
+    ///   - vc: 新的根控制器
+    ///   - window: 目标 window
+    ///   - animated: 是否使用过渡动画
     private func setRoot(_ vc: UIViewController, on window: UIWindow, animated: Bool) {
         guard animated else {
             window.rootViewController = vc
@@ -165,11 +184,14 @@ final class AppRouter {
             completion: nil
         )
     }
-    
+
+    /// 未绑定 window 时的统一日志 + 断言
     private func logMissingWindow(caller: String) {
         AppLog.app.error(
-            "AppRouter.\(caller, privacy: .public) 未绑定 window，请先在 SceneDelegate 调用 bind(window:)"
+            "\(caller, privacy: .public) 未绑定 window，请先在 SceneDelegate 调用 bind(window:)"
         )
-        assertionFailure("AppRouter 未绑定 window")
+        assertionFailure(
+            "AppRouter.window is nil — call bind(window:) from SceneDelegate before any navigation"
+        )
     }
 }

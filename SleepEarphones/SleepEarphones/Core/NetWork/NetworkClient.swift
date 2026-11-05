@@ -17,10 +17,7 @@ public protocol NetworkClientProtocol: Sendable {
     ///   - api: 请求实例（遵循 `APIRequest`）
     ///   - type: 期望解码的目标类型
     /// - Returns: 解析后的 Publisher
-    func request<T: Decodable & Sendable>(
-        _ api: APIRequest,
-        as type: T.Type
-    ) -> AnyPublisher<T, NetworkError>
+    func request<T: Decodable & Sendable>(_ api: APIRequest, as type: T.Type) -> AnyPublisher<T, NetworkError>
 }
 
 /// 网络客户端
@@ -151,7 +148,7 @@ public final class NetworkClient: NetworkClientProtocol {
     /// 1. **业务级 Token 失效**：`code ∈ {-201, -202, -203, -300}`
     /// 2. **业务成功**：`code == 1`
     /// 3. **业务失败**：其余 code（含 `0` / `-800` / `-900` / `-999` 等）
-    /// 4. **`data` 缺失**：成功码但 data 为 nil（见下方边界说明）
+    /// 4. **`data` 缺失**：成功码但 data 为 nil
     /// 5. **`data` 解码失败**：成功码但类型不匹配
     ///
     /// ## 边界说明 — `data: null` 场景
@@ -167,10 +164,7 @@ public final class NetworkClient: NetworkClientProtocol {
     ///
     /// 若未来需修复，建议在 App 层新增一个"空响应"包装器，
     /// 或在 `AuthRepository` 的 `forgetPassword` 里加 `.catch` 兜底。
-    private nonisolated static func handle<T: Decodable & Sendable>(
-        response: DataResponse<APIResponse<T>, AFError>,
-        requestID: String
-    ) -> Result<T, NetworkError> {
+    private nonisolated static func handle<T: Decodable & Sendable>(response: DataResponse<APIResponse<T>, AFError>, requestID: String) -> Result<T, NetworkError> {
 
         switch response.result {
         case .success(let apiResponse):
@@ -288,6 +282,10 @@ public final class NetworkClient: NetworkClientProtocol {
     /// - 若日志再用 `asURLRequest()`，同一份 body 会被构造**两次**——
     ///   白白浪费几百毫秒 CPU + 内存峰值
     ///
+    /// 实际观测：500KB 头像的 multipart body 构造约需 200~300ms
+    /// （主要耗时在 `Data.append` 与 `UTF-8` 编码）。若第二次构造没有
+    /// 及时释放，峰值内存会翻倍，低端机（iPhone SE 2）上有明显卡顿。
+    ///
     /// ## 正确做法
     /// 用 `api.urlString`——`APIRequest` 协议扩展提供的计算属性，
     /// 只做 `URLBuilder.build(base:path:)` 的纯字符串拼接，
@@ -334,6 +332,9 @@ private final class RequestBox: @unchecked Sendable {
     /// 存储请求；若已被取消则立即取消该请求
     ///
     /// - Parameter request: 待存储的 Alamofire 请求
+    ///
+    /// - Note: `cancel()` 在锁外调用——避免 Alamofire 内部的同步回调
+    ///         再次进入本类的其他方法导致死锁。
     func set(_ request: DataRequest) {
         lock.lock()
         let shouldCancelImmediately = cancelled
@@ -342,8 +343,6 @@ private final class RequestBox: @unchecked Sendable {
         }
         lock.unlock()
 
-        // `cancel` 在锁外调用——避免 Alamofire 内部的同步回调
-        // 再次进入本类的其他方法导致死锁
         if shouldCancelImmediately {
             request.cancel()
         }

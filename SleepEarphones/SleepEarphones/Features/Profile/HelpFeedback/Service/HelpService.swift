@@ -10,6 +10,41 @@ import Combine
 
 // MARK: - 服务协议
 
+/// 帮助服务协议
+///
+/// ## 职责
+/// - 只负责**网络请求**（调用 `NetworkClient`）
+/// - 不做缓存 / 不做数据转换 / 不做 UI 逻辑
+///
+/// ## 调用方法
+/// ```swift
+/// // 1. 生产环境
+/// let service = HelpService()
+///
+/// // 2. 单元测试（注入 Mock）
+/// let service = HelpService(client: MockNetworkClient())
+///
+/// // 3. 调用
+/// service.fetchHelpList(categoryId: HelpAPI.helpCenterCategoryId)
+///     .sink(
+///         receiveCompletion: { ... },
+///         receiveValue: { items in ... }
+///     )
+///     .store(in: &cancellables)
+/// ```
+///
+/// ## 与 `MessageService` 的关系
+/// | 维度 | `HelpService` | `MessageService` |
+/// |---|---|---|
+/// | 后端接口 | `6729cd8c2190d` | `6729cd8c2190d`（**相同**） |
+/// | `operationarticlecate_id` | `2` | `1` |
+/// | 返回类型 | `[HelpFAQItem]` | `[MessageModel]` |
+///
+/// - Note: 两者调用**同一后端接口**，仅靠 `operationarticlecate_id` 区分返回数据。
+///
+/// ## 关于 `Sendable`
+/// 协议要求 `Sendable`——实现方需保证 `client` 属性是 `let`
+/// 且类型 `Sendable`。
 protocol HelpServiceProtocol: Sendable {
 
     /// 拉取指定分类下的帮助文章列表
@@ -22,14 +57,7 @@ protocol HelpServiceProtocol: Sendable {
 // MARK: - 服务实现
 
 /// 帮助服务实现
-///
-/// ## 依赖注入
-/// `client` 通过协议注入，默认使用 `NetworkClient()`：
-/// - 生产环境：`HelpService()` 使用默认 `NetworkClient`
-/// - 单元测试：`HelpService(client: MockNetworkClient())`
-///
-/// - Note: 无状态服务类，天然 `Sendable`。
-final class HelpService: HelpServiceProtocol {
+final class HelpService: HelpServiceProtocol, Sendable {
 
     // MARK: - Properties
 

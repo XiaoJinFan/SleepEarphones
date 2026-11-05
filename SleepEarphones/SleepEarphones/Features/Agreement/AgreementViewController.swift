@@ -9,55 +9,16 @@ import UIKit
 import WebKit
 import Combine
 
-/// 协议展示页
-///
-/// ## 职责
-/// - 调 API 拉取协议 HTML 内容并渲染
-/// - 加载失败时回退到原始 URL
-/// - 管理加载菊花与错误弹窗（防重入）
-///
-/// ## 加载策略
-/// 1. **优先**调 API（`AgreementService.fetchAgreement`）拉取 HTML 内容
-/// 2. 用 `AgreementHTMLTemplate.wrap(_:)` 包裹后加载到 `WKWebView`
-/// 3. API 失败时 **回退到原始 URL**（`fallbackURL`），直接加载网页
-///
-/// ## 加载状态与菊花
-/// | 阶段 | 菊花 |
-/// |---|---|
-/// | API 请求中 | ✅ 显示 |
-/// | API 成功 → HTML 渲染中 | ❌ 停止（HTML 本地加载极快，无需菊花） |
-/// | API 失败 → 回退 URL 加载中 | ✅ **重启**（网络加载需要等待） |
-/// | 加载完成 / 失败 | ❌ 停止 |
-///
-/// ## 调用方法
-/// ```swift
-/// // 1. 从任意 VC push 进入（推荐）
-/// AgreementViewController.push(
-///     from: self,
-///     columnId: 9,
-///     title: "用户注册协议",
-///     fallbackURL: AgreementLinks.userAgreement
-/// )
-///
-/// // 2. 或通过导航中心（自动解析 column_id 和标题）
-/// AgreementNavigation.open(from: self, urlString: AgreementLinks.userAgreement)
-/// ```
+
 @MainActor
 final class AgreementViewController: UIViewController {
 
     // MARK: - Config
 
     /// 单页 KID（可选）
-    ///
-    /// - Note: 传给 `AgreementAPI.getColumn(columnId:)`；
-    ///         传 `nil` 时后端返回默认协议。
     private let columnId: Int?
 
     /// 接口失败时回退的 URL
-    ///
-    /// - Note:
-    ///   - 一般为 `AgreementLinks` 里的原始 URL
-    ///   - 若为 `nil`，接口失败时直接弹错并 pop
     private let fallbackURL: String?
 
     // MARK: - Deps
@@ -66,9 +27,6 @@ final class AgreementViewController: UIViewController {
     private let service: AgreementServiceProtocol
 
     /// Combine 订阅容器
-    ///
-    /// - Note: **必须**在 `loadAgreement()` 中 `.store(in: &cancellables)`——
-    ///         否则订阅会随 sink 结束被丢弃，VC 释放后请求回调仍可能执行。
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - UI
@@ -108,7 +66,8 @@ final class AgreementViewController: UIViewController {
     ///
     /// - Parameters:
     ///   - columnId: 单页 KID（可选，传 nil 返回后端默认协议）
-    ///   - title: 页面标题（会作为初始导航栏标题；接口返回 `name` 后会覆盖）
+    ///   - title: 页面标题（会作为初始导航栏标题；接口返回 `name` 后会覆盖）。
+    ///            **调用方应传入 `L(...)` 已本地化的字符串**
     ///   - fallbackURL: 接口失败时回退的 URL
     ///   - service: 协议服务，默认 `AgreementService.shared`
     init(columnId: Int?, title: String, fallbackURL: String? = nil, service: AgreementServiceProtocol = AgreementService.shared) {
@@ -188,7 +147,8 @@ final class AgreementViewController: UIViewController {
                             "协议接口失败：\(error.logCode, privacy: .public)，尝试回退到 URL"
                         )
                         // 接口挂了 → 用原始 URL 兜底
-                        self.fallbackToURL(error.errorDescription ?? "加载失败")
+                        // 错误描述来自 NetworkError.errorDescription（已本地化）
+                        self.fallbackToURL(error.errorDescription ?? L("加载失败"))
                     }
                 },
                 receiveValue: { [weak self] content in
@@ -204,14 +164,6 @@ final class AgreementViewController: UIViewController {
     /// 用接口返回的 HTML 渲染
     ///
     /// - Parameter content: 接口返回的协议内容
-    ///
-    /// ## 行为
-    /// - 用接口返回的 `name` 更新标题（避免硬编码）
-    /// - 用 `AgreementHTMLTemplate.wrap(_:)` 包裹 HTML 片段
-    /// - 加载到 `WKWebView`
-    ///
-    /// - Note: HTML 是**本地字符串**——加载速度极快，
-    ///         无需显示菊花（`loadAgreement` 的 completion 已停止）。
     private func render(content: AgreementContent) {
         // 用接口返回的 name 更新标题（避免硬编码）
         if let name = content.name, !name.isEmpty {
@@ -220,9 +172,11 @@ final class AgreementViewController: UIViewController {
 
         // 内容为空：直接展示"暂无内容"占位
         guard content.hasContent else {
-            AppLog.agreement.warning("协议内容为空，columnId=\(self.columnIdLog, privacy: .public)")
+            AppLog.agreement.warning(
+                "协议内容为空，columnId=\(self.columnIdLog, privacy: .public)"
+            )
             webView.loadHTMLString(
-                AgreementHTMLTemplate.wrap("暂无内容"),
+                AgreementHTMLTemplate.wrap(L("暂无内容")),
                 baseURL: nil
             )
             return
@@ -236,9 +190,6 @@ final class AgreementViewController: UIViewController {
     /// 回退：打开原始 URL
     ///
     /// - Parameter message: 错误信息（若 `fallbackURL` 无效时用于弹错）
-    ///
-    /// - Note: 回退优先于弹错——只要 `fallbackURL` 有效，
-    ///         就用 WebView 打开，用户体验更连贯。
     private func fallbackToURL(_ message: String) {
         guard let s = fallbackURL, let url = URL(string: s) else {
             AppLog.agreement.error("回退 URL 无效，弹错并返回")
@@ -256,10 +207,7 @@ final class AgreementViewController: UIViewController {
 
     /// 展示错误弹窗（**带防重入**）
     ///
-    /// - Parameter message: 错误信息
-    ///
-    /// - Note: 使用 `UIViewController+Toast` 扩展的 `showAlert`。
-    ///         点确定后返回上一页。
+    /// - Parameter message: 错误信息（已本地化）
     private func showErrorAlert(_ message: String) {
         guard !hasShownErrorAlert else {
             AppLog.agreement.debug("已提示过错误，忽略重复弹窗")
@@ -269,7 +217,7 @@ final class AgreementViewController: UIViewController {
 
         showAlert(
             message,
-            title: "提示",
+            title: L("提示"),
             popOnDismiss: true
         )
     }
@@ -281,12 +229,8 @@ final class AgreementViewController: UIViewController {
     /// - Parameters:
     ///   - vc: 调用方
     ///   - columnId: 单页 KID（可选）
-    ///   - title: 页面标题
+    ///   - title: 页面标题（**调用方应传入 `L(...)` 已本地化的字符串**）
     ///   - fallbackURL: 接口失败时回退的 URL
-    ///
-    /// ## 行为
-    /// - 若 `vc` 处于导航栈中 → Push 进入
-    /// - 否则 → 用 NavigationController 包裹后 Modal 呈现
     static func push(from vc: UIViewController, columnId: Int?, title: String, fallbackURL: String? = nil) {
         let target = AgreementViewController(
             columnId: columnId,
@@ -327,7 +271,7 @@ extension AgreementViewController: WKNavigationDelegate {
     /// - Parameters:
     ///   - webView: 触发的 WebView
     ///   - navigation: 导航对象
-    ///   - error: 错误信息
+    ///   - error: 错误信息（`WKError`，其 `localizedDescription` 已本地化）
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         indicator.stopAnimating()
 

@@ -10,16 +10,56 @@ import SnapKit
 
 /// 耳机功能动作类型（支持的所有选项）
 enum EarAction: String, CaseIterable {
+
+    /// 模式切换
     case modeSwitch = "模式切换"
+
+    /// 减小音量
     case volumeDown = "减小音量"
-    case volumeUp   = "增大音量"
-    case previous   = "上一曲"
-    case next       = "下一曲"
-    case playPause  = "播放/暂停"
-    case none       = "无"
+
+    /// 增大音量
+    case volumeUp = "增大音量"
+
+    /// 上一曲
+    case previous = "上一曲"
+
+    /// 下一曲
+    case next = "下一曲"
+
+    /// 播放 / 暂停
+    case playPause = "播放/暂停"
+
+    /// 无（不绑定动作）
+    case none = "无"
+
+    /// 展示名称（**已本地化**）
+    ///
+    /// - Returns: 当前语言下的展示文案
+    var displayName: String {
+        switch self {
+        case .modeSwitch: return LN("模式切换")
+        case .volumeDown: return LN("减小音量")
+        case .volumeUp:   return LN("增大音量")
+        case .previous:   return LN("上一曲")
+        case .next:       return LN("下一曲")
+        case .playPause:  return LN("播放/暂停")
+        case .none:       return LN("无")
+        }
+    }
 }
 
 /// 自定义底部滚轮选择器
+///
+/// ## 调用方法
+/// ```swift
+/// let picker = ActionPickerViewController(
+///     actionTitle: "左耳双击",  // 调用方负责本地化（如 "\(ear.title)\(action.displayName)"）
+///     currentAction: .volumeUp
+/// ) { newAction in
+///     // 用户点击"确认"
+/// }
+/// present(picker, animated: false)
+/// ```
 @MainActor
 final class ActionPickerViewController: UIViewController {
 
@@ -28,6 +68,7 @@ final class ActionPickerViewController: UIViewController {
     private enum Layout {
         static let pickerHeight: CGFloat = 250
         static let toolbarHeight: CGFloat = 50
+        static let rowHeight: CGFloat = 50
     }
 
     // MARK: - Properties
@@ -50,8 +91,8 @@ final class ActionPickerViewController: UIViewController {
 
     private lazy var containerView: UIView = {
         let view = UIView()
-        view.backgroundColor = .white
-        view.layer.cornerRadius = 16
+        view.backgroundColor = AppColor.Background.card
+        view.layer.cornerRadius = AppSpacing.Corner.card
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         view.clipsToBounds = true
         return view
@@ -61,20 +102,20 @@ final class ActionPickerViewController: UIViewController {
         let view = UIView()
         // 底部细线
         let line = UIView()
-        line.backgroundColor = UIColor(hex: "#E5E5EA")
+        line.backgroundColor = AppColor.separator
         view.addSubview(line)
         line.snp.makeConstraints { make in
             make.leading.trailing.bottom.equalToSuperview()
-            make.height.equalTo(0.5)
+            make.height.equalTo(AppSpacing.Border.hairline)
         }
         return view
     }()
 
     private lazy var cancelButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("取消", for: .normal)
-        btn.setTitleColor(UIColor(hex: "#333333"), for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16)
+        btn.setTitle(L("取消"), for: .normal)
+        btn.setTitleColor(AppColor.Text.primary, for: .normal)
+        btn.titleLabel?.font = AppFont.Body.regular
         btn.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
         return btn
     }()
@@ -82,17 +123,17 @@ final class ActionPickerViewController: UIViewController {
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.text = actionTitle
-        label.font = .systemFont(ofSize: 16, weight: .medium)
-        label.textColor = UIColor(hex: "#333333")
+        label.font = AppFont.Body.emphasized
+        label.textColor = AppColor.Text.primary
         label.textAlignment = .center
         return label
     }()
 
     private lazy var confirmButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("确认", for: .normal)
+        btn.setTitle(L("确认"), for: .normal)
         btn.setTitleColor(AppColor.Brand.primary, for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        btn.titleLabel?.font = AppFont.Body.emphasized
         btn.addTarget(self, action: #selector(confirmTapped), for: .touchUpInside)
         return btn
     }()
@@ -108,7 +149,7 @@ final class ActionPickerViewController: UIViewController {
 
     /// 初始化
     /// - Parameters:
-    ///   - actionTitle: 操作类型标题（如："双击"）
+    ///   - actionTitle: 操作类型标题（如："左耳双击"）——**调用方负责本地化**
     ///   - currentAction: 当前选中的动作
     ///   - onConfirm: 点击确认后的回调
     init(actionTitle: String, currentAction: EarAction, onConfirm: @escaping (EarAction) -> Void) {
@@ -132,7 +173,7 @@ final class ActionPickerViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupConstraints()
-        
+
         // 默认滚动到当前选中的行
         if let index = options.firstIndex(of: selectedAction) {
             pickerView.selectRow(index, inComponent: 0, animated: false)
@@ -148,15 +189,15 @@ final class ActionPickerViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = .clear
-        
+
         view.addSubview(dimmingView)
         view.addSubview(containerView)
-        
+
         containerView.addSubview(toolbarView)
         toolbarView.addSubview(cancelButton)
         toolbarView.addSubview(titleLabel)
         toolbarView.addSubview(confirmButton)
-        
+
         containerView.addSubview(pickerView)
     }
 
@@ -164,32 +205,32 @@ final class ActionPickerViewController: UIViewController {
         dimmingView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-        
+
         // 初始状态隐藏在屏幕底部
         containerView.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
             make.top.equalTo(view.snp.bottom)
         }
-        
+
         toolbarView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
             make.height.equalTo(Layout.toolbarHeight)
         }
-        
+
         cancelButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
+            make.leading.equalToSuperview().offset(AppSpacing.md)
             make.centerY.equalToSuperview()
         }
-        
+
         confirmButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-16)
+            make.trailing.equalToSuperview().offset(-AppSpacing.md)
             make.centerY.equalToSuperview()
         }
-        
+
         titleLabel.snp.makeConstraints { make in
             make.center.equalToSuperview()
         }
-        
+
         pickerView.snp.makeConstraints { make in
             make.top.equalTo(toolbarView.snp.bottom)
             make.leading.trailing.bottom.equalToSuperview()
@@ -205,8 +246,12 @@ final class ActionPickerViewController: UIViewController {
             make.leading.trailing.bottom.equalToSuperview()
             make.top.equalTo(view.snp.bottom).offset(-(Layout.pickerHeight + Layout.toolbarHeight + view.safeAreaInsets.bottom))
         }
-        
-        UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
+
+        UIView.animate(
+            withDuration: AppSpacing.Animation.slow,
+            delay: 0,
+            options: .curveEaseOut
+        ) {
             self.dimmingView.alpha = 1
             self.view.layoutIfNeeded()
         }
@@ -218,11 +263,16 @@ final class ActionPickerViewController: UIViewController {
             make.leading.trailing.equalToSuperview()
             make.top.equalTo(view.snp.bottom)
         }
-        
-        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn, animations: {
-            self.dimmingView.alpha = 0
-            self.view.layoutIfNeeded()
-        }) { _ in
+
+        UIView.animate(
+            withDuration: AppSpacing.Animation.standard,
+            delay: 0,
+            options: .curveEaseIn,
+            animations: {
+                self.dimmingView.alpha = 0
+                self.view.layoutIfNeeded()
+            }
+        ) { _ in
             self.dismiss(animated: false, completion: completion)
         }
     }
@@ -242,33 +292,35 @@ final class ActionPickerViewController: UIViewController {
 // MARK: - UIPickerViewDataSource & UIPickerViewDelegate
 
 extension ActionPickerViewController: UIPickerViewDataSource, UIPickerViewDelegate {
+
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
     }
-    
+
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
         return options.count
     }
-    
+
+    /// 纯文本行——用于系统默认渲染（不常用，因为 `viewForRow` 会覆盖）
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        return options[row].rawValue
+        return options[row].displayName
     }
-    
+
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         selectedAction = options[row]
     }
-    
+
     func pickerView(_ pickerView: UIPickerView, rowHeightForComponent component: Int) -> CGFloat {
-        return 50
+        return Layout.rowHeight
     }
-    
+
+    /// 自定义行视图
     func pickerView(_ pickerView: UIPickerView, viewForRow row: Int, forComponent component: Int, reusing view: UIView?) -> UIView {
         let label = UILabel()
-        label.text = options[row].rawValue
+        label.text = options[row].displayName
         label.textAlignment = .center
-        // 选中和未选中字体颜色区分
-        label.font = .systemFont(ofSize: 20, weight: .medium)
-        label.textColor = UIColor(hex: "#333333")
+        label.font = AppFont.Title.section
+        label.textColor = AppColor.Text.primary
         return label
     }
 }

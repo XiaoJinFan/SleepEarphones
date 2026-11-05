@@ -8,6 +8,17 @@
 import UIKit
 import SnapKit
 
+/// 音乐卡片 Cell（首页音乐 Tab 的分类横滑列表使用）
+///
+/// ## 布局结构
+/// ```
+/// ┌──────────────┐
+/// │              │  ← 正方形封面
+/// │   封面图     │
+/// │              │
+/// └──────────────┘
+///  音乐标题          ← 单行，尾部截断
+/// ```
 @MainActor
 final class MusicCardCell: UICollectionViewCell {
 
@@ -18,13 +29,9 @@ final class MusicCardCell: UICollectionViewCell {
     // MARK: - Layout
 
     /// 内部布局常量
-    ///
-    /// - Note: 这些值必须与 `MusicViewController.CardLayout` **保持一致**——
-    ///         因为 Cell 内部布局与外部 itemHeight 计算共用同一套参数。
-    ///         当前为"视觉设计稿"约定值。
     private enum Layout {
         /// 标题与封面的间距
-        static let titleSpacing: CGFloat = 8
+        static let titleSpacing: CGFloat = AppSpacing.xs
     }
 
     // MARK: - UI
@@ -34,17 +41,13 @@ final class MusicCardCell: UICollectionViewCell {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
-        // 圆角与设计稿对齐（12pt）
+        // 圆角与设计稿对齐（`AppSpacing.Corner.card` = 12pt）
         iv.layer.cornerRadius = AppSpacing.Corner.card
         iv.backgroundColor = AppColor.Background.card
         return iv
     }()
 
     /// 标题（单行，尾部截断）
-    ///
-    /// - Note: **不设固定高度**——由 `AppFont.Body.secondary` 的 intrinsic size 决定。
-    ///         外层 `CardLayout.titleHeight` 已通过 `font.lineHeight` 计算
-    ///         出对应的高度，两侧自然对齐。
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Body.secondary
@@ -68,13 +71,6 @@ final class MusicCardCell: UICollectionViewCell {
     // MARK: - Reuse
 
     /// 复用清理
-    ///
-    /// - Note: 原代码**未实现此方法**——`UICollectionView` 复用时
-    ///         若 `titleLabel` / `coverImageView` 未清空，会短暂显示上一张卡片的内容。
-    ///         虽然 Kingfisher 会自动取消旧图下载，但：
-    ///         1. `titleLabel.text` 不会被自动清空
-    ///         2. `coverImageView.image` 在 Kingfisher 加载新图前仍显示旧图
-    ///         因此必须手动清理。
     override func prepareForReuse() {
         super.prepareForReuse()
 
@@ -110,7 +106,7 @@ final class MusicCardCell: UICollectionViewCell {
 
     /// 配置单元格
     ///
-    /// - Parameter item: 音乐卡片模型
+    /// - Parameter item: 音乐卡片模型（`title` / `coverURL` 已由后端本地化）
     func configure(with item: MusicCardItem) {
         coverImageView.setImage(
             item.coverURL,
@@ -121,39 +117,52 @@ final class MusicCardCell: UICollectionViewCell {
 }
 
 // ============================================================
-// MARK: - 配套改动说明（无需复制到本文件）
+// MARK: - 跨文件约束说明（重要）
 // ============================================================
 //
-// ⚠️ `MusicViewController.swift` 的 `CardLayout.titleHeight = 20` 必须同步修改：
+// ## 本 Cell 与 `MusicViewController.CardLayout` 的耦合
 //
+// 本 Cell 的内部布局参数**必须**与 `MusicViewController.CardLayout` 一致：
+//
+// | 参数 | 本文件 | `MusicViewController` |
+// |---|---|---|
+// | 标题与封面间距 | `Layout.titleSpacing = AppSpacing.xs` | `CardLayout.titleSpacing = 8` |
+// | 标题字体 | `AppFont.Body.secondary` | `CardLayout.titleHeight = ceil(AppFont.Body.secondary.lineHeight)` |
+//
+// ## 为什么需要两处同步？
+//
+// CollectionView 的 item 高度由 `CardLayout` 计算：
 // ```swift
-// private enum CardLayout {
-//     static let cardWidth: CGFloat = 150
-//     static let interitemSpacing: CGFloat = 14
-//     static let titleSpacing: CGFloat = 8
-//
-//     /// 标题高度 —— 基于字体行高动态计算（支持 Dynamic Type）
-//     ///
-//     /// - Note: 原值 `20` 是硬编码——Dynamic Type 放大字号后
-//     ///         标题会被裁切（因为 `MusicCardCell` 的高度由本值决定，
-//     ///         但 `UILabel` 的实际行高会随字号变大）。
-//     ///
-//     ///         改为 `font.lineHeight` 计算后，两侧自然对齐。
-//     ///         用 `ceil` 向上取整——避免浮点像素导致文字底部被裁 1pt。
-//     static var titleHeight: CGFloat {
-//         ceil(AppFont.Body.secondary.lineHeight)
-//     }
-//
-//     static let headerHeight: CGFloat = 50
-//     static let sectionSpacing: CGFloat = 30
-// }
+// let itemHeight = cardWidth + titleSpacing + titleHeight
 // ```
 //
-// **为什么 `titleHeight` 是 `static var`（计算属性）而不是 `static let`？**
-// - `let` 会在类型加载时（首次访问）求值一次——此时 `AppFont.Body.secondary`
-//   的 `lineHeight` 按当前 trait collection 计算（通常是设备当前 Content Size）
-// - `var` 每次访问都重新计算——若未来支持"App 内切换字号"，
-//   `lineHeight` 变化后能反映到布局
+// 而 Cell 内部的实际布局是：
+// ```
+// ┌──────────────┐
+// │   cover      │  ← 高度 = cardWidth（正方形）
+// └──────────────┘
+//   ↕ titleSpacing
+//   title        ← 高度 = 字体 lineHeight
+// ```
 //
-// - Note: 当前 App 不支持"App 内切换字号"，`let` 也能工作。
-//         用 `var` 是为未来扩展留口子，性能开销可忽略（`lineHeight` 读取纳秒级）。
+// 两者**必须**严格对齐——否则：
+// - `CardLayout` 计算的高度 < Cell 实际高度 → 内容被裁切
+// - `CardLayout` 计算的高度 > Cell 实际高度 → 底部留白
+//
+// ## 修改流程
+//
+// 若未来需要调整本 Cell 的样式（如改字体、改间距）：
+// 1. 修改本文件 `Layout.titleSpacing` 或 `titleLabel.font`
+// 2. **同步**修改 `MusicViewController.CardLayout.titleSpacing` / `.titleHeight`
+// 3. 运行 App 验证——**不要只改一处**
+//
+// ## 为什么 `CardLayout.titleHeight` 是 `static var`（计算属性）？
+//
+// `let` 会在首次访问时求值一次——若用户在 App 运行中调整了系统字号
+// （设置 → 辅助功能 → 更大字体），`titleHeight` 不会更新，导致：
+// - 字体变大 → 标题超出 Cell 高度被裁
+//
+// `var` 每次访问都重新计算 `AppFont.Body.secondary.lineHeight`——
+// 跟随 `Content Size Category` 动态变化。
+//
+// ============================================================

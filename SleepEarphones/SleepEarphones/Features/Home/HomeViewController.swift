@@ -22,9 +22,6 @@ import SnapKit
 /// - **已连接** = BLE 匹配 + 音频路由 → 完全可用（含听歌）
 /// - **已配对** = BLE 匹配但音频未切 → 可控制 ANC / 看电量，但声音未走耳机
 /// - **未连接** = BLE 不匹配
-///
-/// - Note: 音频切换有延迟（0.5~2s），VM 已做延迟兜底 + 路由通知监听——
-///         本页无需关心时序，直接读 `isAudioRouted` 即可。
 @MainActor
 final class HomeViewController: UIViewController {
 
@@ -40,6 +37,7 @@ final class HomeViewController: UIViewController {
     @IBOutlet weak var addDeviceBtn: UIButton!
 
     // MARK: - Properties
+
     private let viewModel = MyDeviceViewModel()
     private let bleViewModel = HomeViewModel.shared
     private var cancellables = Set<AnyCancellable>()
@@ -57,6 +55,7 @@ final class HomeViewController: UIViewController {
     private var currentConnectedUUID: String?
 
     // MARK: - Lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -73,6 +72,7 @@ final class HomeViewController: UIViewController {
     }
 
     // MARK: - Setup
+
     private func setupUI() {
         deviceCollectionView.delegate = self
         deviceCollectionView.dataSource = self
@@ -97,7 +97,10 @@ final class HomeViewController: UIViewController {
             guard let self = self, indexPath.row < self.devices.count else { return nil }
             let device = self.devices[indexPath.row]
 
-            let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] _, _, completion in
+            let deleteAction = UIContextualAction(
+                style: .destructive,
+                title: L("删除")
+            ) { [weak self] _, _, completion in
                 guard let self = self else { return }
 
                 // 1. 设置标识，防止数据源更新时触发全量 reloadData
@@ -115,11 +118,15 @@ final class HomeViewController: UIViewController {
                     .receive(on: DispatchQueue.main)
                     .sink(
                         receiveCompletion: { [weak self] completion in
+                            guard let self = self else { return }
                             if case .failure(let error) = completion {
-                                self?.showToast("删除失败: \(error.localizedDescription)")
-                                self?.viewModel.loadDevices()
+                                // `error.localizedDescription` 来自 `NetworkError`（已本地化）
+                                self.showToast(
+                                    L("删除失败: %@", error.localizedDescription)
+                                )
+                                self.viewModel.loadDevices()
                             } else {
-                                self?.showToast("删除成功")
+                                self.showToast(L("删除成功"))
                             }
                         },
                         receiveValue: { _ in }
@@ -133,7 +140,10 @@ final class HomeViewController: UIViewController {
         let layout = UICollectionViewCompositionalLayout { _, environment in
             let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: environment)
             section.contentInsets = NSDirectionalEdgeInsets(
-                top: AppSpacing.xs, leading: 0, bottom: AppSpacing.md, trailing: 0
+                top: AppSpacing.xs,
+                leading: 0,
+                bottom: AppSpacing.md,
+                trailing: 0
             )
             return section
         }
@@ -141,6 +151,7 @@ final class HomeViewController: UIViewController {
     }
 
     // MARK: - Binding
+
     private func bindViewModel() {
         // 1. 服务器设备列表变化
         viewModel.$devices
@@ -194,9 +205,13 @@ final class HomeViewController: UIViewController {
             .sink { [weak self] state in
                 switch state {
                 case .connected:
-                    self?.showToast("设备连接成功")
+                    self?.showToast(L("设备连接成功"))
                 case .failed(let error):
-                    self?.showToast("连接失败: \(error.localizedDescription)")
+                    // `error.localizedDescription` 来自 HomeViewModel 中的
+                    // `NSError`（其 `NSLocalizedDescriptionKey` 已用 `L(...)` 设置）
+                    self?.showToast(
+                        L("连接失败: %@", error.localizedDescription)
+                    )
                 case .connecting:
                     break
                 }
@@ -211,6 +226,7 @@ final class HomeViewController: UIViewController {
     }
 
     // MARK: - Actions
+
     @objc private func addDeviceTapped() {
         let vc = DeviceSearchViewController()
         navigationController?.pushViewController(vc, animated: true)
@@ -218,6 +234,7 @@ final class HomeViewController: UIViewController {
 }
 
 // MARK: - UICollectionViewDelegate & DataSource
+
 extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSource {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -229,6 +246,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
             withReuseIdentifier: HomeDeviceCardCell.reuseID,
             for: indexPath
         ) as? HomeDeviceCardCell else {
+            AppLog.ui.error("HomeDeviceCardCell 出队失败，检查 reuseID 注册")
             return UICollectionViewCell()
         }
 
@@ -245,7 +263,8 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         )
 
         cell.onReportTapped = { [weak self] in
-            self?.showToast("睡眠报告页面开发中")
+            // TODO: 跳转睡眠报告页（当前未实现）
+            self?.showToast(L("睡眠报告页面开发中"))
         }
 
         return cell
@@ -259,12 +278,12 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         let serialNumber = device.serialNumber
 
         guard !serialNumber.isEmpty else {
-            showToast("该设备无序列号，无法连接")
+            showToast(L("该设备无序列号，无法连接"))
             return
         }
 
         // 立即给出反馈——用户不用盯着屏幕猜"到底点没点上"
-        showToast("正在连接 \(device.name)…")
+        showToast(L("正在连接 %@…", device.name))
         AppLog.device.info(
             "👆 用户点击设备：name=\(device.name, privacy: .public) sn=\(device.serialNumber, privacy: .public)"
         )
@@ -275,7 +294,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         // 交由 ViewModel 智能匹配：已扫到立即连，没扫到则挂起 + 扫描
         // ==========================================
         // bleViewModel.connectBySerialNumber(serialNumber)
-        
+
         // 现在直接跳转至设备详情页，并将当前设备的数据（Model）传给详情页
         let vc = DeviceControllerView(device: device)
         navigationController?.pushViewController(vc, animated: true)
@@ -284,6 +303,9 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
     // MARK: - Private Helpers
 
     /// 判断某设备是否为当前 BLE 连接设备
+    ///
+    /// - Parameter device: 列表中的设备
+    /// - Returns: MAC 或 UUID 匹配时为 `true`
     private func isDeviceBleMatched(_ device: DeviceModel) -> Bool {
         if let mac = currentConnectedMac, !mac.isEmpty,
            device.mac.caseInsensitiveCompare(mac) == .orderedSame {

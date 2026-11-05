@@ -32,10 +32,6 @@ enum KeychainStore {
     // MARK: - Service
 
     /// Keychain 服务标识
-    ///
-    /// - Note:
-    ///   - 同一个 App 内所有 key 共享此 service，通过不同 `account`（即 `key`）区分。
-    ///   - 使用 Bundle ID 作为 service，避免与其他 App 冲突。
     private static let service = Bundle.main.bundleIdentifier ?? "com.sleepearphones.app"
 
     // MARK: - Public API
@@ -59,32 +55,64 @@ enum KeychainStore {
             return false
         }
 
-        // 1. 删除旧值（不存在也不报错）
-        let deleteQuery: [String: Any] = [
+        // 1. 定位条件（key 唯一标识一项）
+        let query: [String: Any] = [
             kSecClass       as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key
         ]
-        SecItemDelete(deleteQuery as CFDictionary)
 
-        // 2. 添加新值
-        let addQuery: [String: Any] = [
-            kSecClass       as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecValueData   as String: data,
-            // 设备首次解锁后可访问，且不参与 iCloud 同步与备份迁移
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        // 2. 尝试更新
+        let attributes: [String: Any] = [
+            kSecValueData as String: data
         ]
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            attributes as CFDictionary
+        )
 
-        if status != errSecSuccess {
+        if updateStatus == errSecSuccess {
+            return true
+        }
+
+        // 3. 不存在 → 添加
+        if updateStatus == errSecItemNotFound {
+            let addQuery: [String: Any] = [
+                kSecClass          as String: kSecClassGenericPassword,
+                kSecAttrService    as String: service,
+                kSecAttrAccount    as String: key,
+                kSecValueData      as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            ]
+            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+
+            if addStatus == errSecSuccess {
+                return true
+            }
+
+            // 4. 极端场景：Add 报 duplicate（并发窗口内另一线程刚好插入）
+            //    → 回退到 Update 重试一次
+            if addStatus == errSecDuplicateItem {
+                AppLog.storage.warning(
+                    "Keychain 添加时发现已存在（并发窗口），回退为更新 key=\(key, privacy: .public)"
+                )
+                return SecItemUpdate(
+                    query as CFDictionary,
+                    attributes as CFDictionary
+                ) == errSecSuccess
+            }
+
             AppLog.storage.error(
-                "Keychain 写入失败 key=\(key, privacy: .public) status=\(status)"
+                "Keychain 写入失败 key=\(key, privacy: .public) status=\(addStatus)"
             )
             return false
         }
-        return true
+
+        // 5. 其他错误
+        AppLog.storage.error(
+            "Keychain 更新失败 key=\(key, privacy: .public) status=\(updateStatus)"
+        )
+        return false
     }
 
     /// 从 Keychain 读取字符串
@@ -107,6 +135,12 @@ enum KeychainStore {
         guard status == errSecSuccess,
               let data = item as? Data,
               let string = String(data: data, encoding: .utf8) else {
+            // 未找到不算错误（正常的"未登录"场景）
+            if status != errSecItemNotFound {
+                AppLog.storage.error(
+                    "Keychain 读取失败 key=\(key, privacy: .public) status=\(status)"
+                )
+            }
             return nil
         }
         return string
@@ -124,7 +158,6 @@ enum KeychainStore {
         ]
         let status = SecItemDelete(query as CFDictionary)
 
-        // errSecItemNotFound 是幂等场景，不算错误
         if status != errSecSuccess && status != errSecItemNotFound {
             AppLog.storage.error(
                 "Keychain 删除失败 key=\(key, privacy: .public) status=\(status)"

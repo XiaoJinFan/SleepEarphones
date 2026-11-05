@@ -24,7 +24,7 @@ final class MusicPlayerViewController: UIViewController {
         /// 随机播放
         case shuffle
 
-        /// 循环切换
+        /// 循环切换（顺序 → 单曲 → 随机 → 顺序）
         mutating func toggle() {
             switch self {
             case .sequential: self = .singleLoop
@@ -33,7 +33,7 @@ final class MusicPlayerViewController: UIViewController {
             }
         }
 
-        /// SF Symbol 图标名
+        /// SF Symbol 图标名（**不参与国际化**）
         var iconName: String {
             switch self {
             case .sequential: return "repeat"
@@ -42,12 +42,15 @@ final class MusicPlayerViewController: UIViewController {
             }
         }
 
-        /// 显示名（Toast 提示用）
+        /// 显示名（**已本地化**，用于 Toast 提示）
+        ///
+        /// - Note: 切换模式后会通过 `showToast(playbackMode.displayName)`
+        ///         提示用户——**用户可见文案，必须本地化**
         var displayName: String {
             switch self {
-            case .sequential: return "顺序播放"
-            case .singleLoop: return "单曲循环"
-            case .shuffle:    return "随机播放"
+            case .sequential: return LN("顺序播放")
+            case .singleLoop: return LN("单曲循环")
+            case .shuffle:    return LN("随机播放")
             }
         }
     }
@@ -65,6 +68,8 @@ final class MusicPlayerViewController: UIViewController {
         static let playButtonSize: CGFloat = 72
         /// 底部栏距底部安全区偏移
         static let bottomOffset: CGFloat = 60
+        /// 封面边框宽度
+        static let coverBorderWidth: CGFloat = 2
     }
 
     // MARK: - Properties
@@ -108,7 +113,7 @@ final class MusicPlayerViewController: UIViewController {
     /// 倒计时 Label（中上）
     private lazy var countdownLabel: UILabel = {
         let l = UILabel()
-        l.font = .systemFont(ofSize: 20, weight: .medium)
+        l.font = AppFont.Title.section
         l.textColor = .white
         l.textAlignment = .center
         l.text = ""
@@ -131,7 +136,7 @@ final class MusicPlayerViewController: UIViewController {
     /// 音乐名称
     private lazy var titleLabel: UILabel = {
         let l = UILabel()
-        l.font = .systemFont(ofSize: 24, weight: .semibold)
+        l.font = AppFont.Title.page
         l.textColor = .white
         l.textAlignment = .center
         l.numberOfLines = 1
@@ -143,7 +148,7 @@ final class MusicPlayerViewController: UIViewController {
     private lazy var coverContainer: UIView = {
         let v = UIView()
         v.backgroundColor = .clear
-        v.layer.borderWidth = 2
+        v.layer.borderWidth = Layout.coverBorderWidth
         v.layer.borderColor = UIColor.white.withAlphaComponent(0.6).cgColor
         v.layer.cornerRadius = Layout.coverDiameter / 2
         v.clipsToBounds = true
@@ -169,7 +174,7 @@ final class MusicPlayerViewController: UIViewController {
     /// 播放 / 暂停按钮（底部中央，蓝色圆形）
     private lazy var playPauseButton: UIButton = {
         let b = UIButton(type: .system)
-        b.backgroundColor = UIColor(hex: "#2FA9E0")
+        b.backgroundColor = AppColor.Brand.primary
         b.tintColor = .white
         b.layer.cornerRadius = Layout.playButtonSize / 2
         b.clipsToBounds = true
@@ -322,7 +327,7 @@ final class MusicPlayerViewController: UIViewController {
 
     /// 刷新标题与封面（**从 `self.song` 读取**）
     private func refreshContent() {
-        titleLabel.text = song.title.isEmpty ? "未知音乐" : song.title
+        titleLabel.text = song.title.isEmpty ? L("未知音乐") : song.title
         coverImageView.setImage(
             song.coverURL,
             placeholder: AppImage.Local.emptyData
@@ -413,6 +418,7 @@ final class MusicPlayerViewController: UIViewController {
     @objc private func modeTapped() {
         playbackMode.toggle()
         refreshModeButton()
+        // `displayName` 已本地化——可直接展示给用户
         showToast(playbackMode.displayName)
     }
 
@@ -425,26 +431,32 @@ final class MusicPlayerViewController: UIViewController {
     /// 定时关闭
     @objc private func timerTapped() {
         let sheet = UIAlertController(
-            title: "定时关闭",
+            title: L("定时关闭"),
             message: nil,
             preferredStyle: .actionSheet
         )
-        let options: [(String, Int)] = [
-            ("15 分钟", 15 * 60),
-            ("30 分钟", 30 * 60),
-            ("60 分钟", 60 * 60)
+
+        // 定时选项：分钟数 → 秒数
+        // - Note: 用 `L("%lld 分钟", minutes)` 格式化——不同语言下
+        //   "分钟" / "min" / "分" / "Min." 会正确显示
+        let options: [(minutes: Int, seconds: Int)] = [
+            (15, 15 * 60),
+            (30, 30 * 60),
+            (60, 60 * 60)
         ]
-        for (title, seconds) in options {
+        for option in options {
+            let title = L("%lld 分钟", option.minutes)
             sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
-                self?.startCountdown(seconds: seconds)
+                self?.startCountdown(seconds: option.seconds)
             })
         }
+
         if countdownSeconds > 0 {
-            sheet.addAction(UIAlertAction(title: "关闭定时", style: .destructive) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: L("关闭定时"), style: .destructive) { [weak self] _ in
                 self?.stopCountdown()
             })
         }
-        sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        sheet.addAction(UIAlertAction(title: L("取消"), style: .cancel))
 
         // iPad 兼容
         if let popover = sheet.popoverPresentationController {
@@ -459,7 +471,6 @@ final class MusicPlayerViewController: UIViewController {
     /// 开始倒计时
     ///
     /// - Parameter seconds: 倒计时总秒数
-    /// 
     private func startCountdown(seconds: Int) {
         stopCountdown()
         countdownSeconds = seconds
@@ -474,6 +485,11 @@ final class MusicPlayerViewController: UIViewController {
             }
 
             MainActor.assumeIsolated {
+                // 防御：避免 Timer 在 stopCountdown 之后仍触发导致负值
+                guard self.countdownSeconds > 0 else {
+                    timer.invalidate()
+                    return
+                }
                 self.countdownSeconds -= 1
                 self.refreshCountdownLabel()
                 if self.countdownSeconds <= 0 {
@@ -492,14 +508,19 @@ final class MusicPlayerViewController: UIViewController {
     }
 
     /// 刷新倒计时 Label
+    ///
+    /// ## 显示规则
+    /// - `<= 0`：空（无定时）
+    /// - `>= 60`：显示分钟数（如 `"15M"` / `"15分"`）
+    /// - `< 60`：显示秒数（如 `"30S"` / `"30秒"`）
     private func refreshCountdownLabel() {
         if countdownSeconds <= 0 {
             countdownLabel.text = ""
         } else if countdownSeconds >= 60 {
             let minutes = countdownSeconds / 60
-            countdownLabel.text = "\(minutes)M"
+            countdownLabel.text = L("%lldM", minutes)
         } else {
-            countdownLabel.text = "\(countdownSeconds)S"
+            countdownLabel.text = L("%lldS", countdownSeconds)
         }
     }
 
@@ -507,6 +528,6 @@ final class MusicPlayerViewController: UIViewController {
     private func handleCountdownFinished() {
         stopCountdown()
         playerManager.pause()
-        showToast("定时结束，已停止播放")
+        showToast(L("定时结束，已停止播放"))
     }
 }

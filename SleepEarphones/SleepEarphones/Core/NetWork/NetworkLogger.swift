@@ -24,6 +24,27 @@ import Alamofire
 /// )
 /// ```
 ///
+/// ## 日志格式（便于 grep）
+/// ```
+/// ┌─ 📤 REQUEST [abc12345]              ← 请求开始
+/// │ POST https://...
+/// │ Parameters:
+/// │   mobile: 183****1021
+/// │ Headers:
+/// │   user-token: ***
+/// └─────────────────────────────
+///
+/// ┌─ 📥 RESPONSE [abc12345]             ← 响应开始
+/// │ Status: 200 (0.35s)
+/// │ Result: ✅ SUCCESS
+/// │ Data:
+/// │   id: 3910
+/// └─────────────────────────────
+/// ```
+///
+/// ## 关于国际化
+/// 本类的所有输出都是**面向开发者**的诊断日志（走 `AppLog` → OSLog），
+/// **不参与国际化**——日志中的中文（如"成功"、"失败"）保持原样。
 enum NetworkLogger {
 
     // MARK: - Limits
@@ -37,20 +58,34 @@ enum NetworkLogger {
     /// 响应数据最多打印的行数
     private static let maxDataLines = 50
 
+    /// 嵌套字典 / 数组的最大递归深度
+    ///
+    /// - Note: 超过后直接打印 `{…}` / `[…]`——避免深层嵌套导致栈溢出，
+    ///         同时避免日志体积爆炸。
+    private static let maxNestingDepth = 3
+
     // MARK: - 脱敏字段
 
     /// 需要完全脱敏的参数字段名（**大小写不敏感**）
     ///
     /// - Note: 只要 key **包含**以下任一子串，就完全脱敏为 `***`。
+    ///         用 `contains` 而非精确匹配——覆盖 `user_token` /
+    ///         `refresh_token` / `authorization_header` 等变体。
     private static let maskedKeySubstrings = [
         "password",
         "token",
         "secret",
         "authorization",
-        "credential"
+        "credential",
+        "cookie",
+        "session",
+        "refresh",
+        "otp"
     ]
 
     /// 需要**部分脱敏**的参数字段名（保留前 3 后 4）
+    ///
+    /// - Note: 覆盖 `mobile` / `user_phone` / `new_mobile` 等变体。
     private static let partialMaskedKeySubstrings = [
         "mobile",
         "phone"
@@ -80,12 +115,17 @@ enum NetworkLogger {
             lines.append("│ Parameters: (empty)")
         }
 
-        // 3. 请求头（仅打印非空的自定义头）
+        // 3. 请求头（与参数走同一套脱敏逻辑）
+        //
+        // - Note: 复用 `formatValue(key:value:)` 而非单独判断 `isSensitiveKey`——
+        //         保证 Header 与 Parameters 的脱敏规则**完全一致**，
+        //         避免"Header 里的 mobile 漏脱敏"的隐蔽问题。
         if let headers = api.headers, !headers.isEmpty {
             lines.append("│ Headers:")
             for (key, value) in headers.dictionary {
-                let displayValue = isSensitiveKey(key) ? "***" : value
-                lines.append("│   \(key): \(displayValue)")
+                lines.append(
+                    truncateLine("│   \(key): \(formatValue(key: key, value: value))")
+                )
             }
         }
 
@@ -103,7 +143,7 @@ enum NetworkLogger {
     ///   - statusCode: HTTP 状态码（若可用）
     ///   - duration: 请求耗时（秒）
     ///   - result: 解析结果（成功 / 失败）
-    static func logResponse<T>(requestID: String, statusCode: Int?, duration: TimeInterval, result: Result<T, NetworkError>) {
+    static func logResponse<T: Sendable>(requestID: String, statusCode: Int?, duration: TimeInterval, result: Result<T, NetworkError>) {
         var lines: [String] = [
             "┌─ 📥 RESPONSE [\(requestID)]"
         ]
@@ -161,13 +201,14 @@ enum NetworkLogger {
     /// - Parameters:
     ///   - key: 参数名（用于判定是否脱敏）
     ///   - value: 参数值
+    ///   - depth: 当前递归深度（0 表示顶层）
     /// - Returns: 格式化后的字符串
     ///
-    /// - Note:
-    ///   - 完全脱敏：`password` / `token` 等 → `***`
-    ///   - 部分脱敏：`mobile` / `phone` → `183****1021`
-    ///   - 其他：原样（集合 / 字典递归）
-    private static func formatValue(key: String, value: Any) -> String {
+    /// ## 脱敏规则
+    /// - 完全脱敏：`password` / `token` 等 → `***`
+    /// - 部分脱敏：`mobile` / `phone` → `183****1021`
+    /// - 其他：原样（集合 / 字典递归，超过 `maxNestingDepth` 折叠）
+    private static func formatValue(key: String, value: Any, depth: Int = 0) -> String {
         // 1. 完全脱敏
         if isSensitiveKey(key) {
             return "***"
@@ -178,17 +219,21 @@ enum NetworkLogger {
             return maskMobile(string)
         }
 
-        // 3. 集合 / 字典：递归
+        // 3. 集合 / 字典：递归（超过最大深度直接折叠）
+        if depth >= maxNestingDepth {
+            if value is [String: Any] { return "{…}" }
+            if value is [Any] { return "[…]" }
+        }
         if let dict = value as? [String: Any] {
             let inner = dict
                 .sorted { $0.key < $1.key }
-                .map { "\($0.key): \(formatValue(key: $0.key, value: $0.value))" }
+                .map { "\($0.key): \(formatValue(key: $0.key, value: $0.value, depth: depth + 1))" }
                 .joined(separator: ", ")
             return "{\(inner)}"
         }
         if let array = value as? [Any] {
             let inner = array
-                .map { formatValue(key: key, value: $0) }
+                .map { formatValue(key: key, value: $0, depth: depth + 1) }
                 .joined(separator: ", ")
             return "[\(inner)]"
         }

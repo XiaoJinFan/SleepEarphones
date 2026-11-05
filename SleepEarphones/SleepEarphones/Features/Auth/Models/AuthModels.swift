@@ -53,7 +53,6 @@ enum AccountType: String, Sendable, CaseIterable {
 /// registerVM.sendRegisterCode()       // 内部固定 scene = .register
 /// forgetPasswordVM.sendForgetCode()   // 内部固定 scene = .forgetPassword
 /// ```
-///
 enum SmsScene: Int, Sendable, CaseIterable {
 
     /// 注册
@@ -71,7 +70,7 @@ enum SmsScene: Int, Sendable, CaseIterable {
     /// 绑定手机号
     case bindPhone      = 5
 
-    /// 场景描述（便于日志 / 调试）
+    /// 场景描述（**日志 / 埋点专用，不参与国际化**）
     ///
     /// - Returns: 中文场景名（如 `"注册"` / `"忘记密码"`）
     var description: String {
@@ -179,8 +178,6 @@ struct LoginResult: Decodable, Sendable {
     let userId: Int?
 
     /// 后端生成的内部账号名（如 `"1786096102_38737"`）
-    ///
-    /// - Note: 与用户登录时输入的账号可能不同。当前未使用，保留以保证解码完整。
     let account: String?
 
     /// 昵称
@@ -192,10 +189,10 @@ struct LoginResult: Decodable, Sendable {
     /// 邮箱
     let email: String?
 
-    /// 手机号（可能带 `*` 号，如 `"183****1021"`）
+    /// 手机号（可能带 `*` 号，如 `"139****1021"`）
     let mobile: String?
 
-    /// 手机号（不带 `*` 号，如 `"18384891021"`）
+    /// 手机号（不带 `*` 号，如 `"13975201021"`）
     let phone: String?
 
     /// 真实姓名
@@ -235,17 +232,15 @@ struct LoginResult: Decodable, Sendable {
         return !avatar.isEmpty
     }
 
-    /// 用于展示的名称（昵称 → 真实姓名 → 手机号 → 邮箱 → "用户"）
+    /// 用于展示的名称（昵称 → 真实姓名 → 手机号 → 邮箱 → **本地化的"用户"**）
     ///
-    /// - Returns: 优先级的第一个非空值
-    ///
-    /// - Note: 各处回退逻辑收敛在此，避免调用方各写一套。
+    /// - Returns: 优先级链中第一个非空值；全部为空时返回 `L("用户")`
     var displayName: String {
         if hasNickname, let nickname { return nickname }
         if hasRealName, let realName { return realName }
         if let mobile, !mobile.isEmpty { return mobile }
         if let email, !email.isEmpty { return email }
-        return "用户"
+        return LN("用户")
     }
 
     // MARK: CodingKeys
@@ -274,14 +269,6 @@ struct LoginResult: Decodable, Sendable {
     ///
     /// - Parameter decoder: 解码器
     /// - Throws: `DecodingError`（仅当根容器构造失败时）
-    ///
-    /// ## 容错语义（重要）
-    /// 用 `try? info?.decodeIfPresent(...)` 而非严格 `decode`：
-    /// - `userinfo` 字段**缺失** → `info` 为 nil → 所有字段为 nil
-    /// - `userinfo` 存在但**类型不符**（如后端返回数组）→ 同样为 nil
-    /// - 单个字段解码失败（如 `id` 返回字符串而非 Int）→ 该字段为 nil
-    ///
-    /// 这是**有意的容错**——登录结果部分字段缺失不应导致整体解码失败。
     init(from decoder: Decoder) throws {
         let root = try decoder.container(keyedBy: RootKeys.self)
 
@@ -351,7 +338,7 @@ struct SmsCodeResult: Decodable, Sendable {
             self.code = nil
             return
         }
-        // 场景 2：data 是 `[]` / 数字 / 字符串 / 其他 → 忽略
+        // 场景 3：data 是 `[]` / 数字 / 字符串 / null → 忽略
         self.code = nil
     }
 }
@@ -359,14 +346,6 @@ struct SmsCodeResult: Decodable, Sendable {
 // MARK: - 空响应占位
 
 /// 空响应占位
-///
-/// - Note: 用于"只关心业务成功 / 失败，不关心 data 内容"的接口。
-///         当前使用场景：**忘记密码**（`AuthAPI.forgetPassword`）——
-///         接口返回 `data: []` 或 `data: {}`。
-///
-/// ## 宽容解码
-/// 无论 `data` 是 `null` / `[]` / `{}` / 对象 / 数组，
-/// 都能成功构造（`init(from:)` 故意留空）。
 struct EmptyResponse: Decodable, Sendable {
 
     init() {}

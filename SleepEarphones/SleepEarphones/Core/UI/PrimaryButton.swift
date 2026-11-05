@@ -14,16 +14,17 @@ import SnapKit
 /// ```swift
 /// // 1. Storyboard 拖拽（推荐）
 /// //    - 将 UIButton 的 Custom Class 设为 PrimaryButton
+/// //    - 通过 setTitle 或 Inspector 设置标题
 ///
-/// // 2. 代码创建
+/// // 2. 代码创建（**标题由调用方本地化**）
 /// let button = PrimaryButton(type: .system)
-/// button.setTitle("登录", for: .normal)
+/// button.setTitle(L("登录"), for: .normal)
 /// button.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
 ///
 /// // 3. 切换加载态
 /// button.isLoading = true   // 显示菊花、禁用交互、保持亮度
 /// button.isLoading = false  // 恢复
-/// ```
+/// 
 @MainActor
 class PrimaryButton: UIButton {
 
@@ -87,7 +88,7 @@ class PrimaryButton: UIButton {
             bottom: 0,
             trailing: AppSpacing.md
         )
-        // 保留外部 setTitle(_:for:) 的行为（不自动管理标题）
+        // 字体统一由设计系统控制（不自动管理标题）
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
             outgoing.font = AppFont.Button.primary

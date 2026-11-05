@@ -28,12 +28,6 @@ import Combine
 ///     )
 ///     .store(in: &cancellables)
 /// ```
-///
-/// ## 与 `AuthRepository` 的区别
-/// | 层 | 职责 |
-/// |---|---|
-/// | `AuthService` | 网络请求 + 参数组装 |
-/// | `AuthRepository` | 网络请求 + **凭证持久化**（`AuthStore.save`） |
 protocol AuthServiceProtocol: Sendable {
 
     /// 账号密码登录
@@ -61,9 +55,6 @@ protocol AuthServiceProtocol: Sendable {
     ///   - accountType: 账号类型
     ///   - scene: 业务场景
     /// - Returns: 发送结果（DEBUG 下含测试验证码）
-    ///
-    /// - Important: 调用成功会触发**服务端短信计数**，
-    ///              前端应在按钮上加倒计时避免重复调用。
     func sendSmsCode(account: String, accountType: AccountType, scene: SmsScene) -> AnyPublisher<SmsCodeResult, NetworkError>
 
     /// 忘记密码 / 重置密码
@@ -84,9 +75,6 @@ protocol AuthServiceProtocol: Sendable {
     ///   - password: 密码
     ///   - code: 验证码（可为 nil）
     /// - Returns: 注册结果 Publisher
-    ///
-    /// - Note: 注册成功后后端会直接返回 token，
-    ///         相当于同时完成登录，无需再次调用登录接口。
     func register(account: String, accountType: AccountType, password: String, code: String?) -> AnyPublisher<LoginResult, NetworkError>
 }
 
@@ -107,7 +95,7 @@ protocol AuthServiceProtocol: Sendable {
 /// | **发送验证码** | **`info`** | ⚠️ 有**成本**（短信计费）+ 有**风控意义** |
 /// | 重置密码 | `debug` | 常规操作 |
 /// | **注册** | **`info`** | ⚠️ **关键业务事件**（新用户增长指标） |
-final class AuthService: AuthServiceProtocol {
+final class AuthService: AuthServiceProtocol, Sendable {
 
     // MARK: - Properties
 
@@ -181,13 +169,7 @@ final class AuthService: AuthServiceProtocol {
     ///   - accountType: 账号类型
     ///   - scene: 业务场景
     /// - Returns: 发送结果 Publisher
-    ///
-    /// ## Privacy 说明
-    /// - `scene`：`privacy: .public`——非敏感枚举（"注册"/"登录"等）
-    /// - `accountType`：`privacy: .public`——非敏感
-    /// - `account`：`privacy: .private`——用户隐私
     func sendSmsCode(account: String, accountType: AccountType, scene: SmsScene) -> AnyPublisher<SmsCodeResult, NetworkError> {
-        // ⚠️ 用 info 级别——区别于其他接口的 debug（详见类注释"日志策略"）
         AppLog.auth.info(
             "📤 发送验证码：scene=\(scene.description, privacy: .public) accountType=\(accountType.rawValue, privacy: .public) account=\(account, privacy: .private)"
         )
@@ -242,10 +224,9 @@ final class AuthService: AuthServiceProtocol {
     /// - Returns: 注册结果 Publisher
     ///
     /// ## Privacy 说明
-    /// - `accountType`：`privacy: .public`
-    /// - `account`：`privacy: .private`
+    /// - `accountType`：`.public`
+    /// - `account`：`.private`
     func register(account: String, accountType: AccountType, password: String, code: String?) -> AnyPublisher<LoginResult, NetworkError> {
-        // ⚠️ 用 info 级别——注册是关键业务事件（详见类注释"日志策略"）
         AppLog.auth.info(
             "🎉 用户注册：accountType=\(accountType.rawValue, privacy: .public) account=\(account, privacy: .private)"
         )

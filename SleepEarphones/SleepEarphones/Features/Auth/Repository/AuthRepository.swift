@@ -39,7 +39,6 @@ import Combine
 /// |---|---|---|
 /// | `AuthService` | ✅ | ❌ |
 /// | `AuthRepository` | 委托 Service | ✅ |
-/// 
 protocol AuthRepositoryProtocol: Sendable {
 
     // MARK: 登录
@@ -83,9 +82,6 @@ protocol AuthRepositoryProtocol: Sendable {
     ///   - newPassword: 新密码
     ///   - code: 验证码
     /// - Returns: 成功时返回 `Void`
-    ///
-    /// - Note: 返回 `Void` 而非 `EmptyResponse`——
-    ///         上层只关心成功 / 失败，不关心 `data` 内容。
     func forgetPassword(account: String, accountType: AccountType, newPassword: String, code: String?) -> AnyPublisher<Void, NetworkError>
 
     /// 注册（成功后同样会保存凭证，等同于登录）
@@ -113,17 +109,7 @@ protocol AuthRepositoryProtocol: Sendable {
 ///   ↓
 /// NetworkClient
 /// ```
-///
-/// ## 凭证保存时机（重要）
-/// 使用 `handleEvents(receiveOutput:)` 在**值传递给下游之前**保存凭证。
-///
-/// 因此当 ViewModel 收到 `.success(result)` 时，可以保证：
-/// - ✅ Token 已写入 Keychain
-/// - ✅ userId / nickname / avatar 已写入 UserDefaults
-/// - ✅ 全局 `AuthStore.shared.isLoggedIn == true`
-///
-/// 调用方**无需**担心"登录成功但凭证还没保存"的竞态。
-final class AuthRepository: AuthRepositoryProtocol {
+final class AuthRepository: AuthRepositoryProtocol, Sendable {
 
     // MARK: - Properties
 
@@ -189,9 +175,6 @@ final class AuthRepository: AuthRepositoryProtocol {
     ///   - accountType: 账号类型
     ///   - scene: 业务场景
     /// - Returns: 发送结果 Publisher
-    ///
-    /// - Note: 直接把 `SmsCodeResult` 向上传递（DEBUG 下含验证码）。
-    ///         本方法**不涉及凭证**——直接透传。
     func sendSmsCode(account: String, accountType: AccountType, scene: SmsScene) -> AnyPublisher<SmsCodeResult, NetworkError> {
         service.sendSmsCode(
             account: account,
@@ -253,10 +236,6 @@ private extension Publisher
     ///
     /// - Parameter store: 凭证存储
     /// - Returns: 保持原有 Output / Failure 的 Publisher
-    ///
-    /// - Note: **不捕获 `self`**——`store` 是 `let` 常量，
-    ///         直接捕获即可，避免 `[weak self]` 在 repository 释放后
-    ///         导致保存被静默跳过。
     func saveCredentials(to store: AuthStore) -> AnyPublisher<LoginResult, NetworkError> {
         handleEvents(receiveOutput: { result in
             store.save(result)

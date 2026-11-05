@@ -15,6 +15,15 @@ import Combine
 /// - 处理竞态（`requestToken`）
 /// - 处理用户切换（登录 / 登出）
 ///
+/// ## 输出（供 UI 订阅）
+/// | 属性 | 用途 |
+/// |---|---|
+/// | `$devices` | 列表数据 → `tableView.reloadData()` |
+/// | `$totalCount` | 设备总数 → 展示于"我的"页 |
+/// | `$isLoading` | 首屏菊花 |
+/// | `$isRefreshing` | 下拉刷新控件 |
+/// | `$errorMessage` | 弹 Alert |
+///
 /// ## 竞态处理
 /// 用单调递增的 `requestToken` 标识"当前有效的请求"：
 /// - 每次发起新请求前 `&+= 1`
@@ -25,7 +34,6 @@ import Combine
 /// 用户登出后可能短暂看到"上一账号的设备"。因此：
 /// - `loadDevices` 里检测 `userId` 变化 → 清空 `devices` / `totalCount`
 /// - `refreshIfUserChanged` 供 `viewWillAppear` 调用，处理"切回本页时用户已变"的场景
-///
 @MainActor
 final class MyDeviceViewModel {
 
@@ -48,10 +56,12 @@ final class MyDeviceViewModel {
     /// 是否正在下拉刷新
     @Published private(set) var isRefreshing: Bool = false
 
-    /// 错误信息
+    /// 错误信息（**已本地化**）
     @Published private(set) var errorMessage: String?
 
     /// 空数据状态
+    ///
+    /// - Returns: 无数据 + 不在加载 + 不在刷新 + **无错误** 时为 `true`
     var isEmpty: Bool {
         devices.isEmpty && !isLoading && !isRefreshing && errorMessage == nil
     }
@@ -61,15 +71,9 @@ final class MyDeviceViewModel {
     private let repository: DeviceRepositoryProtocol
 
     /// 当前进行中的请求（用于取消，避免竞态）
-    ///
-    /// - Note: 本 VM 只维护**一个**在飞请求，用单独属性持有即可；
-    ///         无需 `Set<AnyCancellable>`。
     private var currentRequest: AnyCancellable?
 
     /// 请求身份令牌
-    ///
-    /// - Note: 使用 `&+=` 允许溢出回绕而非崩溃——
-    ///         连续请求 2^64 次才回绕到 0，实际业务中不可能触发。
     private var requestToken: UInt64 = 0
 
     /// 上次加载时使用的 userId（用于检测用户切换）
@@ -162,7 +166,9 @@ final class MyDeviceViewModel {
                     AppLog.device.error(
                         "设备列表加载失败：\(error.logCode, privacy: .public)"
                     )
-                    self.errorMessage = error.errorDescription ?? "加载失败，请稍后重试"
+                    // **错误提示已本地化**
+                    self.errorMessage = error.errorDescription
+                        ?? L("加载失败，请稍后重试")
                 }
             },
             receiveValue: { [weak self] result in
@@ -178,17 +184,6 @@ final class MyDeviceViewModel {
     }
 
     /// 检测用户是否变化，变化了就重新加载
-    ///
-    /// - Note: 由 `viewWillAppear` 调用。
-    ///         用于处理"登录 / 登出后切换 Tab 回来"的场景。
-    ///
-    /// ## 与 `loadDevices` 里的"用户切换检测"的关系
-    /// - `loadDevices` 里的检查：**每次加载时都要执行**——
-    ///   若用户变了则**清空数据**，防止旧账号设备闪现
-    /// - `refreshIfUserChanged` 里的检查：**仅在变化时**才触发 `loadDevices`
-    ///
-    /// 两处判断条件相同（都通过 `hasUserChanged`），
-    /// 但**触发时机与副作用不同**——因此不构成重复。
     func refreshIfUserChanged() {
         guard hasUserChanged else { return }
 
@@ -197,9 +192,6 @@ final class MyDeviceViewModel {
     }
 
     /// 清除错误
-    ///
-    /// - Note: `errorMessage` 是 `private(set)`，UI 层展示 Alert 后
-    ///         需要调用此方法重置状态，避免重复弹窗。
     func clearError() {
         errorMessage = nil
     }
@@ -207,18 +199,15 @@ final class MyDeviceViewModel {
     // MARK: - Private Helpers
 
     /// 当前用户是否与上次加载时不同
-    ///
-    /// ## 判断逻辑
-    /// - `lastLoadedUserId == nil` → **从未加载过** → 视为"变化"（首次）
-    /// - `lastLoadedUserId != AuthStore.userId` → **用户已切换** → 变化
-    /// - 其他 → 未变化
     private var hasUserChanged: Bool {
         lastLoadedUserId != AuthStore.shared.userId
     }
-    
+
     // MARK: - Delete
 
     /// 仅移除本地数据（用于侧滑动画的瞬时响应）
+    ///
+    /// - Parameter index: 要移除的设备在 `devices` 数组中的索引
     func removeDeviceLocally(at index: Int) {
         guard index < devices.count else { return }
         devices.remove(at: index)
@@ -226,6 +215,9 @@ final class MyDeviceViewModel {
     }
 
     /// 发起删除网络请求
+    ///
+    /// - Parameter id: 设备 ID（对应 `DeviceModel.id`）
+    /// - Returns: 成功时返回 `Void`
     func requestDeleteDevice(id: String) -> AnyPublisher<Void, NetworkError> {
         return repository.deleteDevice(aid: id)
     }

@@ -9,9 +9,23 @@ import UIKit
 import SnapKit
 import Combine
 
-
 @MainActor
 final class MusicListViewController: UIViewController {
+
+    // MARK: - Constants
+
+    private enum Layout {
+        /// Segment 高度
+        static let segmentHeight: CGFloat = 36
+        /// Segment 顶部距安全区
+        static let segmentTopInset: CGFloat = AppSpacing.sm
+        /// Segment 水平 inset
+        static let segmentHorizontalInset: CGFloat = AppSpacing.md
+        /// Segment 与列表的间距
+        static let segmentToListSpacing: CGFloat = AppSpacing.sm
+        /// 空态顶部距 Segment 底部
+        static let emptyTopSpacing: CGFloat = AppSpacing.xl
+    }
 
     // MARK: - Input
 
@@ -78,7 +92,7 @@ final class MusicListViewController: UIViewController {
         return v
     }()
 
-    /// 空数据占位
+    /// 空数据占位（`EmptyStateView` 内部文案已本地化）
     private lazy var emptyView: EmptyStateView = {
         let v = EmptyStateView(style: .music)
         v.isHidden = true
@@ -137,7 +151,8 @@ final class MusicListViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "列表"
+        // **导航标题已本地化**
+        title = L("列表")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -151,9 +166,11 @@ final class MusicListViewController: UIViewController {
     private func setupConstraints() {
         // Segment
         segmentControl.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(AppSpacing.sm)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
-            make.height.equalTo(36)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .offset(Layout.segmentTopInset)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.segmentHorizontalInset)
+            make.height.equalTo(Layout.segmentHeight)
         }
 
         // 迷你条：底部贴 safeArea
@@ -165,7 +182,8 @@ final class MusicListViewController: UIViewController {
 
         // 列表
         tableView.snp.makeConstraints { make in
-            make.top.equalTo(segmentControl.snp.bottom).offset(AppSpacing.sm)
+            make.top.equalTo(segmentControl.snp.bottom)
+                .offset(Layout.segmentToListSpacing)
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(miniPlayerView.snp.top)
         }
@@ -181,7 +199,8 @@ final class MusicListViewController: UIViewController {
 
         // 空态
         emptyView.snp.makeConstraints { make in
-            make.top.equalTo(segmentControl.snp.bottom).offset(AppSpacing.xl)
+            make.top.equalTo(segmentControl.snp.bottom)
+                .offset(Layout.emptyTopSpacing)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
             make.bottom.equalTo(miniPlayerView.snp.top)
         }
@@ -243,6 +262,12 @@ final class MusicListViewController: UIViewController {
         guard !didLocateInitialSegment else { return }
         didLocateInitialSegment = true
 
+        // 无数据 → 不定位（`segmentControl` 无 items）
+        guard !sections.isEmpty else {
+            currentSectionIndex = 0
+            return
+        }
+
         guard let song = currentSong,
               let categoryId = song.categoryId,
               let index = sections.firstIndex(where: { $0.id == categoryId }) else {
@@ -262,11 +287,6 @@ final class MusicListViewController: UIViewController {
     // MARK: - Binding
 
     /// 订阅播放器状态
-    ///
-    /// ## 两个订阅的分工（性能优化）
-    /// - `$currentSong`：曲目切换会影响**整表**的"正在播放行"高亮 → `reloadData()`
-    /// - `$isPlaying`：播放/暂停只影响**当前行**的图标 → 只刷新可见行
-    ///
     private func bindPlayerState() {
         MusicPlayerManager.shared.$currentSong
             .receive(on: DispatchQueue.main)
@@ -286,8 +306,6 @@ final class MusicListViewController: UIViewController {
     }
 
     /// 只刷新可见 cell（用于播放 / 暂停状态变化）
-    ///
-    /// - Note: 不可见行的图标会在 `cellForRowAt` 时重新配置——无需提前刷新。
     private func refreshVisibleCells() {
         for indexPath in tableView.indexPathsForVisibleRows ?? [] {
             guard indexPath.row < currentItems.count else { continue }
@@ -317,22 +335,34 @@ final class MusicListViewController: UIViewController {
     /// 播放指定子分类的音乐
     ///
     /// - Parameter item: 列表项（子分类）
-    ///
-    /// ## 行为
-    /// - **若正在播放该子分类**：切换播放 / 暂停
-    /// - **否则**：拉取音频 URL 并播放
-    ///
     private func playSong(for item: MusicCardItem) {
         let manager = MusicPlayerManager.shared
 
+        // 显式转换，避免 Optional 比较的误命中（详见方法注释）
+        guard let targetId = Int(item.id) else {
+            // `item.id` 非数字——无法匹配，直接走"播放新的"分支
+            AppLog.app.debug(
+                "playSong：item.id 非数字（\(item.id, privacy: .public)），跳过匹配"
+            )
+            fetchAndPlay(item: item)
+            return
+        }
+
         // 已在播放该子分类：切换播放 / 暂停
-        if manager.currentSong?.subCategoryId == Int(item.id) {
+        if manager.currentSong?.subCategoryId == targetId {
             AppLog.app.debug("切换播放 / 暂停：\(item.title, privacy: .public)")
             manager.toggle()
             return
         }
 
         // 播放新的子分类：拉取音频 URL
+        fetchAndPlay(item: item)
+    }
+
+    /// 拉取并播放指定子分类的音频
+    ///
+    /// - Parameter item: 列表项
+    private func fetchAndPlay(item: MusicCardItem) {
         AppLog.app.debug(
             "播放子分类：\(item.title, privacy: .public) id=\(item.id, privacy: .public)"
         )
@@ -351,7 +381,7 @@ final class MusicListViewController: UIViewController {
 
                 // .emptyData = 拉取成功但列表为空 → 提示用户
                 if case .emptyData = error {
-                    self?.showToast("该音乐暂时无法播放")
+                    self?.showToast(L("该音乐暂时无法播放"))
                 }
             },
             receiveValue: { [weak self] song in
@@ -411,7 +441,9 @@ final class MusicListViewController: UIViewController {
 
     /// 当前展示的子分类列表
     private var currentItems: [MusicCardItem] {
-        guard currentSectionIndex < sections.count else { return [] }
+        guard currentSectionIndex >= 0, currentSectionIndex < sections.count else {
+            return []
+        }
         return sections[currentSectionIndex].items
     }
 
@@ -420,15 +452,14 @@ final class MusicListViewController: UIViewController {
     /// - Parameter item: 列表项
     /// - Returns: 是否正在播放（用 `subCategoryId` 匹配）
     private func isCurrentPlaying(_ item: MusicCardItem) -> Bool {
-        guard let song = MusicPlayerManager.shared.currentSong else { return false }
-        return song.subCategoryId == Int(item.id)
+        guard let song = MusicPlayerManager.shared.currentSong,
+              let targetId = Int(item.id) else {
+            return false
+        }
+        return song.subCategoryId == targetId
     }
 
     /// 更新空态
-    ///
-    /// - 有数据（sections 非空）→ 隐藏空态
-    /// - 无数据（sections 为空）→ 显示空态
-    ///
     private func updateEmptyState() {
         emptyView.isHidden = !sections.isEmpty
     }

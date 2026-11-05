@@ -21,6 +21,12 @@ final class InsertMusicViewController: UIViewController {
         static let saveButtonHorizontalInset: CGFloat = AppSpacing.md
         /// 底部按钮距安全区底部
         static let saveButtonBottomInset: CGFloat = AppSpacing.md
+        /// 卡片顶部距安全区
+        static let cardTopInset: CGFloat = AppSpacing.sm
+        /// 卡片与保存按钮的间距
+        static let cardToButtonSpacing: CGFloat = AppSpacing.md
+        /// 列表行高
+        static let rowHeight: CGFloat = 56
     }
 
     // MARK: - Input
@@ -56,7 +62,7 @@ final class InsertMusicViewController: UIViewController {
         tv.backgroundColor = .clear
         tv.separatorStyle = .none
         tv.showsVerticalScrollIndicator = false
-        tv.rowHeight = 56
+        tv.rowHeight = Layout.rowHeight
         tv.dataSource = self
         tv.delegate = self
         tv.register(InsertMusicCell.self, forCellReuseIdentifier: InsertMusicCell.reuseID)
@@ -66,11 +72,14 @@ final class InsertMusicViewController: UIViewController {
     /// 底部"保存"按钮
     private lazy var saveButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("保存", for: .normal)
+        // **按钮标题已本地化**
+        b.setTitle(L("保存"), for: .normal)
         b.setTitleColor(.white, for: .normal)
         b.titleLabel?.font = AppFont.Button.primary
-        b.backgroundColor = UIColor(hex: "#2FA9E0")
-        b.layer.cornerRadius = Layout.saveButtonHeight / 2
+        // **统一使用 `AppColor.Brand.primary`**——与登录 / 注册等主按钮颜色一致
+        // （原实现硬编码 `#2FA9E0`，与全项目主色 `#1B84CC` 不同）
+        b.backgroundColor = AppColor.Brand.primary
+        b.layer.cornerRadius = AppSpacing.Corner.card
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
         return b
@@ -81,8 +90,8 @@ final class InsertMusicViewController: UIViewController {
     /// 初始化
     ///
     /// - Parameters:
-    ///   - allSongs: 全部候选音乐
-    ///   - preselected: 已选中的音乐
+    ///   - allSongs: 全部候选音乐（来自 `CustomNoiseViewController.allSongs`）
+    ///   - preselected: 已选中的音乐（来自 `CustomNoiseViewController.selectedSongs`）
     init(allSongs: [MusicSong], preselected: [MusicSong]) {
         self.allSongs = allSongs
         self.selectedSongs = preselected
@@ -111,9 +120,14 @@ final class InsertMusicViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
-        title = "获取音乐"
+        // **导航标题已本地化**
+        title = L("获取音乐")
         view.backgroundColor = AppColor.Background.secondary
         navigationItem.backButtonDisplayMode = .minimal
+        // 修改 title 字体颜色（以及字体、字号）
+        navigationController?.navigationBar.titleTextAttributes = [
+            .foregroundColor: UIColor.black,          // 颜色
+        ]
 
         view.addSubview(cardView)
         cardView.addSubview(tableView)
@@ -123,16 +137,20 @@ final class InsertMusicViewController: UIViewController {
     private func setupConstraints() {
         // 保存按钮
         saveButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.saveButtonHorizontalInset)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-Layout.saveButtonBottomInset)
+            make.leading.trailing.equalToSuperview()
+                .inset(Layout.saveButtonHorizontalInset)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+                .offset(-Layout.saveButtonBottomInset)
             make.height.equalTo(Layout.saveButtonHeight)
         }
 
         // 卡片
         cardView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(AppSpacing.sm)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .offset(Layout.cardTopInset)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
-            make.bottom.equalTo(saveButton.snp.top).offset(-AppSpacing.md)
+            make.bottom.equalTo(saveButton.snp.top)
+                .offset(-Layout.cardToButtonSpacing)
         }
 
         // 列表
@@ -163,7 +181,8 @@ final class InsertMusicViewController: UIViewController {
             selectedSongs.remove(at: index)
         } else {
             guard selectedSongs.count < maxSelection else {
-                showToast("最多选择 \(maxSelection) 个")
+                // **格式化参数已本地化**——`%lld` 由 `L(...)` 填入
+                showToast(L("最多选择 %lld 个", maxSelection))
                 return
             }
             selectedSongs.append(song)
@@ -185,6 +204,7 @@ extension InsertMusicViewController: UITableViewDataSource {
             withIdentifier: InsertMusicCell.reuseID,
             for: indexPath
         ) as? InsertMusicCell else {
+            AppLog.ui.error("InsertMusicCell 出队失败")
             return UITableViewCell()
         }
 

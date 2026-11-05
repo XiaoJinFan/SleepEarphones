@@ -14,7 +14,7 @@ import UIKit
 /// - Note: 遵循 `Hashable` 便于在数组中去重 / 做单元测试断言。
 struct AgreementLink: Hashable {
 
-    /// 展示文本（如："《用户注册协议》"）
+    /// 展示文本（如：`"《用户注册协议》"`）
     let text: String
 
     /// 跳转地址
@@ -28,34 +28,52 @@ extension UITextView {
     // MARK: 配置
 
     /// 将整段文本中的多个指定子串设置成可点击链接
-    /// 
+    ///
     /// - Parameters:
-    ///   - fullText: 完整文本
+    ///   - fullText: 完整文本（**调用方负责本地化**）
     ///   - links: 需要变成链接的子串 + 目标 URL
-    ///   - baseAttributes: 普通文字样式；传 nil 时使用默认（`AppFont.Body.regular` + `AppColor.Text.primary`）
+    ///   - baseAttributes: 普通文字样式；传 nil 时使用默认
+    ///                     （`AppFont.Body.regular` + `AppColor.Text.primary`）
     ///   - linkColor: 链接文字颜色；传 nil 时使用 `AppColor.link`
-    ///   - lineHeightMultiple: 行高倍数；传 nil 时使用 `AppFont.lineHeightMultiple`
+    ///   - lineHeightMultiple: 行高倍数；传 nil 时使用 `AppFont.lineHeightMultiple`。
+    ///                         传 `<= 0` 的值会被忽略（回退到默认值）
     /// - Returns: 实际设置成功的链接数组（缺失的 link 会被忽略）
     ///
     @discardableResult
     func setAgreementText(_ fullText: String, links: [AgreementLink], baseAttributes: [NSAttributedString.Key: Any]? = nil, linkColor: UIColor? = nil, lineHeightMultiple: CGFloat? = nil) -> [AgreementLink] {
 
-        // 1. 组装基础属性（含段落样式）
+        // 1. 解析行高倍数（非法值回退默认）
+        let resolvedLineHeight: CGFloat
+        if let lineHeightMultiple, lineHeightMultiple > 0 {
+            resolvedLineHeight = lineHeightMultiple
+        } else {
+            resolvedLineHeight = AppFont.lineHeightMultiple
+        }
+
+        // 2. 组装基础属性（含段落样式）
         let attributes = baseAttributes ?? Self.defaultBaseAttributes(
-            lineHeightMultiple: lineHeightMultiple ?? AppFont.lineHeightMultiple
+            lineHeightMultiple: resolvedLineHeight
         )
 
-        // 2. 创建可变富文本
+        // 3. 创建可变富文本
         let attributed = NSMutableAttributedString(
             string: fullText,
             attributes: attributes
         )
 
-        // 3. 匹配并设置所有链接
+        // 4. 匹配并设置所有链接
         let nsText = fullText as NSString
         var appliedLinks: [AgreementLink] = []
 
         for link in links {
+            // 空子串在 NSString 中永远命中（range.length == 0），
+            // 且 searchRange 每次都不动（nextLocation == range.location），
+            // 会导致死循环——必须短路
+            guard !link.text.isEmpty else {
+                AppLog.ui.error("协议链接文本为空，已跳过")
+                continue
+            }
+
             // ⚠️ 循环匹配：文本中同一子串出现多次时全部设为链接
             var searchRange = NSRange(location: 0, length: nsText.length)
             var found = false
@@ -84,7 +102,7 @@ extension UITextView {
             }
         }
 
-        // 4. 应用
+        // 5. 应用
         attributedText = attributed
         linkTextAttributes = [
             .foregroundColor: linkColor ?? AppColor.link,
@@ -99,8 +117,9 @@ extension UITextView {
 
     /// 默认基础属性
     ///
-    /// - Parameter lineHeightMultiple: 行高倍数
+    /// - Parameter lineHeightMultiple: 行高倍数（调用方已保证 `> 0`）
     /// - Returns: 字号、颜色、段落样式的组合
+    ///
     private static func defaultBaseAttributes(lineHeightMultiple: CGFloat) -> [NSAttributedString.Key: Any] {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineHeightMultiple = lineHeightMultiple
@@ -115,9 +134,12 @@ extension UITextView {
 
     /// 应用通用的展示配置
     ///
+    /// ## 关键配置说明
     /// - `isEditable = false`：禁止编辑
-    /// - `isSelectable = true`：允许选中 / 点击链接
+    /// - `isSelectable = true`：允许选中 / **点击链接**——
+    ///   **必须为 true**，否则 `.link` 属性的点击回调不会触发
     /// - `isScrollEnabled = false`：交给父容器滚动
+    ///   （配合 `UITableView` / 外层 `UIScrollView` 的自适应高度）
     /// - `textContainerInset = .zero` + `lineFragmentPadding = 0`：消除内边距，
     ///   避免与外部 Auto Layout 间距叠加
     private func applyBaseConfiguration() {
@@ -133,17 +155,39 @@ extension UITextView {
 // MARK: - 协议地址集中配置
 
 /// 协议地址配置
+///
+/// ## URL 结构
+/// ```
+/// {serverPrefix}/{privacyPolicy_path}?column_id={N}
+/// ```
+/// 例：`https://admin.xing-man.com/api/m12323/641568f1b6f87?column_id=9`
+///
+/// ## 调用方法
+/// ```swift
+/// // 1. 直接用于 WebViewController
+/// WebViewController.push(from: self, urlString: AgreementLinks.userAgreement)
+///
+/// // 2. 用于 UITextView 协议文本链接
+/// AgreementLink(text: L("《用户注册协议》"), url: AgreementLinks.userAgreement)
+///
+/// // 3. 交给 AgreementNavigation 自动解析 column_id 与标题
+/// AgreementNavigation.open(from: self, urlString: AgreementLinks.userAgreement)
+/// ```
 enum AgreementLinks {
 
     /// 用户注册协议
     ///
     /// - Note: 使用 `AgreementAPI.ColumnID.userAgreement`（= 9）。
-    static let userAgreement =
-        "\(APIConfiguration.serverPrefix)/\(APIEndpoint.privacyPolicy.rawValue)?column_id=\(AgreementAPI.ColumnID.userAgreement)"
+    static let userAgreement: String = {
+        let base = APIEndpoint.privacyPolicy.urlString()
+        return "\(base)?column_id=\(AgreementAPI.ColumnID.userAgreement)"
+    }()
 
     /// 隐私政策
     ///
     /// - Note: 使用 `AgreementAPI.ColumnID.privacyPolicy`（= 10）。
-    static let privacyPolicy =
-        "\(APIConfiguration.serverPrefix)/\(APIEndpoint.privacyPolicy.rawValue)?column_id=\(AgreementAPI.ColumnID.privacyPolicy)"
+    static let privacyPolicy: String = {
+        let base = APIEndpoint.privacyPolicy.urlString()
+        return "\(base)?column_id=\(AgreementAPI.ColumnID.privacyPolicy)"
+    }()
 }

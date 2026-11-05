@@ -9,26 +9,7 @@ import UIKit
 import SnapKit
 import Combine
 
-/// 修改 / 绑定手机号或邮箱（通用页）
-///
-/// ## 四种模式
-/// | Mode | 场景 | 流程 |
-/// |---|---|---|
-/// | `.changePhone` | 修改绑定手机号 | 验证旧手机 → 绑定新手机 |
-/// | `.bindPhone`   | 首次绑定手机号 | 直接绑定新手机 |
-/// | `.changeEmail` | 修改绑定邮箱 | 验证旧邮箱 → 绑定新邮箱 |
-/// | `.bindEmail`   | 首次绑定邮箱 | 直接绑定新邮箱 |
-///
-/// ## 调用方法
-/// ```swift
-/// // 1. 修改绑定手机号（需要验证旧账号）
-/// let vc = ChangeAccountViewController(mode: .changePhone)
-/// navigationController?.pushViewController(vc, animated: true)
-///
-/// // 2. 首次绑定邮箱（跳过验证步骤）
-/// let vc = ChangeAccountViewController(mode: .bindEmail)
-/// navigationController?.pushViewController(vc, animated: true)
-/// ```
+
 @MainActor
 final class ChangeAccountViewController: UIViewController {
 
@@ -61,43 +42,46 @@ final class ChangeAccountViewController: UIViewController {
             }
         }
 
-        /// 页面标题
+        /// 页面标题（**已本地化**）
         var title: String {
             switch self {
-            case .changePhone: return "修改绑定手机号"
-            case .bindPhone:   return "绑定新手机"
-            case .changeEmail: return "修改绑定邮箱"
-            case .bindEmail:   return "绑定新邮箱"
+            case .changePhone: return LN("修改绑定手机号")
+            case .bindPhone:   return LN("绑定新手机")
+            case .changeEmail: return LN("修改绑定邮箱")
+            case .bindEmail:   return LN("绑定新邮箱")
             }
         }
 
-        /// 账号的中文显示名（用于 toast / hint 文案拼接）
+        /// 账号的中文显示名（用于 toast / hint 文案拼接，**已本地化**）
         ///
         /// - Returns: `"手机号"` / `"邮箱"`
+        ///
+        /// - Note: `"邮箱"` 需要单独的 key——`Localizable.json` 中
+        ///         目前有 `"邮箱号"` / `"邮箱账号"`，需补充 `"邮箱"`
         var accountDisplayName: String {
             switch self {
-            case .changePhone, .bindPhone: return "手机号"
-            case .changeEmail, .bindEmail: return "邮箱"
+            case .changePhone, .bindPhone: return LN("手机号")
+            case .changeEmail, .bindEmail: return LN("邮箱")
             }
         }
 
-        /// 新账号输入框的占位符
+        /// 新账号输入框的占位符（**已本地化**）
         ///
         /// - Returns: 如 `"请输入新的手机号"`
         var newAccountPlaceholder: String {
             switch self {
-            case .changePhone, .bindPhone: return "请输入新的手机号"
-            case .changeEmail, .bindEmail: return "请输入新的邮箱"
+            case .changePhone, .bindPhone: return LN("请输入新的手机号")
+            case .changeEmail, .bindEmail: return LN("请输入新的邮箱")
             }
         }
 
-        /// Step 2 的顶部提示文案
+        /// Step 2 的顶部提示文案（**已本地化**）
         ///
         /// - Returns: 如 `"请输入新的手机号码："`
         var newStepHint: String {
             switch self {
-            case .changePhone, .bindPhone: return "请输入新的手机号码："
-            case .changeEmail, .bindEmail: return "请输入新的邮箱地址："
+            case .changePhone, .bindPhone: return LN("请输入新的手机号码：")
+            case .changeEmail, .bindEmail: return LN("请输入新的邮箱地址：")
             }
         }
     }
@@ -124,11 +108,29 @@ final class ChangeAccountViewController: UIViewController {
     /// 倒计时按钮固定宽度
     private static let countdownButtonWidth: CGFloat = 100
 
-    /// 验证码长度
+    /// 验证码长度（业务约束：4 位）
     private static let codeLength = 4
 
     /// 倒计时总秒数
     private static let countdownSeconds = 60
+
+    /// 绑定成功后的延时 pop（秒）
+    private static let successPopDelay: TimeInterval = 0.8
+
+    // MARK: - Layout
+
+    private enum Layout {
+        static let hintTopInset: CGFloat = AppSpacing.lg
+        static let horizontalInset: CGFloat = AppSpacing.lg
+        static let hintToStackSpacing: CGFloat = AppSpacing.xl
+        static let stackSpacing: CGFloat = AppSpacing.lg
+        static let textFieldHeight: CGFloat = 50
+        static let countdownButtonHeight: CGFloat = 30
+        static let submitBottomInset: CGFloat = AppSpacing.xxl
+        static let submitHeight: CGFloat = 46
+        static let oldCodeFieldHeight: CGFloat = 50
+        static let oldCodeFieldWidth: CGFloat = 236
+    }
 
     // MARK: - Properties
 
@@ -157,18 +159,16 @@ final class ChangeAccountViewController: UIViewController {
 
     // MARK: Step 1：旧账号验证
 
-    /// 旧账号验证码输入框
+    /// 旧账号验证码输入框（4 位方框样式）
     private lazy var oldCodeInput: CodeInputView = {
         CodeInputView(length: Self.codeLength)
     }()
 
     /// 旧账号"获取验证码"按钮
-    ///
-    /// - Note: 用 `.custom` + 等宽数字字体 + 固定宽度——
-    ///         避免倒计时秒数变化时按钮内部宽度抖动。
     private lazy var oldGetCodeButton: UIButton = {
         let b = UIButton(type: .custom)
-        b.setTitle("获取验证码", for: .normal)
+        // **标题已本地化**
+        b.setTitle(L("获取验证码"), for: .normal)
         b.setTitleColor(AppColor.link, for: .normal)
         b.setTitleColor(AppColor.Text.tertiary, for: .disabled)
         b.titleLabel?.font = Self.countdownFont
@@ -182,6 +182,7 @@ final class ChangeAccountViewController: UIViewController {
         let tf = UITextField()
         tf.font = AppFont.Body.regular
         tf.textColor = AppColor.Text.primary
+        // **占位符来自 Mode（已本地化）**
         tf.placeholder = mode.newAccountPlaceholder
         tf.clearButtonMode = .whileEditing
         tf.borderStyle = .roundedRect
@@ -199,12 +200,13 @@ final class ChangeAccountViewController: UIViewController {
         return tf
     }()
 
-    /// 新账号验证码输入框
+    /// 新账号验证码输入框（普通样式）
     private lazy var newCodeField: UITextField = {
         let tf = UITextField()
         tf.font = AppFont.Body.regular
         tf.textColor = AppColor.Text.primary
-        tf.placeholder = "请输入验证码"
+        // **占位符已本地化**
+        tf.placeholder = L("请输入验证码")
         tf.keyboardType = .numberPad
         tf.textContentType = .oneTimeCode
         tf.clearButtonMode = .whileEditing
@@ -215,7 +217,8 @@ final class ChangeAccountViewController: UIViewController {
     /// 新账号"获取验证码"按钮（同 `oldGetCodeButton`）
     private lazy var newGetCodeButton: UIButton = {
         let b = UIButton(type: .custom)
-        b.setTitle("获取验证码", for: .normal)
+        // **标题已本地化**
+        b.setTitle(L("获取验证码"), for: .normal)
         b.setTitleColor(AppColor.link, for: .normal)
         b.setTitleColor(AppColor.Text.tertiary, for: .disabled)
         b.titleLabel?.font = Self.countdownFont
@@ -228,7 +231,7 @@ final class ChangeAccountViewController: UIViewController {
     private lazy var oldStepStack: UIStackView = {
         let s = UIStackView(arrangedSubviews: [oldCodeInput, oldGetCodeButton])
         s.axis = .vertical
-        s.spacing = AppSpacing.lg
+        s.spacing = Layout.stackSpacing
         s.alignment = .center
         return s
     }()
@@ -246,17 +249,18 @@ final class ChangeAccountViewController: UIViewController {
     private lazy var newStepStack: UIStackView = {
         let s = UIStackView(arrangedSubviews: [newAccountField, newCodeRowStack])
         s.axis = .vertical
-        s.spacing = AppSpacing.lg
+        s.spacing = Layout.stackSpacing
         s.alignment = .fill
         return s
     }()
 
     // MARK: 底部按钮
 
-    /// 提交按钮（Step 1："下一步" / Step 2："完成"）
+    /// 提交按钮（Step 1：`"下一步"` / Step 2：`"完成"`）
     private lazy var submitButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("下一步", for: .normal)
+        // 初始标题（**已本地化**）——`refreshUI` 会动态覆盖
+        b.setTitle(L("下一步"), for: .normal)
         b.setTitleColor(.white, for: .normal)
         b.titleLabel?.font = AppFont.Button.primary
         b.backgroundColor = AppColor.Brand.primary
@@ -301,6 +305,7 @@ final class ChangeAccountViewController: UIViewController {
     // MARK: - Setup
 
     private func setupUI() {
+        // **导航标题来自 Mode（已本地化）**
         title = mode.title
         view.backgroundColor = AppColor.Background.primary
         navigationItem.backButtonDisplayMode = .minimal
@@ -313,47 +318,51 @@ final class ChangeAccountViewController: UIViewController {
 
     private func setupConstraints() {
         hintLabel.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(AppSpacing.lg)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+                .offset(Layout.hintTopInset)
+            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
         }
 
         oldStepStack.snp.makeConstraints { make in
-            make.top.equalTo(hintLabel.snp.bottom).offset(AppSpacing.xl)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalTo(hintLabel.snp.bottom)
+                .offset(Layout.hintToStackSpacing)
+            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
         }
 
         oldCodeInput.snp.makeConstraints { make in
-            make.width.equalTo(CGFloat(Self.codeLength * 50 + (Self.codeLength - 1) * 12))
-            make.height.equalTo(50)
+            make.width.equalTo(Layout.oldCodeFieldWidth)
+            make.height.equalTo(Layout.oldCodeFieldHeight)
         }
 
         // 给按钮固定宽度——标题变化不影响按钮宽度 → 不闪
         oldGetCodeButton.snp.makeConstraints { make in
             make.width.equalTo(Self.countdownButtonWidth)
-            make.height.equalTo(30)
+            make.height.equalTo(Layout.countdownButtonHeight)
         }
 
         newStepStack.snp.makeConstraints { make in
-            make.top.equalTo(hintLabel.snp.bottom).offset(AppSpacing.xl)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+            make.top.equalTo(hintLabel.snp.bottom)
+                .offset(Layout.hintToStackSpacing)
+            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
         }
 
         newAccountField.snp.makeConstraints { make in
-            make.height.equalTo(50)
+            make.height.equalTo(Layout.textFieldHeight)
         }
         newCodeField.snp.makeConstraints { make in
-            make.height.equalTo(50)
+            make.height.equalTo(Layout.textFieldHeight)
         }
 
         newGetCodeButton.snp.makeConstraints { make in
             make.width.equalTo(Self.countdownButtonWidth)
-            make.height.equalTo(30)
+            make.height.equalTo(Layout.countdownButtonHeight)
         }
 
         submitButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-AppSpacing.xxl)
-            make.height.equalTo(46)
+            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+                .offset(-Layout.submitBottomInset)
+            make.height.equalTo(Layout.submitHeight)
         }
     }
 
@@ -391,17 +400,19 @@ final class ChangeAccountViewController: UIViewController {
     private func refreshUI() {
         switch currentStep {
         case .verifyOld:
-            hintLabel.text = "为保障账号安全，请验证当前绑定的\(mode.accountDisplayName)："
+            // **Hint 用 `%@` 格式化**——`mode.accountDisplayName` 已本地化
+            hintLabel.text = L("请验证当前绑定的%@：", mode.accountDisplayName)
             oldStepStack.isHidden = false
             newStepStack.isHidden = true
-            submitButton.setTitle("下一步", for: .normal)
+            submitButton.setTitle(L("下一步"), for: .normal)
             oldCodeInput.clear()
 
         case .bindNew:
+            // **Hint 来自 Mode（已本地化）**
             hintLabel.text = mode.newStepHint
             oldStepStack.isHidden = true
             newStepStack.isHidden = false
-            submitButton.setTitle("完成", for: .normal)
+            submitButton.setTitle(L("完成"), for: .normal)
         }
     }
 
@@ -410,12 +421,10 @@ final class ChangeAccountViewController: UIViewController {
     /// - Parameters:
     ///   - button: 目标按钮（`oldGetCodeButton` / `newGetCodeButton`）
     ///   - seconds: 剩余秒数（`0` 表示可再次点击）
-    ///
-    /// ## 优化要点
-    /// - **只在状态真正变化时更新**——避免每秒重复 `setTitle` / `isEnabled`
     private func refreshCountdownButton(_ button: UIButton, seconds: Int) {
         let isCountingDown = seconds > 0
-        let newTitle = isCountingDown ? "\(seconds) s" : "获取验证码"
+        // **标题已本地化**
+        let newTitle = isCountingDown ? L("%lld s", seconds) : L("获取验证码")
         let shouldEnable = !isCountingDown
 
         if button.title(for: .normal) != newTitle {
@@ -429,13 +438,12 @@ final class ChangeAccountViewController: UIViewController {
     // MARK: - Actions
 
     /// Step 1："获取验证码"（发送给旧账号）
-    ///
-    /// - Note: 用 `timer.isRunning` 替代缓存的秒数——语义等价且无需额外字段。
     @objc private func oldGetCodeTapped() {
         guard !oldCountdownTimer.isRunning else { return }
 
         guard let account = oldAccountString() else {
-            showToast("未获取到当前绑定的\(mode.accountDisplayName)，请稍后重试")
+            // **提示已本地化**
+            showToast(L("未获取到当前绑定的%@，请稍后重试", mode.accountDisplayName))
             return
         }
 
@@ -453,12 +461,14 @@ final class ChangeAccountViewController: UIViewController {
 
         let account = (newAccountField.text ?? "").trimmingCharacters(in: .whitespaces)
         guard !account.isEmpty else {
-            showToast("请输入新\(mode.accountDisplayName)")
+            // **提示已本地化**
+            showToast(L("请输入新%@", mode.accountDisplayName))
             return
         }
 
         guard isValidAccount(account) else {
-            showToast("\(mode.accountDisplayName)格式不正确")
+            // **提示已本地化**
+            showToast(L("%@格式不正确", mode.accountDisplayName))
             return
         }
 
@@ -495,7 +505,7 @@ final class ChangeAccountViewController: UIViewController {
         service.sendCode(
             account: account,
             accountType: mode.accountType.accountType,
-            scene: .changePhone,
+            scene: .changePhone,   // 见方法注释的"关于 scene 参数"
             userId: userId
         )
         .receive(on: DispatchQueue.main)
@@ -503,12 +513,14 @@ final class ChangeAccountViewController: UIViewController {
             receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
                     if case .cancelled = error { return }
-                    self?.showToast(error.errorDescription ?? "发送失败")
+                    // `error.errorDescription` 已本地化（来自 `NetworkError`）
+                    self?.showToast(error.errorDescription ?? L("发送失败"))
                 }
             },
             receiveValue: { [weak self] _ in
                 guard let self else { return }
-                self.showToast("验证码已发送")
+                // **提示已本地化**
+                self.showToast(L("验证码已发送"))
                 timer.start(seconds: Self.countdownSeconds)
             }
         )
@@ -521,12 +533,13 @@ final class ChangeAccountViewController: UIViewController {
     private func verifyOldCode() {
         let code = oldCodeInput.code
         guard code.count == Self.codeLength else {
-            showToast("请输入 \(Self.codeLength) 位验证码")
+            // **提示已本地化**
+            showToast(L("请输入 %lld 位验证码", Self.codeLength))
             return
         }
 
         guard let account = oldAccountString() else {
-            showToast("未获取到当前绑定的账号")
+            showToast(L("未获取到当前绑定的账号"))
             return
         }
 
@@ -548,7 +561,8 @@ final class ChangeAccountViewController: UIViewController {
 
                 if case .failure(let error) = completion {
                     if case .cancelled = error { return }
-                    self.showToast(error.errorDescription ?? "验证码错误")
+                    // `error.errorDescription` 已本地化（来自 `NetworkError`）
+                    self.showToast(error.errorDescription ?? L("验证码错误"))
                 }
             },
             receiveValue: { [weak self] _ in
@@ -579,17 +593,17 @@ final class ChangeAccountViewController: UIViewController {
         let newCode = (newCodeField.text ?? "").trimmingCharacters(in: .whitespaces)
 
         guard !newAccount.isEmpty else {
-            showToast("请输入新\(mode.accountDisplayName)")
+            showToast(L("请输入新%@", mode.accountDisplayName))
             return
         }
 
         guard isValidAccount(newAccount) else {
-            showToast("\(mode.accountDisplayName)格式不正确")
+            showToast(L("%@格式不正确", mode.accountDisplayName))
             return
         }
 
         guard newCode.count == Self.codeLength else {
-            showToast("请输入 \(Self.codeLength) 位验证码")
+            showToast(L("请输入 %lld 位验证码", Self.codeLength))
             return
         }
 
@@ -597,10 +611,6 @@ final class ChangeAccountViewController: UIViewController {
         submitButton.alpha = 0.6
 
         // 依模式选择提交接口
-        //
-        // - Note: 后端 `edit_mobile` / `edit_email` 不区分"首次绑定"与"修改"，
-        //         因此 `changePhone` / `bindPhone` 调用的是**同一后端接口**，
-        //         只有前端 case 不同（语义 / 日志可区分）。
         let publisher: AnyPublisher<Void, NetworkError>
         switch mode {
         case .changePhone:
@@ -624,7 +634,8 @@ final class ChangeAccountViewController: UIViewController {
                     if case .failure(let error) = completion {
                         if case .cancelled = error { return }
                         AppLog.profile.error("绑定失败：\(error.logCode, privacy: .public)")
-                        self.showToast(error.errorDescription ?? "操作失败")
+                        // `error.errorDescription` 已本地化
+                        self.showToast(error.errorDescription ?? L("操作失败"))
                     }
                 },
                 receiveValue: { [weak self] _ in
@@ -639,14 +650,13 @@ final class ChangeAccountViewController: UIViewController {
     /// 绑定成功后的统一处理
     ///
     /// - Parameter newAccount: 用户新输入的账号（手机号 / 邮箱）
-    ///
-    /// ## 行为
-    /// 1. 显示 Toast
-    /// 2. 更新 `AuthStore` 中的真实账号缓存
-    /// 3. 停止新账号倒计时
-    /// 4. 延时 pop 回上一页（**带栈顶检查**）
     private func handleBindSuccess(newAccount: String) {
-        showToast(mode.accountType == .phone ? "手机号更新成功" : "邮箱更新成功")
+        // **提示已本地化**
+        showToast(
+            mode.accountType == .phone
+                ? L("手机号更新成功")
+                : L("邮箱更新成功")
+        )
 
         // 更新本地缓存——供后续"账号与安全"页发送验证码使用
         if mode.accountType == .phone {
@@ -661,7 +671,7 @@ final class ChangeAccountViewController: UIViewController {
         // 延时 pop 前**必须**检查当前 VC 仍是栈顶——
         // 若用户在 0.8s 延时期间手动返回，直接 `popViewController`
         // 会**误弹上一层 VC**（用户看到"连跳两级"的错乱）。
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.successPopDelay) { [weak self] in
             guard let self else { return }
             guard self.navigationController?.viewControllers.last === self else {
                 AppLog.profile.debug("延时 pop 时 VC 已不在栈顶，跳过")
@@ -676,11 +686,6 @@ final class ChangeAccountViewController: UIViewController {
     /// 获取当前绑定的旧账号（手机号 / 邮箱）
     ///
     /// - Returns: 旧账号字符串；未缓存时返回 `nil`
-    ///
-    /// - Note: 数据来源为 `AuthStore.realMobile` / `realEmail`——
-    ///         由 `UserProfileViewModel.refresh()` 从 `user/get_user_info`
-    ///         拉取后写入。若用户进入本页过快（refresh 未完成），可能返回 nil，
-    ///         此时提示用户"请稍后重试"。
     private func oldAccountString() -> String? {
         switch mode.accountType {
         case .phone: return AuthStore.shared.realMobile

@@ -8,6 +8,23 @@
 import Foundation
 import Combine
 
+/// 音乐页视图模型
+///
+/// ## 职责
+/// - 拉取音乐页的 Banner + 分类列表（并发）
+/// - 处理竞态（`requestToken`）
+/// - 向 VC 暴露纯数据模型（`MusicBanner` / `MusicSection`）
+///
+/// ## 数据流
+/// ```
+/// MusicViewController
+///   ↓ loadData()
+/// MusicViewModel（本类）
+///   ↓ fetchBanners() + fetchCategories()
+/// MusicRepository
+///   ↓
+/// MusicService → NetworkClient
+/// ```
 @MainActor
 final class MusicViewModel {
 
@@ -22,12 +39,12 @@ final class MusicViewModel {
     /// 是否正在加载（首屏显示菊花）
     @Published private(set) var isLoading: Bool = false
 
-    /// 错误信息
+    /// 错误信息（**已本地化**）
     @Published private(set) var errorMessage: String?
 
     /// 空数据状态
     ///
-    /// - Returns: 无数据 + 不在加载 + 无错误时为 `true`
+    /// - Returns: 无数据 + 不在加载 + **无错误** 时为 `true`
     var isEmpty: Bool {
         sections.isEmpty && !isLoading && errorMessage == nil
     }
@@ -72,7 +89,7 @@ final class MusicViewModel {
 
         AppLog.app.debug("发起音乐页数据请求 token=\(token, privacy: .public)")
 
-        // 并发拉取 banners + categories
+        // Banner Publisher（失败降级为空数组）
         let bannersPublisher = repository.fetchBanners()
             .catch { error -> Just<[MusicBanner]> in
                 AppLog.app.error("Banner 加载失败，降级为空：\(error.logCode, privacy: .public)")
@@ -81,11 +98,12 @@ final class MusicViewModel {
             .setFailureType(to: NetworkError.self)
             .eraseToAnyPublisher()
 
+        // 分类 Publisher（失败向上抛——分类是核心内容）
         let categoriesPublisher = repository.fetchCategories()
             .eraseToAnyPublisher()
 
         currentRequest = Publishers.Zip(bannersPublisher, categoriesPublisher)
-            .receive(on: DispatchQueue.main) // 确保后续状态更新在主线程
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
                     guard let self, self.requestToken == token else {
@@ -100,13 +118,15 @@ final class MusicViewModel {
                         AppLog.app.error(
                             "音乐页加载失败：\(error.logCode, privacy: .public)"
                         )
-                        self.errorMessage = error.errorDescription ?? "加载失败，请稍后重试"
+                        // 错误提示已本地化
+                        self.errorMessage = error.errorDescription
+                            ?? L("加载失败，请稍后重试")
                     }
                 },
                 receiveValue: { [weak self] banners, categories in
                     guard let self, self.requestToken == token else { return }
 
-                    // 将 categories 直接转换为 sections
+                    // 将 categories 直接转换为 sections（过滤空分组）
                     let sections = Self.makeSections(from: categories)
 
                     AppLog.app.debug(
@@ -125,7 +145,10 @@ final class MusicViewModel {
     ///   - customWhiteNoise: 是否只拉取自定义白噪音
     /// - Returns: 音乐列表 Publisher
     func fetchSongs(freemusicsubcategory_id: String, customWhiteNoise: Bool? = nil) -> AnyPublisher<[MusicSong], NetworkError> {
-        repository.fetchSongs(freemusicsubcategory_id: freemusicsubcategory_id, customWhiteNoise: customWhiteNoise)
+        repository.fetchSongs(
+            freemusicsubcategory_id: freemusicsubcategory_id,
+            customWhiteNoise: customWhiteNoise
+        )
     }
 
     /// 拉取并匹配目标子分类的音乐（**VC 层点击卡片后调用**）
@@ -149,7 +172,7 @@ final class MusicViewModel {
     // MARK: - Private Helpers
 
     /// 将网络分类模型转换为 UI 分组模型（**过滤空分组**）
-    /// 
+    ///
     /// - Parameter categories: 接口返回的分类列表
     /// - Returns: 可用于 UI 的分组列表
     private static func makeSections(from categories: [MusicCategory]) -> [MusicSection] {

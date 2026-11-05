@@ -8,23 +8,11 @@
 import UIKit
 
 /// 协议 HTML 模板
-///
-/// ## 职责
-/// 后端返回的 `content` 是 **HTML 片段**（不是完整文档），
-/// 需要包裹 `<html>` / `<head>` / `<style>` 等标签后才能加载到 `WKWebView`。
-///
-/// ## 统一控制的样式
-/// - 字体（跟随系统 / 中文优化）
-/// - 行高（1.75，适合长文阅读）
-/// - 颜色（浅色 / 暗黑两套，与 `AppColor` 保持一致）
-/// - 图片（自适应宽度、居中）
-/// - 常用元素（标题 / 段落 / 列表 / 表格 / 引用 / 代码）
-/// - **安全**：CSP 禁脚本（协议页无需 JS，防止后端内容注入执行）
-///
+/// 
 /// ## 调用方法
 /// ```swift
-/// // 1. 渲染协议内容
-/// let html = AgreementHTMLTemplate.wrap(content, title: "用户注册协议")
+/// // 1. 渲染协议内容（body 已由调用方本地化）
+/// let html = AgreementHTMLTemplate.wrap(content, title: L("用户注册协议"))
 /// webView.loadHTMLString(html, baseURL: nil)
 ///
 /// // 2. App 启动时预热样式（避免首次 push 时卡顿）
@@ -38,14 +26,9 @@ enum AgreementHTMLTemplate {
     /// 用统一模板包裹后端返回的 HTML 片段
     ///
     /// - Parameters:
-    ///   - body: 后端返回的 HTML 片段
-    ///   - title: HTML `<title>`；默认空字符串
+    ///   - body: 后端返回的 HTML 片段（**已由调用方本地化**）
+    ///   - title: HTML `<title>`；默认空字符串（**已由调用方本地化**）
     /// - Returns: 完整的 HTML 文档
-    ///
-    /// - Note:
-    ///   - `title` 用于 `WKWebView.title` KVO——若页面没 `<title>`，
-    ///     `webView.title` 会是 `nil`，导致导航栏标题无法更新
-    ///   - `body` **不**做转义——它本身是 HTML，转义后标签会变成纯文本
     static func wrap(_ body: String, title: String = "") -> String {
         """
         <!DOCTYPE html>
@@ -67,18 +50,12 @@ enum AgreementHTMLTemplate {
 
     /// 预热缓存的样式表
     ///
-    /// ## 使用场景
-    /// 若首次访问发生在用户点击"用户协议"的瞬间，
-    /// 会在主线程阻塞数毫秒——虽然只一次，但在低端机上有可感知的一帧掉帧。
-    ///
     /// ## 调用方法
     /// 在 `AppDelegate.didFinishLaunchingWithOptions` 中调用一次：
     /// ```swift
     /// AgreementHTMLTemplate.warmUp()
     /// ```
     ///
-    /// - Note: 因为本 `enum` 标注 `@MainActor`，
-    ///         本方法必须在主线程调用（App 启动路径天然满足）。
     static func warmUp() {
         // 触发 `cachedStyleSheet` 的惰性初始化
         _ = cachedStyleSheet
@@ -95,23 +72,12 @@ enum AgreementHTMLTemplate {
     /// | `default-src` | `'none'` | 默认禁止一切（脚本 / 字体 / 媒体等） |
     /// | `img-src` | `data: https: http:` | 允许图片（base64 / 远程，含 http 兼容老旧资源） |
     /// | `style-src` | `'unsafe-inline'` | 允许内联样式（模板自身用 `<style>`） |
-    ///
-    /// - Important: **没有**显式列 `script-src`——
-    ///              因为它会被 `default-src 'none'` 覆盖，
-    ///              语义更简洁。任何 `<script>` 都不会执行。
     private static let cspPolicy =
         "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline';"
 
     // MARK: - Style Sheet（缓存）
 
     /// 缓存的样式表
-    ///
-    /// - Note:
-    ///   - 首次访问时计算，之后直接命中静态缓存
-    ///   - 因为样式表内容**不依赖运行时状态**（只依赖 `AppColor` 的固定色值），
-    ///     所以缓存是安全的
-    ///   - `static let` 惰性初始化由 `@MainActor` 保证主线程首次访问
-    ///   - 通过 `warmUp()` 在 App 启动时提前触发初始化
     private static let cachedStyleSheet: String = makeStyleSheet()
 
     /// 生成样式表（仅首次调用）
@@ -292,10 +258,6 @@ enum AgreementHTMLTemplate {
     }
 
     /// 预建 trait collection 常量
-    ///
-    /// - Note: 原实现 `resolveHex` 每次都 `UITraitCollection(userInterfaceStyle: style)`——
-    ///         创建对象虽轻量，但每次都分配堆内存 + 拷贝，6 次调用就是 6 次分配。
-    ///         既然是固定两种 style，抽成常量只创建一次。
     private static let lightTraits = UITraitCollection(userInterfaceStyle: .light)
     private static let darkTraits  = UITraitCollection(userInterfaceStyle: .dark)
 
@@ -325,9 +287,6 @@ enum AgreementHTMLTemplate {
     ///   - color: 动态色
     ///   - style: 目标外观（`.light` / `.dark`）
     /// - Returns: `#RRGGBB` 格式的十六进制字符串
-    ///
-    /// - Note: 复用 `lightTraits` / `darkTraits` 静态常量，
-    ///         避免每次重建 `UITraitCollection`。
     private static func resolveHex(_ color: UIColor, style: UIUserInterfaceStyle) -> String {
         let traits = (style == .dark) ? darkTraits : lightTraits
         return color.resolvedColor(with: traits).hexString
@@ -337,12 +296,9 @@ enum AgreementHTMLTemplate {
     ///
     /// - Parameter string: 原始字符串
     /// - Returns: 转义后的字符串
-    ///
-    /// - Note: 用于 `<title>` 标签。正文（`body`）是后端返回的 HTML，
-    ///         不应转义，否则 HTML 标签会被显示为纯文本。
     private static func escapeHTML(_ string: String) -> String {
         string
-            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "&", with: "&amp;")   // ⚠️ 必须最前
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
@@ -353,20 +309,11 @@ enum AgreementHTMLTemplate {
 // MARK: - UIColor → Hex
 
 /// 仅本文件使用的十六进制转换
-///
-/// - Note: 保持 `private` 而非 `internal`——
-///         避免其他模块各自实现一套 hex 转换，统一走 `AppColor` + 本扩展。
 private extension UIColor {
 
     /// 转为 `#RRGGBB` 格式的十六进制字符串
     ///
     /// - Returns: `#RRGGBB` 格式字符串
-    ///
-    /// - Note:
-    ///   - 用于把 `AppColor` 的动态颜色注入 HTML CSS
-    ///   - 只输出 RGB，不含 alpha（CSS 中不做透明度处理）
-    ///   - **必须先在主线程调用 `resolvedColor(with:)` 解析动态色**
-    ///     后再调用本属性，否则可能拿到错误的色值
     var hexString: String {
         var r: CGFloat = 0
         var g: CGFloat = 0
