@@ -17,16 +17,19 @@ final class DeviceControllerView: UIViewController {
 
     /// 设置行标识（替代魔法数字 `tag`）
     private enum SettingRow: Int {
-        case alarm       = 100
-        case sleepTimer  = 101
-        case control     = 102
-        case soundEffect = 103
+        case soundLibrary       = 100
+        case alarm              = 101
+        case control            = 102
+        case AudioPause         = 103
+        case moreSettings       = 104
     }
 
     /// 中间卡片按钮标识（替代魔法数字 `tag`）
     private enum MidButton: Int {
-        case soundLibrary = 200
+        case startSleep = 200
         case sleepReport  = 201
+        case classBleModel  = 202
+        case bleModel       = 203
     }
 
     private enum Layout {
@@ -96,7 +99,7 @@ final class DeviceControllerView: UIViewController {
 
     private lazy var sleepCardView: UIView = {
         let view = UIView()
-        view.backgroundColor = AppColor.Device.cardBackground
+        view.backgroundColor = UIColor(hex: "#E6E9EC")
         view.layer.cornerRadius = Layout.cardCornerRadius
         view.clipsToBounds = true
         return view
@@ -106,46 +109,23 @@ final class DeviceControllerView: UIViewController {
         let label = UILabel()
         label.text = L("记录睡眠")
         label.font = AppFont.Body.emphasized
-        label.textColor = .white
+        label.textColor = .black
         return label
     }()
 
-    private lazy var startRecordButton: UIButton = {
-        var config = UIButton.Configuration.filled()
-        config.baseBackgroundColor = .white
-        config.baseForegroundColor = AppColor.Device.cardBackground
-
-        config.cornerStyle = .fixed
-        config.background.cornerRadius = Layout.recordButtonCornerRadius
-        config.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: AppSpacing.md,
-            bottom: 0,
-            trailing: AppSpacing.md
-        )
-
-        var titleAttr = AttributedString(L("开始记录"))
-        titleAttr.font = AppFont.Caption.emphasized
-        config.attributedTitle = titleAttr
-
-        let btn = UIButton(configuration: config)
-        btn.addTarget(self, action: #selector(startBtnClick), for: .touchUpInside)
-        return btn
-    }()
-
-    private lazy var sleepDescLabel: UILabel = {
-        let label = UILabel()
-        // **长文案已本地化**——翻译需保持"睡眠记录通过设备或软件采集..."
-        // 的完整语义，见最终 Localizable.json
-        label.text = L("睡眠记录通过设备或软件采集入睡时长、睡眠阶段等数据，评估睡眠与健康状况")
-        label.font = AppFont.Caption.tiny
-        label.textColor = .white
-        label.numberOfLines = 0
-        return label
-    }()
-
-    // 声音库 / 睡眠报告 按钮栈
+    // 开始记录 / 睡眠报告 按钮栈
     private lazy var midButtonsStackView: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 14
+        stack.distribution = .fillEqually
+        return stack
+    }()
+    
+    // MARK: - UI - 蓝牙模式选择区
+    
+    // 蓝牙模式 / 本地模式 按钮栈
+    private lazy var bleModeStateStackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .horizontal
         stack.spacing = 14
@@ -172,7 +152,8 @@ final class DeviceControllerView: UIViewController {
         icon: AppImage.Device.iconVolume,
         title: L("智能音量"),
         rightView: smartVolumeSwitch,
-        isHidden: true
+        isHidden: false,
+        showInfoIcon: true
     )
 
     // MARK: - Init
@@ -215,38 +196,12 @@ final class DeviceControllerView: UIViewController {
 
         // 3. 左侧返回按钮：不写任何 leftBarButtonItem 的代码，依靠系统原生居中
         navigationItem.backButtonDisplayMode = .minimal
-
-        // ================= 右侧按钮修复约束冲突 =================
-        // 核心修复：不要用 SnapKit 约束宽高，直接用 frame 设置尺寸
-        // 这样系统包装器会自动读取 frame 尺寸，避免 NSAutoresizingMaskLayoutConstraint 冲突
-
-        let helpBtn = UIButton(type: .system)
-        helpBtn.setImage(UIImage(systemName: "headphones"), for: .normal)
-        helpBtn.tintColor = .white
-        // 显式指定 frame（Swift 推荐写法，避免系统在 Push 瞬间宽度为0的冲突）
-        helpBtn.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
-        helpBtn.addTarget(self, action: #selector(helpBtnClick), for: .touchUpInside)
-
-        let settingsBtn = UIButton(type: .system)
-        settingsBtn.setImage(UIImage(systemName: "gearshape"), for: .normal)
-        settingsBtn.tintColor = .white
-        settingsBtn.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
-        settingsBtn.addTarget(self, action: #selector(setBtnClick), for: .touchUpInside)
-
-        let helpItem = UIBarButtonItem(customView: helpBtn)
-        let settingsItem = UIBarButtonItem(customView: settingsBtn)
-
-        // 添加一个固定宽度的占位符，用来控制两个图标之间的间距
-        let spacer = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
-        spacer.width = AppSpacing.xs
-
-        navigationItem.rightBarButtonItems = [settingsItem, spacer, helpItem]
     }
 
     // MARK: - Setup UI
 
     private func setupUI() {
-        view.backgroundColor = AppColor.Device.background
+        view.backgroundColor = UIColor(hex: "#F5F6F7")
 
         // 添加滚动视图
         view.addSubview(scrollView)
@@ -281,23 +236,34 @@ final class DeviceControllerView: UIViewController {
         // 记录睡眠卡片
         contentView.addSubview(sleepCardView)
         sleepCardView.addSubview(sleepTitleLabel)
-        sleepCardView.addSubview(startRecordButton)
-        sleepCardView.addSubview(sleepDescLabel)
         sleepCardView.addSubview(midButtonsStackView)
 
-        // 构建声音库/睡眠报告按钮
+        // 构建开始记录/睡眠报告按钮
         midButtonsStackView.addArrangedSubview(
-            makeMidButton(
-                title: L("声音库"),
-                image: AppImage.Device.soundLibrary,
-                tag: MidButton.soundLibrary.rawValue
+            makeTexteBrutButton(
+                title: L("开始记录"),
+                tag: MidButton.startSleep.rawValue
             )
         )
         midButtonsStackView.addArrangedSubview(
-            makeMidButton(
+            makeTexteBrutButton(
                 title: L("睡眠报告"),
-                image: AppImage.Device.sleepReport,
                 tag: MidButton.sleepReport.rawValue
+            )
+        )
+        
+        // 构建蓝牙模式/本地模式按钮
+        contentView.addSubview(bleModeStateStackView)
+        bleModeStateStackView.addArrangedSubview(
+            makeTexteBrutButton(
+                title: L("蓝牙模式"),
+                tag: MidButton.classBleModel.rawValue
+            )
+        )
+        bleModeStateStackView.addArrangedSubview(
+            makeTexteBrutButton(
+                title: L("本地模式"),
+                tag: MidButton.bleModel.rawValue
             )
         )
 
@@ -307,47 +273,47 @@ final class DeviceControllerView: UIViewController {
     }
 
     private func buildSettingsRows() {
-        // 1. 睡眠模式
-        let sleepModeRow = makeSettingsRow(
-            icon: AppImage.Device.iconMoon,
-            title: L("睡眠模式"),
-            rightView: sleepModeSwitch,
-            showInfoIcon: true
+        // 1. 音频库
+        let soundLibraryRow = makeSettingsRow(
+            icon: AppImage.Device.soundLibrary,
+            title: L("音频库"),
+            rightView: makeArrowIcon(),
+            action: { [weak self] in self?.typeRowTapped(row: .soundLibrary) }
         )
-
-        // 3. 闹钟模式
+        
+        // 2. 闹钟
         let alarmRow = makeSettingsRow(
             icon: AppImage.Device.iconAlarm,
-            title: L("闹钟模式"),
+            title: L("闹钟"),
             rightView: makeArrowIcon(),
             action: { [weak self] in self?.typeRowTapped(row: .alarm) }
         )
-
-        // 4. 睡眠定时
-        let timerRow = makeSettingsRow(
-            icon: AppImage.Device.iconTimer,
-            title: L("睡眠定时"),
-            rightView: makeArrowIcon(),
-            action: { [weak self] in self?.typeRowTapped(row: .sleepTimer) }
-        )
-
-        // 5. 控制（手势）
+        
+        // 3. 敲击控制
         let controlRow = makeSettingsRow(
             icon: AppImage.Device.iconFinger,
-            title: L("控制"),
+            title: L("敲击控制"),
             rightView: makeArrowIcon(),
             action: { [weak self] in self?.typeRowTapped(row: .control) }
         )
-
-        // 6. 音效
-        let soundRow = makeSettingsRow(
-            icon: AppImage.Device.iconSpeaker,
-            title: L("音效"),
+        
+        // 4. 智能停止音频
+        let intelligentAudioPauseRow = makeSettingsRow(
+            icon: AppImage.Device.iconVolume,
+            title: L("智能停止音频"),
+            rightView: sleepModeSwitch,
+            action: { [weak self] in self?.typeRowTapped(row: .AudioPause) }
+        )
+        
+        // 5. 更多设置
+        let moreSettingRow = makeSettingsRow(
+            icon: AppImage.Device.iconMoreSettings,
+            title: L("更多设置"),
             rightView: makeArrowIcon(),
-            action: { [weak self] in self?.typeRowTapped(row: .soundEffect) }
+            action: { [weak self] in self?.typeRowTapped(row: .moreSettings) }
         )
 
-        [sleepModeRow, smartVolumeRow, alarmRow, timerRow, controlRow, soundRow].forEach {
+        [soundLibraryRow, alarmRow, controlRow, intelligentAudioPauseRow, moreSettingRow].forEach {
             settingsStackView.addArrangedSubview($0)
         }
     }
@@ -396,27 +362,23 @@ final class DeviceControllerView: UIViewController {
             make.leading.equalToSuperview().offset(AppSpacing.md)
         }
 
-        startRecordButton.snp.makeConstraints { make in
-            make.centerY.equalTo(sleepTitleLabel)
-            make.trailing.equalToSuperview().offset(-AppSpacing.md)
-            make.height.equalTo(Layout.recordButtonHeight)
-        }
-
-        sleepDescLabel.snp.makeConstraints { make in
-            make.top.equalTo(sleepTitleLabel.snp.bottom).offset(AppSpacing.md)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
-        }
-
         midButtonsStackView.snp.makeConstraints { make in
-            make.top.equalTo(sleepDescLabel.snp.bottom).offset(AppSpacing.xl)
+            make.top.equalTo(sleepTitleLabel.snp.bottom).offset(AppSpacing.xl)
             make.leading.trailing.equalToSuperview().inset(AppSpacing.md)
             make.height.equalTo(Layout.midButtonHeight)
             make.bottom.equalToSuperview().offset(-AppSpacing.md)
         }
+        
+        // 蓝牙状态卡片
+        bleModeStateStackView.snp.makeConstraints { make in
+            make.top.equalTo(sleepCardView.snp.bottom).offset(AppSpacing.md)
+            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
+            make.height.equalTo(Layout.midButtonHeight+19)
+        }
 
         // 设置列表区
         settingsStackView.snp.makeConstraints { make in
-            make.top.equalTo(sleepCardView.snp.bottom).offset(AppSpacing.md)
+            make.top.equalTo(bleModeStateStackView.snp.bottom).offset(AppSpacing.md)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
             make.bottom.equalToSuperview().offset(-AppSpacing.lg)
         }
@@ -471,27 +433,20 @@ final class DeviceControllerView: UIViewController {
 
     // MARK: - Actions
 
-    @objc private func setBtnClick() {
-        AppLog.device.debug("点击设置")
-        // 跳转设置页面，并将当前设备数据传过去
-        let settingsVC = DeviceSettingsViewController(device: device)
-        navigationController?.pushViewController(settingsVC, animated: true)
-    }
-
-    @objc private func helpBtnClick() {
-        AppLog.device.debug("点击帮助")
-    }
-
-    @objc private func startBtnClick() {
-        AppLog.device.debug("点击开始记录睡眠")
-    }
-
     /// 点击睡眠模式旁边的问号图标
-    @objc private func infoIconTapped() {
-        showAlert(
-            L("启用此模式以节省电池并延长播放时间。注意：您只能访问已传输到耳机中的内置音频文件。如需更换内置音频，请访问音频库。"),
-            title: L("提示")
-        )
+    @objc private func infoIconTapped(_ sender: UIButton) {
+        if sender.accessibilityIdentifier == L("睡眠模式") {
+            showAlert(
+                L("启用此模式以节省电池并延长播放时间。注意：您只能访问已传输到耳机中的内置音频文件。如需更换内置音频，请访问音频库。"),
+                title: L("提示")
+            )
+        } else {
+            showAlert(
+                L("智能音量会根据周围的噪音自动调整音量。请保持应用程序处于开启状态，以确保此功能正常运作。"),
+                title: L("提示")
+            )
+        }
+        
     }
 
     /// 设置行点击
@@ -499,37 +454,11 @@ final class DeviceControllerView: UIViewController {
     /// - Parameter row: 行标识（枚举，替代魔法数字）
     private func typeRowTapped(row: SettingRow) {
         AppLog.device.debug("点击列表项: \(row.rawValue)")
-
+        
+            
         switch row {
-        case .alarm:
-            // 跳转闹钟模式页面
-            let alarmVC = AlarmViewController()
-            navigationController?.pushViewController(alarmVC, animated: true)
-
-        case .sleepTimer:
-            showToast(L("睡眠定时页面开发中"))
-
-        case .control:
-            let controlVC = GuestViewController()
-            navigationController?.pushViewController(controlVC, animated: true)
-
-        case .soundEffect:
-            let soundVC = SoundEffectViewController()
-            navigationController?.pushViewController(soundVC, animated: true)
-        }
-    }
-
-    /// 中间卡片按钮点击
-    ///
-    /// - Parameter sender: 触发的按钮
-    @objc private func midBtnTapped(_ sender: UIButton) {
-        guard let button = MidButton(rawValue: sender.tag) else { return }
-
-        AppLog.device.debug("点击中间卡片按钮: \(sender.tag)")
-
-        switch button {
         case .soundLibrary:
-            // 跳转声音库（MusicViewController）
+            // 跳转音频库
             let storyboard = UIStoryboard(name: "Main", bundle: nil)
             if let musicVC = storyboard.instantiateViewController(
                 withIdentifier: "MusicViewController"
@@ -537,8 +466,52 @@ final class DeviceControllerView: UIViewController {
                 musicVC.hidesBottomBarWhenPushed = true
                 navigationController?.pushViewController(musicVC, animated: true)
             }
+            
+        case .alarm:
+            // 跳转闹钟模式页面
+            let alarmVC = AlarmViewController()
+            navigationController?.pushViewController(alarmVC, animated: true)
+            
+        case .control:
+            let controlVC = GuestViewController()
+            navigationController?.pushViewController(controlVC, animated: true)
+            
+        case .AudioPause:
+            showToast(L("点击智能停止音频"))
+            
+        case .moreSettings:
+            let settingsVC = DeviceSettingsViewController(device: device)
+            navigationController?.pushViewController(settingsVC, animated: true)
+        }
+    }
 
+    /// 带图片的按钮点击
+    ///
+    /// - Parameter sender: 触发的按钮
+    @objc private func textAndImgBtnTapped(_ sender: UIButton) {
+        guard let button = MidButton(rawValue: sender.tag) else { return }
+        AppLog.device.debug("点击中间卡片按钮: \(sender.tag)")
+    }
+    
+    /// 纯文本的按钮点击
+    ///
+    /// - Parameter sender: 触发的按钮
+    @objc private func texteBrutBtnTapped(_ sender: UIButton) {
+        guard let button = MidButton(rawValue: sender.tag) else { return }
+        AppLog.device.debug("点击中间卡片按钮: \(sender.tag)")
+        
+        switch button {
+        case .startSleep:
+            // 开始记录睡眠
+            AppLog.device.debug("点击开始记录睡眠")
+            
         case .sleepReport:
+            showToast(L("睡眠报告页面开发中"))
+            
+        case .classBleModel:
+            showToast(L("睡眠报告页面开发中"))
+            
+        case .bleModel:
             showToast(L("睡眠报告页面开发中"))
         }
     }
@@ -594,13 +567,13 @@ extension DeviceControllerView {
         return container
     }
 
-    /// 创建记录睡眠卡片中间按钮
+    /// 创建带图片的按钮
     ///
     /// - Parameters:
     ///   - title: 按钮标题（**调用方需传入已本地化字符串**）
     ///   - image: 图标
     ///   - tag: `MidButton` 的 rawValue
-    private func makeMidButton(title: String, image: UIImage, tag: Int) -> UIView {
+    private func makeTextAndImgButton(title: String, image: UIImage, tag: Int) -> UIView {
         let container = UIView()
         container.backgroundColor = AppColor.Device.soundAndSleepBackground
         container.layer.cornerRadius = AppSpacing.Corner.button
@@ -608,8 +581,8 @@ extension DeviceControllerView {
 
         let btn = UIButton(type: .custom)
         btn.tag = tag
-        btn.addTarget(self, action: #selector(midBtnTapped(_:)), for: .touchUpInside)
-
+        btn.addTarget(self, action: #selector(textAndImgBtnTapped(_:)), for: .touchUpInside)
+        
         let iconView = UIImageView(image: image)
         iconView.contentMode = .scaleAspectFit
 
@@ -634,6 +607,32 @@ extension DeviceControllerView {
             make.trailing.lessThanOrEqualToSuperview().offset(-10)
         }
 
+        btn.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+
+        return container
+    }
+    
+    /// 创建纯文本的按钮
+    ///
+    /// - Parameters:
+    ///   - title: 按钮标题（**调用方需传入已本地化字符串**）
+    ///   - tag: `MidButton` 的 rawValue
+    private func makeTexteBrutButton(title: String, tag: Int) -> UIView {
+        let container = UIView()
+        container.layer.cornerRadius = AppSpacing.Corner.button
+        container.clipsToBounds = true
+        
+        let btn = UIButton(type: .custom)
+        btn.tag = tag
+        btn.setTitle(title, for: .normal)
+        btn.titleLabel?.font = AppFont.Body.regular
+        btn.setTitleColor(.black, for: .normal)
+        btn.backgroundColor = .white
+        btn.addTarget(self, action: #selector(texteBrutBtnTapped(_:)), for: .touchUpInside)
+        
+        container.addSubview(btn)
         btn.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
@@ -671,7 +670,7 @@ extension DeviceControllerView {
     ///   - action: 整行点击回调（`nil` 时不响应点击）
     private func makeSettingsRow(icon: UIImage, title: String, rightView: UIView, isHidden: Bool = false, showInfoIcon: Bool = false, action: (() -> Void)? = nil) -> UIView {
         let container = UIView()
-        container.backgroundColor = AppColor.Device.cardBackground
+        container.backgroundColor = .white
         container.layer.cornerRadius = Layout.rowCornerRadius
         container.clipsToBounds = true
         container.isHidden = isHidden
@@ -685,14 +684,15 @@ extension DeviceControllerView {
         let label = UILabel()
         label.text = title
         label.font = AppFont.Body.regular
-        label.textColor = .white
+        label.textColor = .black
         container.addSubview(label)
 
         // 帮助信息图标（可选，改用 Button 以支持点击交互）
         if showInfoIcon {
             let infoBtn = UIButton(type: .custom)
+            infoBtn.accessibilityIdentifier = title
             infoBtn.setImage(AppImage.Device.iconInfo, for: .normal)
-            infoBtn.addTarget(self, action: #selector(infoIconTapped), for: .touchUpInside)
+            infoBtn.addTarget(self, action: #selector(infoIconTapped(_:)), for: .touchUpInside)
             container.addSubview(infoBtn)
 
             infoBtn.snp.makeConstraints { make in

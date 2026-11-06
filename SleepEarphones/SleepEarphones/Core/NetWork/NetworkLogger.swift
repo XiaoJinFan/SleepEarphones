@@ -124,7 +124,8 @@ enum NetworkLogger {
             lines.append("│ Headers:")
             for (key, value) in headers.dictionary {
                 lines.append(
-                    truncateLine("│   \(key): \(formatValue(key: key, value: value))")
+//                    truncateLine("│   \(key): \(formatValue(key: key, value: value))")
+                    truncateLine("│   \(key): \(value)")
                 )
             }
         }

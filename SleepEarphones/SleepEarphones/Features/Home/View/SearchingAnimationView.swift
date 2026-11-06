@@ -16,9 +16,9 @@ final class SearchingAnimationView: UIView {
 
     private enum Layout {
         /// 中心圆直径
-        static let coreDiameter: CGFloat = 80
+        static let coreDiameter: CGFloat = 50
         /// 最大圆环直径（动画终态）
-        static let maxRingDiameter: CGFloat = 240
+        static let maxRingDiameter: CGFloat = 180
         /// 圆环数量
         static let ringCount = 3
         /// 单个动画周期（秒）
@@ -28,7 +28,7 @@ final class SearchingAnimationView: UIView {
         /// 动画过程中的不透明度起点
         static let ringAnimatingOpacity: Float = 0.6
         /// 蓝牙图标尺寸
-        static let bluetoothIconSize: CGFloat = 36
+        static let bluetoothIconSize: CGFloat = 24
         /// 蓝牙图标 SF Symbol 字号
         static let bluetoothIconPointSize: CGFloat = 32
     }
@@ -88,7 +88,7 @@ final class SearchingAnimationView: UIView {
 
     private func setupUI() {
         // 浅蓝背景圆（装饰用——围绕在核心圆外围）
-        outerCircle.backgroundColor = AppColor.Brand.primary.withAlphaComponent(0.08)
+        outerCircle.backgroundColor = .clear
         outerCircle.layer.cornerRadius = Layout.maxRingDiameter / 2
         outerCircle.isUserInteractionEnabled = false
         addSubview(outerCircle)

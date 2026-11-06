@@ -157,6 +157,9 @@ enum APIEndpoint: String, Sendable {
 
     /// 修改绑定邮箱
     case editEmail = "68808e61f075d"
+    
+    /// 获取当前用户的注销状态与详情
+    case getUserCancel = "637c4deb97aa9"
 
     // MARK: - 音乐 / 睡眠
 

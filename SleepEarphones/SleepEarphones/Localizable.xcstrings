@@ -1986,6 +1986,41 @@
         }
       }
     },
+    "填写注销申请" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abmeldeanfrage ausfüllen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill in the cancellation application"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplissez la demande de désinscription"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録解除申請の記入"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填写注销申请"
+          }
+        }
+      }
+    },
     "增大音量" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2017,41 +2052,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "增大音量"
-          }
-        }
-      }
-    },
-    "声音库" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Soundbibliothek"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sound Library"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bibliothèque de sons"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "音声ライブラリ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "声音库"
           }
         }
       }
@@ -3109,6 +3109,41 @@
         }
       }
     },
+    "您主动注销后，我们将停止为您提供产品/服务" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Sie sich aktiv abmelden, werden wir Ihnen keine Produkte / Dienstleistungen mehr anbieten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After you voluntarily cancel, we will stop providing you with products/services"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous cesserons de vous fournir des produits / services après votre déconnexion active"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロアクティブにログアウトすると、製品/サービスの提供を停止します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "您主动注销后，我们将停止为您提供产品/服务"
+          }
+        }
+      }
+    },
     "您的网络不稳定，请稍后重试" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3140,6 +3175,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "您的网络不稳定，请稍后重试"
+          }
+        }
+      }
+    },
+    "我们将在3个工作日内完成审核，请耐心等待。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir werden die Prüfung innerhalb von 3 Werktagen abschließen, bitte warten Sie geduldig."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We will complete the review within 3 working days, please be patient."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous terminerons l'audit dans les 3 jours ouvrables, veuillez patienter."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3営業日以内にレビューを完了しますので、お待ちください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我们将在3个工作日内完成审核，请耐心等待。"
+          }
+        }
+      }
+    },
+    "我已清楚风险，确定继续" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich kenne die Risiken. Ich will weitermachen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I am aware of the risks and have decided to continue"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai compris le risque, déterminé à continuer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "私はリスクを知っていて、継続を確定します"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我已清楚风险，确定继续"
           }
         }
       }
@@ -3599,41 +3704,6 @@
         }
       }
     },
-    "控制" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Steuerung"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Control"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contrôle"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "制御"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "控制"
-          }
-        }
-      }
-    },
     "控制耳机时将听到提示音" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3805,6 +3875,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摇滚"
+          }
+        }
+      }
+    },
+    "撤销注销申请" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellung der Löschungsanfrage"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdraw the cancellation application"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulation de la demande de radiation"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抹消登録申請の取消"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销注销申请"
           }
         }
       }
@@ -4089,6 +4194,41 @@
         }
       }
     },
+    "敲击控制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tippsteuerung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Control"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contrôle par frappe"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップコントロール"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "敲击控制"
+          }
+        }
+      }
+    },
     "敲击提示音" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4333,6 +4473,41 @@
         }
       }
     },
+    "智能停止音频" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intelligente Audioabschaltung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intelligent audio stop"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêt intelligent de l'audio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "インテリジェント停止オーディオ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能停止音频"
+          }
+        }
+      }
+    },
     "智能音量" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4364,6 +4539,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "智能音量"
+          }
+        }
+      }
+    },
+    "智能音量会根据周围的噪音自动调整音量。请保持应用程序处于开启状态，以确保此功能正常运作。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intelligente Lautstärke passt die Lautstärke automatisch an den Umgebungsgeräuschen an. Halten Sie die Anwendung aktiviert, um sicherzustellen, dass diese Funktion ordnungsgemäß funktioniert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The intelligent volume will automatically adjust the volume based on the surrounding noise. Please keep the application turned on to ensure that this feature is functioning properly."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart volume ajuste automatiquement le volume en fonction du bruit environnant. Gardez l'application allumée pour vous assurer que cette fonctionnalité fonctionne correctement."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スマート音量は周囲の騒音に応じて自動的に音量を調整します。この機能が正常に機能するように、アプリケーションを開いたままにしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能音量会根据周围的噪音自动调整音量。请保持应用程序处于开启状态，以确保此功能正常运作。"
           }
         }
       }
@@ -4644,6 +4854,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无音乐"
+          }
+        }
+      }
+    },
+    "更多设置" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Settings"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus de réglages"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多设置"
           }
         }
       }
@@ -5031,6 +5276,41 @@
         }
       }
     },
+    "本地模式" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokaler Modus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local mode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokaler Modus"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルモード"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地模式"
+          }
+        }
+      }
+    },
     "查找设备" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5177,6 +5457,41 @@
     "欢迎，%@" : {
 
     },
+    "正在搜索附近设备…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suche nach Geräten in der Nähe…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching for nearby devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche des appareils à proximité…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近くのデバイスを検索中…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在搜索附近设备…"
+          }
+        }
+      }
+    },
     "正在连接 %@…" : {
       "localizations" : {
         "de" : {
@@ -5207,6 +5522,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在连接 %@…"
+          }
+        }
+      }
+    },
+    "永久注销且无法恢复，请谨慎操作" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dauerhaft abgemeldet und nicht wiederhergestellt, bitte vorsichtig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently cancelled and cannot be restored, please proceed with caution"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déconnexion permanente et non récupérable, faites preuve de prudence"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永続的にログアウトし、リカバリできない場合は注意してください"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久注销且无法恢复，请谨慎操作"
           }
         }
       }
@@ -5421,6 +5771,41 @@
         }
       }
     },
+    "注销申请审核中" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abmeldungsantrag in Überprüfung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancellation application under review"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demande de déconnexion en cours d'examen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログアウト申請レビュー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注销申请审核中"
+          }
+        }
+      }
+    },
     "注销账号" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5592,6 +5977,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "游客登录"
+          }
+        }
+      }
+    },
+    "点击下方按钮，即表示你已阅读并了解以上风险" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Sie auf die Schaltfläche unten klicken, haben Sie die oben genannten Risiken gelesen und verstanden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click the button below to indicate that you have read and understood the above risks"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cliquant sur le bouton ci - dessous, vous avez lu et compris les risques ci - dessus."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下のボタンをクリックすると、上記のリスクを読んで理解していることを示します"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击下方按钮，即表示你已阅读并了解以上风险"
           }
         }
       }
@@ -6081,41 +6501,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "睡眠耳机有限公司"
-          }
-        }
-      }
-    },
-    "睡眠记录通过设备或软件采集入睡时长、睡眠阶段等数据，评估睡眠与健康状况" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anhand von Schlafprotokollen, in denen Daten wie die Einschlafdauer und die Schlafphasen über Geräte oder Software erfasst werden, lassen sich Schlaf und Gesundheitszustand bewerten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sleep tracking collects data such as the time it takes to fall asleep and sleep stages through devices or software to assess sleep and health status."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les données relatives au sommeil, telles que la durée de l'endormissement et les phases de sommeil, sont collectées à l'aide d'un appareil ou d'un logiciel afin d'évaluer le sommeil et l'état de santé."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "睡眠記録は、デバイスやソフトウェアを通じて入眠時間や睡眠段階などのデータを収集し、睡眠と健康状態を評価します。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "睡眠记录通过设备或软件采集入睡时长、睡眠阶段等数据，评估睡眠与健康状况"
           }
         }
       }
@@ -6855,6 +7240,41 @@
         }
       }
     },
+    "蓝牙模式" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth-Modus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth mode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode Bluetooth"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetoothモード"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蓝牙模式"
+          }
+        }
+      }
+    },
     "记录" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7520,6 +7940,41 @@
         }
       }
     },
+    "请填写注销原因" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte füllen Sie den Grund für die Abmeldung aus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please fill in the reason for cancellation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez remplir la raison de la déconnexion"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログアウト理由を入力してください"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请填写注销原因"
+          }
+        }
+      }
+    },
     "请完善%@信息" : {
       "localizations" : {
         "de" : {
@@ -7760,6 +8215,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请注意：不要佩戴耳机，以免影响您的听力"
+          }
+        }
+      }
+    },
+    "请确认耳机已处于可配对状态，或点击右上方手动添加" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte stellen Sie sicher, dass die Kopfhörer im Pairing-Modus sind, oder klicken Sie oben rechts auf \"Manuell hinzufügen\"."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please confirm that the headphones are in a pairable state, or click on the upper right corner to manually add them"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez confirmer que les écouteurs sont en mode de mise en paire ou cliquez sur \"Ajouter manuellement\" en haut à droite"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イヤホンがペアリング可能状態になっているか確認するか、右上の「手動で追加」をクリックしてください"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请确认耳机已处于可配对状态，或点击右上方手动添加"
           }
         }
       }
@@ -8567,6 +9057,41 @@
         }
       }
     },
+    "请选择注销账号的原因：" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte wählen Sie den Grund für die Abmeldung:"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please choose the reason for account cancellation:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez choisir une raison pour déconnecter votre numéro de compte:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントをログアウトする理由を選択してください："
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请选择注销账号的原因："
+          }
+        }
+      }
+    },
     "请验证当前绑定的%@：" : {
       "localizations" : {
         "de" : {
@@ -8632,6 +9157,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "账号与安全"
+          }
+        }
+      }
+    },
+    "账号注销后将放弃以下权益：\n1、账号信息、第三方授权信息将被清空且无法恢复。\n2、账号相关信息将会一并被删除且无法恢复。\n3、注销后手机号码可重新注册，所生成账号为全新的账号，不包含注销账号的任何信息。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach Abmeldung des Kontos werden folgende Vorteile aufgegeben:\n1. Kontoinformationen und Autorisierungsinformationen von Dritten werden gelöscht und nicht wiederhergestellt.\n2. Kontoinformationen werden gelöscht und können nicht wiederhergestellt werden.\nDie Telefonnummer kann nach der Abmeldung erneut registriert werden, das generierte Konto ist ein völlig neues Konto und enthält keine Informationen zum Abmelden des Kontos."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After account cancellation, the following rights will be waived:\n1. Account information and third-party authorization information will be cleared and cannot be restored.\n2. Account related information will be deleted and cannot be restored.\n3. After cancellation, the phone number can be re registered, and the generated account is a brand new account without any information about the cancelled account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les intérêts suivants seront abandonnés après la radiation du numéro de compte:\n1, les informations de numéro de compte, les informations d'autorisation de tiers seront vidées et ne peuvent pas être récupérées.\nLes informations relatives au compte seront supprimées et ne pourront pas être récupérées.\nAprès la déconnexion, le numéro de téléphone portable peut être réenregistré, le numéro de compte généré est un nouveau numéro de compte et ne contient aucune information sur le numéro de compte déconnecté."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントをログアウトすると、次の権益が放棄されます。\n1、アカウント情報、第三者認証情報は空になり、復元できません。\n2、アカウント関連情報は一括して削除され、復元できません。\n3、ログアウト後の携帯電話番号は再登録でき、生成されたアカウントは新しいアカウントであり、ログアウトしたアカウントの情報は含まれていない。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号注销后将放弃以下权益：\n1、账号信息、第三方授权信息将被清空且无法恢复。\n2、账号相关信息将会一并被删除且无法恢复。\n3、注销后手机号码可重新注册，所生成账号为全新的账号，不包含注销账号的任何信息。"
           }
         }
       }
@@ -9308,37 +9868,37 @@
     "错误 %lld" : {
 
     },
-    "闹钟模式" : {
-      "extractionState" : "stale",
+    "闹钟" : {
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wecker-Modus"
+            "value" : "Wecker"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alarm Mode"
+            "value" : "alarm clock"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mode réveil"
+            "value" : "réveil"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アラームモード"
+            "value" : "目覚まし時計"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "闹钟模式"
+            "value" : "闹钟"
           }
         }
       }
@@ -9548,6 +10108,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音频加载失败：%@"
+          }
+        }
+      }
+    },
+    "音频库" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio-Bibliothek"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio Library"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bibliothèque audio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声ライブラリ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频库"
           }
         }
       }

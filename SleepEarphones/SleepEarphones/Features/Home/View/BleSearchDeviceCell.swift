@@ -40,7 +40,7 @@ final class BleSearchDeviceCell: UITableViewCell {
         static let imageCornerRadius: CGFloat = AppSpacing.Corner.card
         /// "连接"按钮高度
         static let connectButtonHeight: CGFloat = 36
-        /// "连接"按钮**最小**宽度（短标题的视觉下限；长标题自适应更宽）
+        /// "连接"按钮宽度
         static let connectButtonMinWidth: CGFloat = 72
         /// 设备图 SF Symbol 字号
         static let deviceSymbolPointSize: CGFloat = 28
@@ -56,7 +56,7 @@ final class BleSearchDeviceCell: UITableViewCell {
     /// 白色卡片容器
     private let containerView: UIView = {
         let v = UIView()
-        v.backgroundColor = AppColor.Background.card
+        v.backgroundColor = UIColor(hex: "#FBFBFB")
         v.layer.cornerRadius = AppSpacing.Corner.card
         v.clipsToBounds = true
         return v
@@ -93,9 +93,9 @@ final class BleSearchDeviceCell: UITableViewCell {
     /// "连接"按钮
     private let connectButton: UIButton = {
         var config = UIButton.Configuration.filled()
-        config.baseBackgroundColor = AppColor.Text.primary
-        config.baseForegroundColor = AppColor.Background.card
-        config.background.cornerRadius = Layout.connectButtonHeight / 2
+        config.baseBackgroundColor = UIColor(hex: "#4794D0")
+        config.baseForegroundColor = .white
+        config.background.cornerRadius = AppSpacing.Corner.card
         config.contentInsets = NSDirectionalEdgeInsets(
             top: 0,
             leading: AppSpacing.md,
@@ -179,7 +179,7 @@ final class BleSearchDeviceCell: UITableViewCell {
             make.trailing.equalToSuperview().offset(-Layout.cardPadding)
             make.centerY.equalToSuperview()
             make.height.equalTo(Layout.connectButtonHeight)
-            make.width.greaterThanOrEqualTo(Layout.connectButtonMinWidth)
+            make.width.equalTo(Layout.connectButtonMinWidth)
         }
 
         // 设备名称：在图片和按钮之间，居中

@@ -211,16 +211,15 @@ final class SystemSettingsViewController: UIViewController {
     /// 打开注销账号页（危险操作：**二次确认**后再跳转）
     private func openAccountDeletion() {
         AppLog.profile.debug("点击注销账号")
-
-        // **弹窗标题 / 正文 / 确认按钮均通过 `L(...)` 本地化**
+        
         showConfirm(
             title: L("注销账号"),
             message: L("注销后账号数据将被永久删除，确定要继续吗？"),
             confirmTitle: L("继续注销"),
             destructive: true
         ) { [weak self] in
-            // TODO: 跳转"注销账号"页（原因选择 + 提交）
-            self?.showToast(self?.todoToast ?? "")
+            let vc = AccountCancelViewController()
+            self?.navigationController?.pushViewController(vc, animated: true)
         }
     }
 }

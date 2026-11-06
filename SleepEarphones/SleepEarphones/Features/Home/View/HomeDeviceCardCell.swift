@@ -20,7 +20,7 @@ import SnapKit
 /// │ │ 设备图 │  ├──────────────────────────────────┤ │
 /// │ │        │  │ [左耳] [右耳] [充电盒]              │ │  ← batteryStackView
 /// │ │        │  ├──────────────────────────────────┤ │
-/// │ │        │  │ 查看睡眠报告 >                      │ │  ← reportButton（有报告时显示）
+/// │ │        │  │ 查看睡眠报告                      > │ │  ← reportButton（有报告时显示）
 /// │ └────────┘  └──────────────────────────────────┘ │
 /// └──────────────────────────────────────────────────┘
 /// ```
@@ -133,27 +133,17 @@ final class HomeDeviceCardCell: UICollectionViewCell {
     private let boxBatteryView   = HomeBatteryCapsuleView(type: .box)
 
     /// "查看睡眠报告"按钮
-    ///
-    /// - Important: 必须用 `UIButton.Configuration` 而非 `setTitle(_:for:)`——
-    ///   `Configuration` 配置后，`setTitle` 会被覆盖。修改标题须改
-    ///   `config.attributedTitle`。
     private let reportButton: UIButton = {
         var config = UIButton.Configuration.plain()
 
-        // 标题通过 `L(...)` 本地化
         var titleAttr = AttributedString(L("查看睡眠报告"))
         titleAttr.font = AppFont.Body.secondary
         titleAttr.foregroundColor = AppColor.Text.secondary
         config.attributedTitle = titleAttr
-
-        config.image = UIImage(systemName: "chevron.right")
-        config.imagePlacement = .trailing
-        config.imagePadding = AppSpacing.xs
+        
         config.baseForegroundColor = AppColor.Text.tertiary
-
         config.background.backgroundColor = AppColor.Background.secondary
         config.background.cornerRadius = AppSpacing.Corner.medium
-
         config.contentInsets = NSDirectionalEdgeInsets(
             top: 0,
             leading: AppSpacing.md,
@@ -163,6 +153,21 @@ final class HomeDeviceCardCell: UICollectionViewCell {
 
         let b = UIButton(configuration: config)
         b.contentHorizontalAlignment = .leading
+
+        // 右侧箭头单独作为子视图，约束到 trailing
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = AppColor.Text.tertiary
+        chevron.contentMode = .scaleAspectFit
+        chevron.isUserInteractionEnabled = false
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        b.addSubview(chevron)
+
+        NSLayoutConstraint.activate([
+            chevron.trailingAnchor.constraint(equalTo: b.trailingAnchor,
+                                              constant: -AppSpacing.md),
+            chevron.centerYAnchor.constraint(equalTo: b.centerYAnchor)
+        ])
+
         return b
     }()
 
@@ -305,7 +310,7 @@ final class HomeDeviceCardCell: UICollectionViewCell {
         boxBatteryView.update(battery: boxInt, isConnected: isPaired)
 
         // MARK: 睡眠报告按钮
-        reportButton.isHidden = !(isConnected && device.hasSleepReport)
+        //reportButton.isHidden = !(isConnected && device.hasSleepReport)
 
         deviceImageView.setImage(device.imageURL, placeholder: AppImage.Local.devicePlaceholder)
     }

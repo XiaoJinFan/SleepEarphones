@@ -142,6 +142,9 @@ enum AppImage {
 
         /// 音效图标
         static let iconSpeaker = image(named: "音效")
+        
+        /// 更多设置图标
+        static let iconMoreSettings = image(named: "设备设置")
 
         // MARK: 其他
 

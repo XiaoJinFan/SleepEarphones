@@ -18,11 +18,9 @@ final class DeviceSearchViewController: UIViewController {
 
     private enum Layout {
         /// 动画区域高度
-        static let animationAreaHeight: CGFloat = 280
+        static let animationAreaHeight: CGFloat = 180
         /// 列表行高
-        static let rowHeight: CGFloat = 88
-        /// "没有看到设备"提示的延迟（秒）
-        static let emptyTipDelaySeconds: UInt64 = 8
+        static let rowHeight: CGFloat = 84
     }
 
     // MARK: - Properties
@@ -34,28 +32,30 @@ final class DeviceSearchViewController: UIViewController {
     /// 正在连接的设备 ID（`DeviceViewData.id`）
     private var connectingDeviceID: String?
 
-    private var emptyTipTask: Task<Void, Never>?
-
     // MARK: - UI
 
-    private let titleLabel: UILabel = {
-        let l = UILabel()
-        l.font = AppFont.Title.page
-        l.textColor = AppColor.Text.primary
-        l.text = L("搜索中…")
-        return l
-    }()
-
-    private let subtitleLabel: UILabel = {
-        let l = UILabel()
-        l.font = AppFont.Body.secondary
-        l.textColor = AppColor.Text.secondary
-        l.text = L("确保您的设备处于配对模式")
-        l.numberOfLines = 0
-        return l
-    }()
-
     private let animationView = SearchingAnimationView()
+
+    /// 搜索主提示语
+    private let searchingLabel: UILabel = {
+        let l = UILabel()
+        l.font = AppFont.Caption.regular
+        l.textColor = AppColor.Text.tertiary
+        l.textAlignment = .center
+        l.text = L("正在搜索附近设备…")
+        return l
+    }()
+
+    /// 辅助操作提示语
+    private let hintLabel: UILabel = {
+        let l = UILabel()
+        l.font = AppFont.Caption.regular
+        l.textColor = AppColor.Text.tertiary
+        l.textAlignment = .center
+        l.numberOfLines = 0
+        l.text = L("请确认耳机已处于可配对状态，或点击右上方手动添加")
+        return l
+    }()
 
     private lazy var tableView: UITableView = {
         let tv = UITableView(frame: .zero, style: .plain)
@@ -68,18 +68,6 @@ final class DeviceSearchViewController: UIViewController {
         return tv
     }()
 
-    private lazy var emptyTipButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        var attr = AttributedString(L("没有看到设备？点击重新扫描"))
-        attr.font = AppFont.Body.secondary
-        attr.foregroundColor = AppColor.Brand.primary
-        config.attributedTitle = attr
-        let b = UIButton(configuration: config)
-        b.isHidden = true
-        b.addTarget(self, action: #selector(rescanTapped), for: .touchUpInside)
-        return b
-    }()
-
     // MARK: - Init
 
     init() {
@@ -87,7 +75,7 @@ final class DeviceSearchViewController: UIViewController {
         self.hidesBottomBarWhenPushed = true
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     // MARK: - Lifecycle
 
@@ -107,7 +95,6 @@ final class DeviceSearchViewController: UIViewController {
         // ✅ 关键顺序：先清空 → 再扫描
         viewModel.clearDevices()
         viewModel.startScan()
-        scheduleEmptyTip()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -116,56 +103,65 @@ final class DeviceSearchViewController: UIViewController {
 
         // 离开页面必须停止扫描，节约电量
         viewModel.stopScan()
-
-        emptyTipTask?.cancel()
-        emptyTipTask = nil
     }
 
     // MARK: - Setup
 
     private func setupNavigationBar() {
-        navigationItem.title = ""
+        title = L("添加设备")
+        
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
-        appearance.shadowColor = .clear
+        appearance.titleTextAttributes = [.foregroundColor: AppColor.Text.primary]
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.tintColor = AppColor.Text.primary
+        
+        // 右上角手动添加按钮（四宫格图标）
+        let manualAddBtn = UIButton(type: .system)
+        manualAddBtn.setImage(
+            UIImage(
+                systemName: "circle.grid.2x2",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+            ),
+            for: .normal
+        )
+        manualAddBtn.tintColor = AppColor.Text.primary
+        manualAddBtn.addTarget(self, action: #selector(manualAddTapped), for: .touchUpInside)
+        
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: manualAddBtn)
     }
 
     private func setupUI() {
-        view.backgroundColor = AppColor.Background.secondary
-        view.addSubview(titleLabel)
-        view.addSubview(subtitleLabel)
+        view.backgroundColor = AppColor.Background.primary
         view.addSubview(animationView)
+        view.addSubview(searchingLabel)
+        view.addSubview(hintLabel)
         view.addSubview(tableView)
-        view.addSubview(emptyTipButton)
     }
 
     private func setupConstraints() {
-        titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(AppSpacing.sm)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
-        }
-        subtitleLabel.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(AppSpacing.sm)
-            make.leading.trailing.equalTo(titleLabel)
-        }
         animationView.snp.makeConstraints { make in
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(AppSpacing.md)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(AppSpacing.xxl)
             make.centerX.equalToSuperview()
             make.width.height.equalTo(Layout.animationAreaHeight)
         }
-        emptyTipButton.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-AppSpacing.lg)
-        }
-
-        tableView.snp.makeConstraints { make in
+        
+        searchingLabel.snp.makeConstraints { make in
             make.top.equalTo(animationView.snp.bottom).offset(AppSpacing.md)
+            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+        }
+        
+        hintLabel.snp.makeConstraints { make in
+            make.top.equalTo(searchingLabel.snp.bottom).offset(AppSpacing.md)
+            make.leading.trailing.equalToSuperview().inset(AppSpacing.lg)
+        }
+        
+        tableView.snp.makeConstraints { make in
+            make.top.equalTo(hintLabel.snp.bottom).offset(AppSpacing.xl)
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(emptyTipButton.snp.top).offset(-AppSpacing.sm)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
         }
     }
 
@@ -179,9 +175,6 @@ final class DeviceSearchViewController: UIViewController {
                 guard let self = self else { return }
                 self.devices = devices
                 self.tableView.reloadData()
-                if !devices.isEmpty {
-                    self.emptyTipButton.isHidden = true
-                }
             }
             .store(in: &cancellables)
 
@@ -193,60 +186,33 @@ final class DeviceSearchViewController: UIViewController {
                 switch state {
                 case .connected:
                     self.connectingDeviceID = nil
-
-                    // ✅ 用 ToastPresenter（keyWindow 上）——
-                    //    `self.showToast` 挂在 VC 的 view 上，pop 后随 VC 销毁，
-                    //    用户来不及看到"连接成功"的反馈。
+                    // ✅ 用 ToastPresenter（keyWindow 上），避免 pop 后 Toast 不可见
                     ToastPresenter.success(L("连接成功"))
                     self.navigationController?.popViewController(animated: true)
 
                 case .failed(let error):
-                    // `error.localizedDescription` 来自 HomeViewModel 中的 `NSError`
-                    // （其 `NSLocalizedDescriptionKey` 已用 `L(...)` 设置）
                     self.showToast(L("连接失败：%@", error.localizedDescription))
                     self.connectingDeviceID = nil
                     self.tableView.reloadData()
 
                 case .connecting:
-                    // `DeviceSearchViewController` 在 `didSelectRowAt` / `onConnect`
-                    // 中已设置 `connectingDeviceID` 并 `reloadData`——
-                    // 此处无需重复处理
                     break
                 }
             }
             .store(in: &cancellables)
     }
 
-    // MARK: - Empty Tip
-
-    /// 调度"没有看到设备"提示
-    private func scheduleEmptyTip() {
-        emptyTipTask?.cancel()
-        emptyTipButton.isHidden = true
-        emptyTipTask = Task { [weak self] in
-            try? await Task.sleep(
-                nanoseconds: Layout.emptyTipDelaySeconds * 1_000_000_000
-            )
-            guard !Task.isCancelled, let self else { return }
-            if self.devices.isEmpty {
-                self.emptyTipButton.isHidden = false
-            }
-        }
-    }
-
     // MARK: - Actions
 
-    /// 点击"重新扫描"
-    @objc private func rescanTapped() {
-        viewModel.clearDevices()
-        viewModel.startScan()
-        scheduleEmptyTip()
+    @objc private func manualAddTapped() {
+        // TODO: 跳转手动添加页面
+        showToast(L("手动添加功能开发中"))
     }
 }
 
-// MARK: - UITableViewDataSource
+// MARK: - UITableViewDataSource & Delegate
 
-extension DeviceSearchViewController: UITableViewDataSource {
+extension DeviceSearchViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return devices.count
@@ -264,8 +230,7 @@ extension DeviceSearchViewController: UITableViewDataSource {
         let device = devices[indexPath.row]
         let isConnecting = device.id == connectingDeviceID
 
-        // `imageURL` 当前恒为 `nil`——BLE 设备没有图片 URL，
-        // 用 SF Symbol 兜底
+        // imageURL 当前恒为 nil，用默认占位图兜底
         cell.configure(name: device.name, imageURL: nil, isConnecting: isConnecting)
 
         cell.onConnect = { [weak self] in
@@ -279,11 +244,6 @@ extension DeviceSearchViewController: UITableViewDataSource {
         }
         return cell
     }
-}
-
-// MARK: - UITableViewDelegate
-
-extension DeviceSearchViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let device = devices[indexPath.row]
