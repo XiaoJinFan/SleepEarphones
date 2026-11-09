@@ -92,7 +92,6 @@ final class HomeViewController: UIViewController {
         config.showsSeparators = false
         config.backgroundColor = .clear
 
-        // 侧滑删除配置
         config.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
             guard let self = self, indexPath.row < self.devices.count else { return nil }
             let device = self.devices[indexPath.row]
@@ -101,7 +100,10 @@ final class HomeViewController: UIViewController {
                 style: .destructive,
                 title: L("删除")
             ) { [weak self] _, _, completion in
-                guard let self = self else { return }
+                guard let self = self else {
+                    completion(false)
+                    return
+                }
 
                 // 1. 设置标识，防止数据源更新时触发全量 reloadData
                 self.isDeletingLocally = true
@@ -120,10 +122,11 @@ final class HomeViewController: UIViewController {
                         receiveCompletion: { [weak self] completion in
                             guard let self = self else { return }
                             if case .failure(let error) = completion {
-                                // `error.localizedDescription` 来自 `NetworkError`（已本地化）
+                                if case .cancelled = error { return }
                                 self.showToast(
                                     L("删除失败: %@", error.localizedDescription)
                                 )
+                                // 失败时重新拉取，恢复被本地移除的数据
                                 self.viewModel.loadDevices()
                             } else {
                                 self.showToast(L("删除成功"))
@@ -203,15 +206,19 @@ final class HomeViewController: UIViewController {
         bleViewModel.connectStatePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
+                guard let self = self else { return }
+
+                // 首页不在栈顶（被搜索页 / 详情页覆盖）→ 静默
+                guard self.isVisibleInNavigationStack else {
+                    AppLog.device.debug("首页不可见，忽略连接状态提示")
+                    return
+                }
+
                 switch state {
                 case .connected:
-                    self?.showToast(L("设备连接成功"))
+                    self.showToast(L("设备连接成功"))
                 case .failed(let error):
-                    // `error.localizedDescription` 来自 HomeViewModel 中的
-                    // `NSError`（其 `NSLocalizedDescriptionKey` 已用 `L(...)` 设置）
-                    self?.showToast(
-                        L("连接失败: %@", error.localizedDescription)
-                    )
+                    self.showToast(L("连接失败: %@", error.localizedDescription))
                 case .connecting:
                     break
                 }
@@ -223,6 +230,19 @@ final class HomeViewController: UIViewController {
         let isEmpty = devices.isEmpty && !viewModel.isLoading
         nullDeviceImgView.isHidden = !isEmpty
         deviceCollectionView.isHidden = isEmpty
+    }
+
+    // MARK: - Visibility
+
+    /// 本页是否在导航栈顶可见
+    ///
+    /// - Returns: `true` 表示用户当前看到的正是首页
+    private var isVisibleInNavigationStack: Bool {
+        guard let nav = navigationController else {
+            // 无导航栈（如 modal）→ 以 window 判断
+            return view.window != nil
+        }
+        return nav.topViewController === self && view.window != nil
     }
 
     // MARK: - Actions
@@ -307,11 +327,16 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
     /// - Parameter device: 列表中的设备
     /// - Returns: MAC 或 UUID 匹配时为 `true`
     private func isDeviceBleMatched(_ device: DeviceModel) -> Bool {
+        // MAC 匹配（设备未上报 MAC 时跳过）
         if let mac = currentConnectedMac, !mac.isEmpty,
+           !device.mac.isEmpty,
            device.mac.caseInsensitiveCompare(mac) == .orderedSame {
             return true
         }
+
+        // UUID（序列号）匹配
         if let uuid = currentConnectedUUID, !uuid.isEmpty,
+           !device.serialNumber.isEmpty,
            device.serialNumber.caseInsensitiveCompare(uuid) == .orderedSame {
             return true
         }

@@ -26,16 +26,11 @@ import SnapKit
 /// ```
 ///
 /// ## 三态连接判断
-/// | 状态 | BLE 匹配 | 音频路由 | 展示文案 | 状态点颜色 |
+/// | 状态 | BLE 匹配（`isPaired`） | 音频路由（`isConnected`） | 展示文案 | 状态点颜色 |
 /// |---|---|---|---|---|
 /// | 已连接 | ✅ | ✅ | `"已连接"` | `Semantic.success` |
 /// | 已配对 | ✅ | ❌ | `"已配对"` | `Semantic.warning` |
 /// | 未连接 | ❌ | ❌ | `"未连接"` | `Text.tertiary` |
-///
-/// ## 关于国际化
-/// - `"已连接"` / `"已配对"` / `"未连接"` / `"查看睡眠报告"` 通过 `L(...)` 读取
-/// - 设备名称（`device.name`）来自后端，**已本地化**
-/// - 电量字符串 `"100%"` 中 `%` 是数字格式，**不参与国际化**
 @MainActor
 final class HomeDeviceCardCell: UICollectionViewCell {
 
@@ -168,6 +163,9 @@ final class HomeDeviceCardCell: UICollectionViewCell {
             chevron.centerYAnchor.constraint(equalTo: b.centerYAnchor)
         ])
 
+        // 默认隐藏——`configure` 会按 `isPaired && hasSleepReport` 决定显隐
+        b.isHidden = true
+
         return b
     }()
 
@@ -201,13 +199,16 @@ final class HomeDeviceCardCell: UICollectionViewCell {
         deviceImageView.image = AppImage.Local.devicePlaceholder
         nameLabel.text = nil
 
-        // ⚠️ 显式重置为中性色，而非 `nil`——
-        //    `nil` 会让 Label / View 使用系统默认色，在刷新间隔内
-        //    可能因 trait 变化短暂显示"错误颜色"。虽然 `configure` 会
-        //    立即覆盖，但显式重置能避免这一帧的视觉抖动。
+        // 显式重置为中性色，避免复用时残留上一帧的绿色 / 橙色
         statusLabel.text = nil
         statusLabel.textColor = AppColor.Text.tertiary
         statusDot.backgroundColor = AppColor.Text.tertiary
+
+        // 重置报告按钮显隐——`configure` 会立即按新数据修正
+        reportButton.isHidden = true
+        // 同步重置 custom spacing——防止上一帧 `reportButton.isHidden == false`
+        // 残留的 16pt 间距在下一帧"隐藏"时造成底部空洞
+        infoStack.setCustomSpacing(AppSpacing.sm, after: batteryStackView)
 
         onReportTapped = nil
     }
@@ -269,8 +270,10 @@ final class HomeDeviceCardCell: UICollectionViewCell {
     ///
     /// - Parameters:
     ///   - device: 服务器返回的历史设备
-    ///   - isConnected: 是否完全就绪（BLE 已连接 **且** 音频已路由）
-    ///   - isPaired: BLE 是否已连接（音频可能未路由）
+    ///   - isConnected: 是否完全就绪（BLE 已连接 **且** 音频已路由）——
+    ///                  仅用于**状态点颜色**的"已连接"判定
+    ///   - isPaired: BLE 是否已连接（音频可能未路由）——
+    ///               用于**电池颜色**与**报告按钮显隐**
     ///
     /// ## 三态判断
     /// - `isConnected == true`：**已连接**（绿色）
@@ -309,10 +312,18 @@ final class HomeDeviceCardCell: UICollectionViewCell {
         rightBatteryView.update(battery: rightInt, isConnected: isPaired)
         boxBatteryView.update(battery: boxInt, isConnected: isPaired)
 
-        // MARK: 睡眠报告按钮
-        //reportButton.isHidden = !(isConnected && device.hasSleepReport)
+        // MARK: "查看睡眠报告"按钮显隐（关键修复）
+        reportButton.isHidden = !(isPaired && device.hasSleepReport)
+        
+        infoStack.setCustomSpacing(
+            reportButton.isHidden ? AppSpacing.sm : AppSpacing.md,
+            after: batteryStackView
+        )
 
-        deviceImageView.setImage(device.imageURL, placeholder: AppImage.Local.devicePlaceholder)
+        deviceImageView.setImage(
+            device.imageURL,
+            placeholder: AppImage.Local.devicePlaceholder
+        )
     }
 
     // MARK: - Actions

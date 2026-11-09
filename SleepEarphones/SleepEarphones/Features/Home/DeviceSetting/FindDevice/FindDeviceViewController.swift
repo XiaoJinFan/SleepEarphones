@@ -165,9 +165,12 @@ final class FindDeviceViewController: UIViewController {
         label.font = AppFont.Title.section
         label.textColor = AppColor.Text.primary
         label.textAlignment = .center
+        // 确保能正常显示文字，不被压缩
+        label.setContentHuggingPriority(.required, for: .vertical)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
         container.addSubview(label)
 
-        // 布局约束
+        // 布局约束（修复版）
         imageView.snp.makeConstraints { make in
             make.top.centerX.equalToSuperview()
             make.width.height.equalTo(Layout.iconSize)
@@ -177,15 +180,16 @@ final class FindDeviceViewController: UIViewController {
             make.top.equalTo(imageView.snp.bottom).offset(Layout.playButtonTopSpacing)
             make.centerX.equalToSuperview()
             make.width.height.equalTo(Layout.playButtonSize)
-            make.bottom.equalToSuperview().offset(-Layout.earLabelBottomInset)
+            // ❌ 删除了原本错误贴在底部的约束
         }
 
         label.snp.makeConstraints { make in
             make.top.equalTo(playButton.snp.bottom).offset(Layout.earLabelTopSpacing)
             make.centerX.equalToSuperview()
-            make.bottom.equalToSuperview()
+            // ✅ 由 label 的底部来决定 container 的高度（加上底部留白）
+            make.bottom.equalToSuperview().offset(-Layout.earLabelBottomInset)
         }
-
+        
         return container
     }
 

@@ -77,7 +77,8 @@ final class ContactUsViewController: UIViewController {
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.showsVerticalScrollIndicator = false
-        sv.backgroundColor = AppColor.Background.secondary
+        sv.backgroundColor =
+        AppColor.Background.secondary
         return sv
     }()
 

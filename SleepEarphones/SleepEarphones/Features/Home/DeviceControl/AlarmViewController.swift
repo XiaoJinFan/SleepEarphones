@@ -9,32 +9,7 @@ import UIKit
 import SnapKit
 import Combine
 
-// MARK: - Model
 
-/// 闹钟数据模型
-struct AlarmModel: Identifiable, Equatable {
-
-    /// 本地唯一标识
-    ///
-    /// - Note: 当前用 `UUID` 生成。接入后端后应改为后端返回的 `alarmId: Int`。
-    let id: UUID
-
-    /// 时间字符串（如 `"23:59"`）
-    var time: String
-
-    /// 是否启用
-    var isEnabled: Bool
-
-    init(id: UUID = UUID(), time: String, isEnabled: Bool = true) {
-        self.id = id
-        self.time = time
-        self.isEnabled = isEnabled
-    }
-}
-
-// MARK: - View Controller
-
-/// 闹钟模式页
 @MainActor
 final class AlarmViewController: UIViewController {
 
@@ -48,6 +23,9 @@ final class AlarmViewController: UIViewController {
         static let tableViewTopInset: CGFloat = 10
         static let tableViewBottomSpacing: CGFloat = 10
     }
+    
+    /// 允许添加的最大闹钟数量
+    private let maxAlarmCount = 2
 
     // MARK: - Properties
 
@@ -89,7 +67,6 @@ final class AlarmViewController: UIViewController {
         setupUI()
         setupConstraints()
         setupBindings()
-        loadMockData()
     }
 
     // MARK: - NavigationBar
@@ -141,11 +118,13 @@ final class AlarmViewController: UIViewController {
     // MARK: - Bindings
 
     private func setupBindings() {
-        // 监听数据源变化，刷新列表
-        $alarms
+        // 监听 AlarmManager 数据变化，自动刷新 UI
+        AlarmManager.shared.alarmsPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.tableView.reloadData()
+            .sink { [weak self] newAlarms in
+                guard let self = self else { return }
+                self.alarms = newAlarms
+                self.tableView.reloadData()
             }
             .store(in: &cancellables)
     }
@@ -153,22 +132,19 @@ final class AlarmViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func bottomButtonTapped() {
-        AppLog.device.debug("点击闹钟设置按钮")
-        // TODO: 跳转 `AlarmEditViewController`（添加 / 编辑闹钟页）
-        //       当前仅为占位提示，等待后端 `changeClock` 接口就绪
-        showToast(L("跳转添加/设置闹钟页面"))
-    }
-
-    // MARK: - Data
-
-    /// 加载模拟数据
-    private func loadMockData() {
-        // 还原设计图中的三个 23:59
-        self.alarms = [
-            AlarmModel(time: "23:59", isEnabled: true),
-            AlarmModel(time: "23:59", isEnabled: true),
-            AlarmModel(time: "23:59", isEnabled: true)
-        ]
+        AppLog.device.debug("点击闹钟设置按钮，当前已有 \(self.alarms.count) 个闹钟")
+        
+        // ✅ 校验：数量限制
+        guard alarms.count < maxAlarmCount else {
+            showToast(L("最多只能添加 %lld 个闹钟", maxAlarmCount))
+            return
+        }
+        
+        // 演示：直接添加一条假数据。真实场景需接入时间选择器。
+        let newAlarm = AlarmModel(time: "21:00", isEnabled: true)
+        AlarmManager.shared.addAlarm(newAlarm)
+        
+        showToast(L("添加成功"))
     }
 }
 
@@ -193,13 +169,10 @@ extension AlarmViewController: UITableViewDataSource {
         cell.configure(with: alarm)
 
         // 监听 Cell 内部开关的切换事件
-        cell.onSwitchChanged = { [weak self] isOn in
-            guard let self = self else { return }
-            // 更新数据源（触发 @Published 的 didSet，从而驱动 Combine 刷新）
-            if let index = self.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                self.alarms[index].isEnabled = isOn
-                AppLog.device.debug("闹钟 \(alarm.time) 状态切换为: \(isOn)")
-            }
+        cell.onSwitchChanged = { isOn in
+            // 更新 Manager 的状态并持久化
+            AlarmManager.shared.updateAlarmState(id: alarm.id, isEnabled: isOn)
+            AppLog.device.debug("闹钟 \(alarm.time) 状态切换为: \(isOn)")
         }
 
         return cell
