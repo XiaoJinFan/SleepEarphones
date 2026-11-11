@@ -41,7 +41,7 @@ final class BleSearchDeviceCell: UITableViewCell {
         /// "连接"按钮高度
         static let connectButtonHeight: CGFloat = 36
         /// "连接"按钮宽度
-        static let connectButtonMinWidth: CGFloat = 72
+        static let connectButtonMinWidth: CGFloat = 120
         /// 设备图 SF Symbol 字号
         static let deviceSymbolPointSize: CGFloat = 28
     }
@@ -96,12 +96,6 @@ final class BleSearchDeviceCell: UITableViewCell {
         config.baseBackgroundColor = UIColor(hex: "#4794D0")
         config.baseForegroundColor = .white
         config.background.cornerRadius = AppSpacing.Corner.card
-        config.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: AppSpacing.md,
-            bottom: 0,
-            trailing: AppSpacing.md
-        )
 
         // 初始标题（**已本地化**）——`updateConnectButtonState` 会动态覆盖
         var titleAttr = AttributedString(L("连接"))

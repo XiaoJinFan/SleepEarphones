@@ -55,7 +55,7 @@ final class FirmwareUpgradeViewController: UIViewController {
     
     private lazy var currentVersionLabel: UILabel = {
         let l = UILabel()
-        l.text = "当前版本：\(viewModel.currentVersion)"
+        l.text = L("当前版本：%@", viewModel.currentVersion)
         l.font = AppFont.Caption.regular
         l.textColor = AppColor.Text.tertiary
         l.textAlignment = .center
@@ -80,7 +80,7 @@ final class FirmwareUpgradeViewController: UIViewController {
         }
         
         let label = UILabel()
-        label.text = "检测到新版本：\(viewModel.newVersion)"
+        label.text = L("检测到新版本：%@", viewModel.newVersion)
         label.font = .systemFont(ofSize: 16, weight: .medium)
         label.textColor = .black
         
@@ -102,7 +102,7 @@ final class FirmwareUpgradeViewController: UIViewController {
     
     private lazy var upgradeButton: UIButton = {
         let btn = UIButton(type: .system)
-        btn.setTitle("下载并升级 (\(viewModel.packageSize))", for: .normal)
+        btn.setTitle(L("下载并升级 (%@)", viewModel.packageSize), for: .normal)
         btn.setTitleColor(.white, for: .normal)
         btn.titleLabel?.font = AppFont.Button.primary
         btn.addTarget(self, action: #selector(upgradeTapped), for: .touchUpInside)
@@ -124,7 +124,7 @@ final class FirmwareUpgradeViewController: UIViewController {
     
     private lazy var progressLabel: UILabel = {
         let l = UILabel()
-        l.text = "升级中 0%"
+        l.text = L("升级中 0%")
         l.textColor = .white
         l.font = AppFont.Button.primary
         l.textAlignment = .center
@@ -269,11 +269,11 @@ final class FirmwareUpgradeViewController: UIViewController {
                 guard let self = self else { return }
                 if !isConnected {
                     // 截图中未连接时显示红字
-                    self.statusLabel.text = "设备未连接"
+                    self.statusLabel.text = L("设备未连接")
                     self.statusLabel.textColor = .systemRed
                 } else {
                     // 已连接时显示电量（低于30%标红）
-                    self.statusLabel.text = "当前电量：\(battery)%"
+                    self.statusLabel.text = L("当前电量: %d%", battery)
                     self.statusLabel.textColor = battery < 30 ? .systemRed : AppColor.Text.secondary
                 }
             }
@@ -291,21 +291,21 @@ final class FirmwareUpgradeViewController: UIViewController {
             progressBackground.isHidden = true
             progressLabel.isHidden = true
             progressWidthConstraint?.update(offset: 0)
-            upgradeButton.setTitle("下载并升级 (\(viewModel.packageSize))", for: .normal)
+            upgradeButton.setTitle(L("下载并升级 (%@)", viewModel.packageSize), for: .normal)
             
         case .downloading(let progress):
             bottomContainer.backgroundColor = AppColor.Brand.primary
             upgradeButton.isHidden = true
             progressBackground.isHidden = true
             progressLabel.isHidden = false
-            progressLabel.text = "下载固件中 \(Int(progress * 100))%"
+            progressLabel.text = L("下载固件中 %d%", Int(progress * 100))
             
         case .upgrading(let progress):
             bottomContainer.backgroundColor = UIColor(hex: "#D8D8D8")
             upgradeButton.isHidden = true
             progressBackground.isHidden = false
             progressLabel.isHidden = false
-            progressLabel.text = "升级中 \(Int(progress * 100))%"
+            progressLabel.text = L("升级中 %d%", Int(progress * 100))
             
             let maxWidth = UIScreen.main.bounds.width - 40
             UIView.animate(withDuration: 0.1) {
@@ -319,9 +319,9 @@ final class FirmwareUpgradeViewController: UIViewController {
             upgradeButton.isEnabled = false
             progressBackground.isHidden = true
             progressLabel.isHidden = true
-            upgradeButton.setTitle("升级完成", for: .normal)
+            upgradeButton.setTitle(L("升级完成"), for: .normal)
             
-            showAlert("固件升级成功！", title: "提示") { [weak self] in
+            showAlert(L("固件升级成功！"), title: L("提示")) { [weak self] in
                 self?.navigationController?.popViewController(animated: true)
             }
             
@@ -331,8 +331,8 @@ final class FirmwareUpgradeViewController: UIViewController {
             upgradeButton.isEnabled = true
             progressBackground.isHidden = true
             progressLabel.isHidden = true
-            upgradeButton.setTitle("重新升级", for: .normal)
-            showAlert(errorMsg, title: "无法升级")
+            upgradeButton.setTitle(L("重新升级"), for: .normal)
+            showAlert(errorMsg, title: L("无法升级"))
         }
     }
 

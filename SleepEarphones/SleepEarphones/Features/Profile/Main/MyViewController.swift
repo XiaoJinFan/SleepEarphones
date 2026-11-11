@@ -85,9 +85,6 @@ final class MyViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         bindViewModel()
-
-        // 首屏触发一次设备列表请求
-        deviceViewModel.loadDevices()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -100,10 +97,6 @@ final class MyViewController: UIViewController {
         // 用户可能在别处（如清理工具、设置页）改变了缓存占用，
         // 保持展示值与实际一致。
         refreshCacheSize()
-
-        // 用户可能已登录 / 登出，检测是否需要刷新设备
-        // （内部有 guard，userId 未变化时不会触发请求）
-        deviceViewModel.refreshIfUserChanged()
 
         // 刷新用户资料（头像 / 昵称 / 真实账号信息）
         refreshUserProfile()

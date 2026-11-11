@@ -75,8 +75,8 @@ final class FirmwareUpgradeViewModel {
     
     // MARK: - Actions
     func checkCanUpgrade() -> String? {
-        if !isDeviceConnected { return "设备未连接，请先连接蓝牙耳机" }
-        if batteryLevel < minimumBatteryLevel { return "耳机电量过低（\(batteryLevel)%），请充电后再试" }
+        if !isDeviceConnected { return L("设备未连接，请先连接蓝牙耳机") }
+        if batteryLevel < minimumBatteryLevel { return L("耳机电量过低（\(batteryLevel)%），请充电后再试") }
         return nil
     }
     
@@ -93,7 +93,7 @@ final class FirmwareUpgradeViewModel {
             do {
                 try await self.simulateDownload()
                 if !self.isDeviceConnected {
-                    throw NSError(domain: "OTA", code: -1, userInfo: [NSLocalizedDescriptionKey: "设备已断开连接，升级失败"])
+                    throw NSError(domain: "OTA", code: -1, userInfo: [NSLocalizedDescriptionKey: L("设备已断开连接，升级失败")])
                 }
                 try await self.simulateOTATransfer()
                 self.state = .completed
@@ -124,7 +124,7 @@ final class FirmwareUpgradeViewModel {
         for i in 1...totalSteps {
             try Task.checkCancellation()
             if !self.isDeviceConnected {
-                throw NSError(domain: "OTA", code: -2, userInfo: [NSLocalizedDescriptionKey: "升级过程中蓝牙断开，请保持设备在连接范围内"])
+                throw NSError(domain: "OTA", code: -2, userInfo: [NSLocalizedDescriptionKey: L("升级过程中蓝牙断开，请保持设备在连接范围内")])
             }
             try await Task.sleep(nanoseconds: 100_000_000)
             self.state = .upgrading(progress: Float(i) / Float(totalSteps))

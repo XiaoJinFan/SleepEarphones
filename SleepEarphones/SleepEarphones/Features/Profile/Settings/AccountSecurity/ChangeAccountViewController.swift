@@ -424,7 +424,7 @@ final class ChangeAccountViewController: UIViewController {
     private func refreshCountdownButton(_ button: UIButton, seconds: Int) {
         let isCountingDown = seconds > 0
         // **标题已本地化**
-        let newTitle = isCountingDown ? L("%lld s", seconds) : L("获取验证码")
+        let newTitle = isCountingDown ? L("%lldS", seconds) : L("获取验证码")
         let shouldEnable = !isCountingDown
 
         if button.title(for: .normal) != newTitle {

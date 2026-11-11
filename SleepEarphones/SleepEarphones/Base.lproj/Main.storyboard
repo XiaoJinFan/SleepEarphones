@@ -114,6 +114,7 @@
                     </view>
                     <tabBarItem key="tabBarItem" title="首页" image="home_un" selectedImage="home_select" id="G8B-TS-9ZR"/>
                     <connections>
+                        <outlet property="HomeLab" destination="ZQ3-Vr-5Ux" id="a6p-Lb-gSD"/>
                         <outlet property="addDeviceBtn" destination="DvQ-1j-FHu" id="Nnt-pu-dfe"/>
                         <outlet property="deviceCollectionView" destination="unl-Po-L8A" id="qdO-cu-tt6"/>
                         <outlet property="nullDeviceImgView" destination="R55-7H-RkQ" id="b12-2a-nPt"/>

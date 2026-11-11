@@ -2,13 +2,10 @@
 //  DeviceCell.swift
 //  SleepEarphones
 //
-//  Created by 肖进凡 on 2026/9/11.
-//
 
 import UIKit
 import SnapKit
 import Kingfisher
-
 
 @MainActor
 final class DeviceCell: UITableViewCell {
@@ -62,44 +59,17 @@ final class DeviceCell: UITableViewCell {
         return iv
     }()
 
-    /// 设备名称（**内容来自后端，已本地化**）
+    /// 设备名称
     private let nameLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Title.card
         l.textColor = AppColor.Text.primary
         l.numberOfLines = 1
         l.lineBreakMode = .byTruncatingTail
-        // 名称可被压缩（状态文字优先保留）
-        l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return l
     }()
 
-    /// 状态点（小圆点）
-    private let dotView: UIView = {
-        let v = UIView()
-        v.clipsToBounds = true
-        return v
-    }()
-
-    /// 状态文字（`"已连接"` / `"未连接"` / `"故障"`，**已本地化**）
-    private let statusLabel: UILabel = {
-        let l = UILabel()
-        l.font = AppFont.Caption.emphasized
-        return l
-    }()
-
-    /// 状态行：状态点 + 状态文字
-    private lazy var statusStack: UIStackView = {
-        let s = UIStackView(arrangedSubviews: [dotView, statusLabel])
-        s.axis = .horizontal
-        s.spacing = Layout.dotToTextSpacing
-        s.alignment = .center
-        s.setContentHuggingPriority(.required, for: .horizontal)
-        s.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return s
-    }()
-
-    /// 副标题（MAC / 最后连接时间）
+    /// 设备最后连接时间
     private let subtitleLabel: UILabel = {
         let l = UILabel()
         l.font = AppFont.Caption.regular
@@ -109,18 +79,9 @@ final class DeviceCell: UITableViewCell {
         return l
     }()
 
-    /// 名称 + 状态行
-    private lazy var titleRow: UIStackView = {
-        let s = UIStackView(arrangedSubviews: [nameLabel, statusStack])
-        s.axis = .horizontal
-        s.spacing = AppSpacing.sm
-        s.alignment = .center
-        return s
-    }()
-
-    /// 右侧信息栈：名称行 + 副标题
+    /// 右侧信息栈：只有名称和副标题（时间）
     private lazy var infoStack: UIStackView = {
-        let s = UIStackView(arrangedSubviews: [titleRow, subtitleLabel])
+        let s = UIStackView(arrangedSubviews: [nameLabel, subtitleLabel])
         s.axis = .vertical
         s.spacing = AppSpacing.sm + 2    // 14
         s.alignment = .fill
@@ -149,22 +110,8 @@ final class DeviceCell: UITableViewCell {
 
         // 清空文本
         nameLabel.text = nil
-        statusLabel.text = nil
         subtitleLabel.text = nil
-
-        // ⚠️ 必须重置状态点颜色，避免复用时残留上一台设备的状态色
-        dotView.backgroundColor = nil
     }
-
-    // MARK: - Layout
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // 状态点正圆：圆角 = 宽度的一半
-        dotView.layer.cornerRadius = dotView.bounds.width / 2
-    }
-
-    // MARK: - Setup
 
     private func setupUI() {
         backgroundColor = .clear
@@ -188,47 +135,27 @@ final class DeviceCell: UITableViewCell {
             make.leading.equalToSuperview().offset(Layout.cardPadding)
             make.centerY.equalToSuperview()
             make.width.height.equalTo(Layout.imageSize)
-            make.top.greaterThanOrEqualToSuperview()
-                .offset(Layout.cardMinVerticalPadding)
-            make.bottom.lessThanOrEqualToSuperview()
-                .offset(-Layout.cardMinVerticalPadding)
+            make.top.greaterThanOrEqualToSuperview().offset(Layout.cardMinVerticalPadding)
+            make.bottom.lessThanOrEqualToSuperview().offset(-Layout.cardMinVerticalPadding)
         }
 
         // 信息栈约束
         let infoInset = Layout.cardMinVerticalPadding + Layout.infoStackExtraInset
         infoStack.snp.makeConstraints { make in
-            make.leading.equalTo(deviceImageView.snp.trailing)
-                .offset(Layout.cardPadding)
+            make.leading.equalTo(deviceImageView.snp.trailing).offset(Layout.cardPadding)
             make.trailing.equalToSuperview().offset(-Layout.cardPadding)
             make.centerY.equalToSuperview()
             make.top.greaterThanOrEqualToSuperview().offset(infoInset)
             make.bottom.lessThanOrEqualToSuperview().offset(-infoInset)
         }
-
-        // 状态点固定尺寸（直径）
-        dotView.snp.makeConstraints { make in
-            make.width.height.equalTo(Layout.dotDiameter)
-        }
     }
 
     // MARK: - Configure
-
-    /// 配置单元格
-    ///
-    /// - Parameter device: 设备模型（`name` / `status.title` / `subtitle`
-    ///                      均已在模型层本地化）
+    
+    /// 只配置名称、时间和图片，不展示连接状态
     func configure(with device: DeviceModel) {
         nameLabel.text = device.name
-
-        statusLabel.text = device.status.title
-        statusLabel.textColor = device.status.color
-        dotView.backgroundColor = device.status.color
-
         subtitleLabel.text = device.subtitle
-
-        deviceImageView.setImage(
-            device.imageURL,
-            placeholder: AppImage.Local.devicePlaceholder
-        )
+        deviceImageView.setImage(device.imageURL, placeholder: AppImage.Local.devicePlaceholder)
     }
 }

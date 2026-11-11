@@ -126,7 +126,7 @@ extension AuthFormViewControllerProtocol {
             authGetCodeButton.setTitle(L("发送中…"), for: .normal)
         } else if countdown > 0 {
             // `L("%lld s", countdown)` 生成如 `"60 s"` / `"60秒"`（依语言）
-            authGetCodeButton.setTitle(L("%lld s", countdown), for: .normal)
+            authGetCodeButton.setTitle("\(countdown) s", for: .normal)
         } else {
             authGetCodeButton.setTitle(L("获取验证码"), for: .normal)
         }

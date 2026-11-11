@@ -166,14 +166,16 @@ final class DeviceSearchViewController: UIViewController {
     }
 
     // MARK: - Binding
-
+    
     private func bindViewModel() {
         // 设备列表更新
         viewModel.devicesPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] devices in
                 guard let self = self else { return }
-                self.devices = devices
+                
+                // 过滤掉已经连接上的设备，用户不需要再“添加”它
+                self.devices = devices.filter { !$0.isConnected }
                 self.tableView.reloadData()
             }
             .store(in: &cancellables)
@@ -186,8 +188,37 @@ final class DeviceSearchViewController: UIViewController {
                 switch state {
                 case .connected:
                     self.connectingDeviceID = nil
-                    // ✅ 用 ToastPresenter（keyWindow 上），避免 pop 后 Toast 不可见
                     ToastPresenter.success(L("连接成功"))
+                    
+                    if let connectedDevice = LCBleDeviceManager.sharedInstance.connectDevice {
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+                        
+                        // ✅ 优化：检查本地是否有旧记录，如果有，保留用户自定义的 name 和 imageURL
+                        let existingDevice = LocalDeviceManager.shared.devices.first {
+                            $0.serialNumber == connectedDevice.uuidStr
+                        }
+                        
+                        let newDevice = DeviceModel(
+                            id: existingDevice?.id ?? UUID().uuidString, // 复用旧 ID 防止 SwiftUI 等 UI Diff 异常
+                            name: existingDevice?.name ?? connectedDevice.name,
+                            status: .connected,
+                            imageURL: existingDevice?.imageURL,
+                            mac: connectedDevice.leftMacString,
+                            serialNumber: connectedDevice.uuidStr,
+                            batteryLevel: "\(connectedDevice.boxBattery)",
+                            leftBattery: "\(connectedDevice.leftBattery)",
+                            rightBattery: "\(connectedDevice.rightBattery)",
+                            hasSleepReport: true,
+                            nickname: existingDevice?.nickname ?? "",
+                            lastConnectionTime: formatter.string(from: Date())
+                        )
+                        
+                        // 存入/更新本地数据库
+                        LocalDeviceManager.shared.saveDevice(newDevice)
+                    }
+                    
+                    // 返回首页（此时首页的 Combine 已收到更新，会自动刷新列表）
                     self.navigationController?.popViewController(animated: true)
 
                 case .failed(let error):
